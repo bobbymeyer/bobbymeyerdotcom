@@ -1,7 +1,7 @@
 ---
 layout: posts
 title:  "Auto-migrate Heroku/Rails DB upon Push"
-date:   2021-03-06 12:45:00 -0800
+date:   2021-03-09 12:45:00 -0800
 categories: code
 tags: 
 - rails 

@@ -1,0 +1,66 @@
+---
+layout: posts
+title:  "Generating Albers' Squares in P5js"
+date:   2021-03-11 16:47:20 -0800
+categories: code
+tags: 
+- javascript
+- p5js
+- design
+---
+
+I made this simple [P5js](https://p5js.org/) sketch which (kinda mostly) generates designs in the style of [Josef Albers'](https://en.wikipedia.org/wiki/Josef_Albers) Square Paintings series. Code below.
+
+<iframe src="https://editor.p5js.org/bobbymeyer/embed/nB59V0c8t" 
+        style="width: 600px; 
+              height: 600px; 
+              overflow: hidden;"  
+        scrolling="no" 
+        frameborder="0">
+</iframe>
+
+{% highlight javascript %}
+let canvas_size = 600;
+
+function setup() {
+  createCanvas(canvas_size, canvas_size);
+  background(50);
+  colorMode(RGB); 
+  frameRate(25);
+}
+
+function draw() {
+  frameRate(0.25);
+  noStroke();
+  squares = random(1,4);
+  set_colors();
+  create_squares();
+}
+
+function set_colors() {
+  let color_a = color(random(50,200), random(50,200), random(50,200));
+  let color_b = color(random(75,250), random(75,250), random(75,250));
+  lerps = [];
+  let steps = 1/(squares);
+  for(let n = squares - 2; n > 0; n -= 1){
+    let lerp = lerpColor(color_a, color_b, steps * n);
+    lerps.push(lerp);
+  };
+  colors = shuffle(lerps);
+  colors.unshift(color_a);
+  colors.push(color_b);
+}
+
+function create_squares() {
+  size = canvas_size;
+  x_pos = 0;
+  y_pos = 0;
+  for(let n = squares; n > 0; n -= 1){
+    fill(colors[Math.floor(n)]);
+    square(x_pos, y_pos, size);
+    size = size / 1.5;
+    x_pos += size / 4;
+    y_pos += size / 2.35;
+  }
+}
+{% endhighlight %}

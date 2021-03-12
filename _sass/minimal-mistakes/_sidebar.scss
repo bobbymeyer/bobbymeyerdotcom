@@ -155,7 +155,7 @@
 
   @include breakpoint($large) {
     margin-top: 10px;
-    margin-bottom: 10px;
+    padding: 0;
   }
 }
 .sidebar .author__name {
@@ -165,7 +165,7 @@
 
 .author__bio {
   margin: 0;
-
+  padding: 0;
   @include breakpoint($large) {
     margin-top: 10px;
     margin-bottom: 20px;

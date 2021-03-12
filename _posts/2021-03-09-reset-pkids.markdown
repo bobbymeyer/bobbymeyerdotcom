@@ -12,7 +12,7 @@ I have recently been working on a project that required transferring a large amo
 ActiveRecord::RecordNotUnique: PG::UniqueViolation: ERROR:  duplicate key value violates unique constraint
 {% endhighlight %}
 
-To solve this, you need to reset the pk_sequence to the max value in the existing data. You can do this for a single table, in the console by running:
+To solve this, you need to reset the pk_sequence to the max value in the existing data. You can do this for a single table in the console by running:
 
 {% highlight ruby %}
 ActiveRecord::Base.connection.reset_pk_sequence!('table_name')
