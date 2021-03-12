@@ -32,7 +32,7 @@ function setup() {
 function draw() {
   frameRate(0.25);
   noStroke();
-  squares = random(1,4);
+  squares = random(1,5);
   set_colors();
   create_squares();
 }
