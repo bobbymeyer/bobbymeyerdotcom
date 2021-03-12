@@ -9,7 +9,7 @@ tags:
 - design
 ---
 
-I made this simple [P5js](https://p5js.org/) sketch which (kinda mostly) generates designs in the style of [Josef Albers'](https://en.wikipedia.org/wiki/Josef_Albers) Homage to the Square series. Code below.
+I made this simple [P5js](https://p5js.org/) sketch which generates designs in the style of [Josef Albers'](https://en.wikipedia.org/wiki/Josef_Albers) Homage to the Square series. Code below.
 
 <iframe src="https://editor.p5js.org/bobbymeyer/embed/nB59V0c8t" 
         style="width: 600px; 
