@@ -18,7 +18,7 @@ tags:
         scrolling="no" 
         frameborder="0"></iframe>
 
-A very simple [P5js](https://p5js.org/) sketch which generates minimal designs, with a mid-century flavor, composed of overlapping colored lines. 
+A simple [P5js](https://p5js.org/) sketch which generates minimal designs, with a mid-century flavor, composed of overlapping colored lines. 
 
 With a frame rate of zero, it could be used to generate static sidebar designs. 
 
