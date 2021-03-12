@@ -21,6 +21,12 @@ I made this simple [P5js](https://p5js.org/) sketch which generates designs in t
 
 {% highlight javascript %}
 let canvas_size = 600;
+let canvas_rotation = 0;
+function preload()
+{
+  // load image
+  img = loadImage("canvas.jpg");
+}
 
 function setup() {
   createCanvas(canvas_size, canvas_size);
@@ -30,11 +36,18 @@ function setup() {
 }
 
 function draw() {
+  clear();
   frameRate(0.25);
   noStroke();
   squares = random(1,5);
   set_colors();
   create_squares();
+  translate(width / 2, height / 2);
+  canvas_rotation += 90;
+  rotate(PI / 180 * canvas_rotation);
+  imageMode(CENTER);
+  blendMode(SOFT_LIGHT); 
+  image(img, 0, 0); 
 }
 
 function set_colors() {
