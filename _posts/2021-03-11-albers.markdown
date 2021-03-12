@@ -46,7 +46,7 @@ function set_colors() {
     let lerp = lerpColor(color_a, color_b, steps * n);
     lerps.push(lerp);
   };
-  colors = shuffle(lerps);
+  colors = lerps.reverse();
   colors.unshift(color_a);
   colors.push(color_b);
 }
