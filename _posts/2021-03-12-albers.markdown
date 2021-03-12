@@ -1,7 +1,7 @@
 ---
 layout: posts
 title:  "Generating Albers' Squares in P5js"
-date:   2021-03-11 16:47:20 -0800
+date:   2021-03-12 10:31:00 -0800
 categories: code
 tags: 
 - javascript
@@ -9,7 +9,7 @@ tags:
 - design
 ---
 
-I made this simple [P5js](https://p5js.org/) sketch which generates designs in the style of [Josef Albers'](https://en.wikipedia.org/wiki/Josef_Albers) Homage to the Square series. Code below.
+I made this simple [P5js](https://p5js.org/) sketch building on the techniques used in yesterday's [Generating Simple Mid-Century Line Design in P5js](/code/midcentury-lines/) post. This one generates designs in the style of [Josef Albers'](https://en.wikipedia.org/wiki/Josef_Albers) Homage to the Square series. Code below.
 
 <iframe src="https://editor.p5js.org/bobbymeyer/embed/nB59V0c8t" 
         style="width: 600px; 
