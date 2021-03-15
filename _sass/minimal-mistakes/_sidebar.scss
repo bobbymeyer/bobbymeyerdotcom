@@ -339,5 +339,13 @@
 
 .tag-cloud{
   font-size: 0.85em;
-  max-width: 200px;
+  max-width: 100%;
+  margin-right: 2em;
+  small a{
+    display: inline-block;
+    text-decoration: none;
+  }
+}
+.sidebar_link{
+  text-decoration: none;
 }
