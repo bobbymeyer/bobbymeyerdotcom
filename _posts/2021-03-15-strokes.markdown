@@ -1,7 +1,7 @@
 ---
 layout: posts
 title:  "Strokes in P5js"
-date:   2021-03-15 13:15:00 -0800
+date:   2021-03-15 10:15:00 -0800
 categories: code
 tags: 
 - javascript
