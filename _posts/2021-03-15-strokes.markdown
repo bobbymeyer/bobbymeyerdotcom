@@ -1,0 +1,67 @@
+---
+layout: posts
+title:  "Strokes in P5js"
+date:   2021-03-12 10:31:00 -0800
+categories: code
+tags: 
+- javascript
+- p5js
+- design
+---
+Experimenting with naturalistic strokes using the [P5 Scribble Library](https://github.com/generative-light/p5.scribble.js/).
+
+<iframe src="https://editor.p5js.org/bobbymeyer/embed/MCbbiL6o5" 
+        style="width: 600px; 
+              height: 600px; 
+              overflow: hidden;"  
+        scrolling="no" 
+        frameborder="0">
+</iframe>
+
+{% highlight javascript %}
+var scribble = new Scribble();
+
+function setup() {
+  canvasWidth = 600;
+  canvasHeight = 600;
+  createCanvas(canvasWidth, canvasHeight);
+  frameRate(25);
+}
+
+function draw() {
+  frameRate(0.25);
+  frameRate(0.25);
+  setVars();
+  clear();
+  lines();
+}
+
+function lines() {
+  for (h = canvasHeight / (lineLength + gap) - 1; h > 0; h -= 1) {
+    for (n = canvasWidth / 2; n > 0; n -= gap / 2) {
+      jitter = [];
+      for (j = 4; j > 0; j -= 1) {
+        jitter.push(random(-3, 3));
+      }
+      scribble.scribbleLine(
+        x + jitter[0],
+        y + jitter[1],
+        x + slant + jitter[2],
+        y + lineLength + jitter[3]);
+      x += gap;
+    };
+    x = 1;
+    y += lineLength + gap;
+  };
+}
+
+function setVars() {
+  lineLength = random(25, 50);
+  gap = random(2, 15);
+  slant = random(-15, 15);
+  strokeWeight(2);
+  stroke(100,20,75);
+  x = 1;
+  y = 5;
+}
+{% endhighlight %}
