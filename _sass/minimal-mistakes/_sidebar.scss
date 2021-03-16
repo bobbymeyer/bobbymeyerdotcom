@@ -15,9 +15,50 @@
   //   -webkit-transform: translate3d(0, 0, 0);
   //   transform: translate3d(0, 0, 0);
   // }
+  .author_box{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    .sidebar_link{
+      display: flex;
+      flex-direction: row;
+      align-items: flex-end;
+      .author__content{
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        h3{
+          font-size: 1.75rem;
+          margin-right: 10px;
+        }
+        p{
+          margin: 0;
+        }
+      }
+    }
+    @include breakpoint($large) {
+      display: block;
+      .sidebar_link{
+        display: block;
+        .author__content{
+          display: block;
+          border-bottom: none;
+          h3{
+            font-size: 1em;
+            margin-right: 0;
+          }
+          p{
+            margin: 0;
+          }
+        }
+      }
+    }
+  }
 
   @include breakpoint($large) {
     float: left;
+
     width: calc(#{$right-sidebar-width-narrow} - 1em);
     
     -webkit-transition: opacity 0.2s ease-in-out;
@@ -115,7 +156,6 @@
    ========================================================================== */
 
 .author__avatar {
-
   @include breakpoint($large) {
     display: block;
     width: auto;
@@ -123,10 +163,11 @@
   }
 
   img {
+    vertical-align: bottom;
     max-width: 150px;
+    min-width: 75px;
     padding-left: 5px;
     padding-right: 5px;
-    border-bottom: 1px solid black;
   }
 }
 
@@ -284,16 +325,16 @@
       display: none;
     }
   }
-
+  
   ul {
     padding: 10px;
     list-style-type: none;
   }
-
+  
   li {
     white-space: nowrap;
   }
-
+  
   a {
     display: block;
     margin-bottom: 5px;
@@ -303,7 +344,7 @@
     color: inherit;
     font-size: $type-size-5;
     text-decoration: none;
-
+    
     &:hover {
       text-decoration: underline;
     }
@@ -311,12 +352,12 @@
 }
 
 /*
-   Wide Pages
-   ========================================================================== */
+Wide Pages
+========================================================================== */
 
 .wide .sidebar__right {
   margin-bottom: 1em;
-
+  
   @include breakpoint($large) {
     position: initial;
     top: initial;
@@ -325,12 +366,12 @@
     margin-right: initial;
     padding-left: initial;
     z-index: initial;
-
+    
     &.sticky {
       float: none;
     }
   }
-
+  
   @include breakpoint($x-large) {
     width: initial;
     margin-right: initial;

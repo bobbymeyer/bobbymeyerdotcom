@@ -1,7 +1,7 @@
 {% assign author = page.author | default: page.authors[0] | default: site.author %}
 {% assign author = site.data.authors[author] | default: author %}
 
-<div itemscope itemtype="https://schema.org/Person">
+<div itemscope itemtype="https://schema.org/Person" class='author_box'>
 <a href='/' class='sidebar_link'>
   {% if author.avatar %}
   <div class="author__avatar">
@@ -28,7 +28,6 @@
     {% endif %}
   </div>
 </a>
-
   <div class="author__urls-wrapper">
     <button class="btn btn--inverse">{{ site.data.ui-text[site.locale].follow_label | remove: ":" | default: "Follow" }}</button>
     <ul class="author__urls social-icons">
