@@ -6,7 +6,6 @@ categories: code
 tags: 
 - javascript
 - p5js
-- design
 ---
 I have been making sketches lately that use low frame rates. Usually, you set your frame rate in the setup function, as it is generally a static value. When you do this with a particularly low framerate, it creates a noticeable delay before loading the sketch. Refresh the page to see an example below.
 
