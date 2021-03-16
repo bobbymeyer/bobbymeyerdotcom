@@ -15,6 +15,9 @@
   //   -webkit-transform: translate3d(0, 0, 0);
   //   transform: translate3d(0, 0, 0);
   // }
+  .author__urls-wrapper{
+   display: none;   
+  }
   .author_box{
     display: flex;
     flex-direction: row;
@@ -38,6 +41,9 @@
       }
     }
     @include breakpoint($large) {
+      .author__urls-wrapper{
+        display: block;   
+       }
       display: block;
       .sidebar_link{
         display: block;
