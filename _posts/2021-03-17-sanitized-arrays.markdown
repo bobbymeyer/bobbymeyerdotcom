@@ -9,7 +9,7 @@ tags:
 ---
 While working on a client project, I noticed that users had started using a field intended to store only a single value to store multiple values. When recording a property's *Parking Type* they were entering values like "Open Lot & Street Parking" or "Carport/Subterranean Parking."
 
-Additionally, because I had allowed users to enter this data as text, I found variations in capitalization and pluralization for what should have been a si7gle value, i.e. *'Garage', 'garages', 'garage'*.
+Additionally, because I had allowed users to enter this data as text, I found variations in capitalization and pluralization for what should have been a single value, i.e. *'Garage', 'garages', 'garage'*.
 
 I decided the best solution was to clean up the existing values and limit the future user input to a checkbox collection of approved values.
 
