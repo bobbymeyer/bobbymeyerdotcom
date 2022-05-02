@@ -3,8 +3,9 @@ layout: posts
 title:  "Resetting PostgreSQL pk_sequences in Rails"
 date:   2021-03-06 14:52:20 -0800
 categories: code
-tags: 
-- rails 
+tags:
+- rails
+- ruby
 - postgresql
 ---
 I have recently been working on a project that required transferring a large amount of data to a new PostgreSQL database with a dissimilar schema. I needed to import these records with their primary keys intact. Because of this, the primary key sequence was no longer in sync with the values in the database, and attempting to create new records can lead to this error:

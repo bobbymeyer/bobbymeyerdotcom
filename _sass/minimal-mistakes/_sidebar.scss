@@ -17,7 +17,7 @@
   //   transform: translate3d(0, 0, 0);
   // }
   .author__urls-wrapper{
-   display: none;   
+   display: none;
   }
   .author_box{
     display: flex;
@@ -42,7 +42,7 @@
     }
     @include breakpoint($large) {
       .author__urls-wrapper{
-        display: block;   
+        display: block;
        }
       display: block;
       .sidebar_link{
@@ -66,7 +66,7 @@
     float: left;
 
     width: calc(#{$right-sidebar-width-narrow} - 1em);
-    
+
     -webkit-transition: opacity 0.2s ease-in-out;
     transition: opacity 0.2s ease-in-out;
 
@@ -98,7 +98,7 @@
   h5,
   h6 {
     margin-bottom: 0;
-    font-family: $sans-serif-narrow;
+    font-family: $serif;
   }
 
   p,
@@ -206,7 +206,7 @@
   }
 }
 .sidebar .author__name {
-  font-family: $sans-serif;
+  font-family: $serif;
   font-size: $type-size-5;
 }
 
@@ -331,16 +331,16 @@
       display: none;
     }
   }
-  
+
   ul {
     padding: 10px;
     list-style-type: none;
   }
-  
+
   li {
     white-space: nowrap;
   }
-  
+
   a {
     display: block;
     margin-bottom: 5px;
@@ -350,7 +350,7 @@
     color: inherit;
     font-size: $type-size-5;
     text-decoration: none;
-    
+
     &:hover {
       text-decoration: underline;
     }
@@ -363,7 +363,7 @@ Wide Pages
 
 .wide .sidebar__right {
   margin-bottom: 1em;
-  
+
   @include breakpoint($large) {
     position: initial;
     top: initial;
@@ -372,12 +372,12 @@ Wide Pages
     margin-right: initial;
     padding-left: initial;
     z-index: initial;
-    
+
     &.sticky {
       float: none;
     }
   }
-  
+
   @include breakpoint($x-large) {
     width: initial;
     margin-right: initial;

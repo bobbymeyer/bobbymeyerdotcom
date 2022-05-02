@@ -3,8 +3,9 @@ layout: posts
 title:  "Sanitizing inconsistent user input"
 date:   2021-03-17 00:00:00 -0800
 categories: code
-tags: 
-- rails 
+tags:
+- rails
+- ruby
 - postgresql
 ---
 While working on a client project, I noticed that users had started using a field intended to store only a single value to store multiple values. When recording a property's *Parking Type* they were entering values like "Open Lot & Street Parking" or "Carport/Subterranean Parking."
@@ -14,7 +15,7 @@ Additionally, because I had allowed users to enter this data as text, I found va
 I decided the best solution was to clean up the existing values and limit the future user input to a checkbox collection of approved values.
 
 ## Converting string field to a Postgresql array
-Because users needed to record multiple values, I first converted the parking_type field to a Postgresql array. 
+Because users needed to record multiple values, I first converted the parking_type field to a Postgresql array.
 
 I created a new migration with the following command and migrated the database.
 
@@ -28,7 +29,7 @@ I created a new migration with the following command and migrated the database.
 {% endhighlight %}
 
 ## Sanitizing existing values
-The *using* option in the migration would split entries with multiple values separated by commas. In my case, however, users were not using commas. Instead, they favored slashes and ampersands. 
+The *using* option in the migration would split entries with multiple values separated by commas. In my case, however, users were not using commas. Instead, they favored slashes and ampersands.
 
 I prefer to split these values with a ruby script (which I understand well) rather than relying on the Postgres specific *using* method (which I understand less well). I wrote the following script and stuck it in a rake task.
 
@@ -54,7 +55,7 @@ Risk.all.each do |risk|
       # ... and push them into a new array
       new_pt_array.push(pt)
     end
-    # Sanitizing the data with... 
+    # Sanitizing the data with...
     # strip:        remove leading and trailing spaces
     # titleize:     regularize capitalization
     # singularize:  regularize pluralization
@@ -106,8 +107,8 @@ Finally, I need to amend the form, forcing users to choose from approved values.
 
 {% highlight erb %}
 # app/views/risks/_form.html.erb
-<%= f.input :parking_type, 
-                as: :check_boxes, 
+<%= f.input :parking_type,
+                as: :check_boxes,
                 collection: Risk.pluck(:parking_type)
                                 .reject(&:blank)
                                 .uniq

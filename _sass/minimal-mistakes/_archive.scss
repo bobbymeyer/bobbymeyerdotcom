@@ -45,18 +45,18 @@
 
 .archive__item-title {
   margin-bottom: 0.25em;
-  font-family: $sans-serif-narrow;
+  font-family: $serif;
   line-height: initial;
   overflow: hidden;
   text-overflow: ellipsis;
-  
+
 
   a{
     text-decoration: none;
     color: lighten($primary-color, 15%);
     font-weight: 700;
   }
-  
+
   a:hover{
     text-decoration: underline;
     color: $primary-color;
@@ -70,7 +70,7 @@
     top: 0;
     right: 0;
     bottom: 0;
-    
+
   }
 
   a + a {

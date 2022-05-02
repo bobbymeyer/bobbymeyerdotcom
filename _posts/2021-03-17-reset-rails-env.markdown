@@ -3,12 +3,13 @@ layout: posts
 title:  "Reset Rails DB Environment after a Pull"
 date:   2021-03-17 08:00:00 -0800
 categories: code
-tags: 
-- rails 
+tags:
+- rails
+- ruby
 - postgresql
 - heroku
 ---
-When you pull production data from Heroku to your local development environment, the data includes metadata for the environment from which it was pulled. This means that your local development database is tagged as a production database, and Rails will give it extra protection. 
+When you pull production data from Heroku to your local development environment, the data includes metadata for the environment from which it was pulled. This means that your local development database is tagged as a production database, and Rails will give it extra protection.
 
 If you try to drop that database, you will get an error like:
 
