@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="{{ site.lang | default: "en-US" }}">
+  <head>
+    {% include head.html %}
+  </head>
+
+  <body class="mx-auto container bg-stone-100">
+    {% include navbar.html %}
+      <div class="grid xl:grid-cols-3 gap-4 py-16 m-2">
+        {% include post-header.html %}
+
+
+        <div class="xl:col-span-2">
+          {{ content }}
+        </div>
+      </div>
+      {% include footer.html %}
+    </body>
+</html>

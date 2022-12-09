@@ -1,0 +1,7 @@
+<div class="mb-4 p-4">
+  <div class='font-light text-teal-600 italic text-sm'>{{ post.tags | join: " | " }}</div>
+  <h5>
+    <a class='transition-all duration-200 hover:border-b-4 border-rose-500 hover:text-rose-500' href="{{ post.url }}">{{ post.title }}</a>
+  </h5>
+  <p>{{ post.summary }}</p>
+</div>

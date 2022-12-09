@@ -1,0 +1,11 @@
+<div class="bg-stone-100 pagination flex items-center justify-center p-4 sticky bottom-0 left-0 right-0">
+  {% if paginator.previous_page %}
+    <a href="{{ paginator.previous_page_path }}" class="previous p-2 transition-all duration-200 hover:text-rose-500">⬅</a>
+  {% endif %}
+  <span class="page_number ">
+    Page: {{ paginator.page }} of {{ paginator.total_pages }}
+  </span>
+  {% if paginator.next_page %}
+    <a href="{{ paginator.next_page_path }}" class="next p-2 transition-all duration-200 hover:text-rose-500">➡</a>
+  {% endif %}
+</div>

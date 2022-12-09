@@ -1,5 +1,5 @@
 ---
-layout: posts
+layout: post
 title:  "Sanitizing inconsistent user input"
 date:   2021-03-17 00:00:00 -0800
 categories: code

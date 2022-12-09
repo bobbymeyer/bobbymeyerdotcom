@@ -1,5 +1,5 @@
 ---
-layout: posts
+layout: post
 title:  "Automatic Database Migration on Heroku"
 date:   2021-03-17 08:00:00 -0800
 categories: code

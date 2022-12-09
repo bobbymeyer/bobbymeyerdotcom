@@ -1,0 +1,10 @@
+<ul class="flex bg-stone-100 justify-around items-center py-4 pb-4 border-b sticky top-0 left-0 right-0">
+  {% if page.title == "blog" %}
+    <li><a href='/'><img src="{{site.url}}/assets/img/logo-rose.svg" class="h-6"></img></a></li>
+  {% else %}
+    <li><a href='/'><img src="{{site.url}}/assets/img/logo.svg" class="h-6"></img></a></li>
+  {% endif %}
+  {% for item in site.data.navbar.items %}
+    <li><a class="{% if item.title == page.title %}font-bold text-rose-500{% endif %} p-2 transition-all duration-200 hover:font-bold" href="{{ item.url }}">{{ item.display }}</a></li>
+  {% endfor %}
+</ul>

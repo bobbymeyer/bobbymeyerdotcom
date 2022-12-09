@@ -1,0 +1,11 @@
+---
+---
+@import "assets/css/tailwind.css";
+@import "assets/css/headers.css";
+@import "assets/css/typography.css";
+@import "assets/css/syntax.css";
+
+
+.content {
+  @apply p-8 pt-16 rounded-tr-3xl;
+}
