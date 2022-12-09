@@ -3,6 +3,7 @@ layout: post
 title:  "Resetting PostgreSQL pk_sequences in Rails"
 date:   2021-03-06 14:52:20 -0800
 summary: Cleanup your rails primary keys after a large import
+emoji: 🔑
 tags:
 - rails
 - ruby

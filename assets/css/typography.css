@@ -1,5 +1,5 @@
 
 body{ font-family: 'Poppins', 'Helvetica', 'Arial', sans-serif; }
 
-p { @apply text-base my-4; }
+p { @apply text-base; }
 p a { @apply underline; }

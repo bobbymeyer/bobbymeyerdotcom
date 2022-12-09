@@ -1,12 +1,12 @@
 ---
-title: blog
-layout: default
+title: posts
+layout: index
 pagination:
   enabled: true
 ---
-<div class='flex items-start mb-8'>
-  <h1 class='text-rose-500 min-h-full'>posts</h1>
-  <img src="{{site.url}}/assets/img/logo-teal.svg" class="h-4">
-</div>
+<div class='grid grid-cols-1 gap-4 lg:w-2/3 xl:w-1/2 mx-auto'>
+{% include masthead.html %}
+<h1 class='w-full text-8xl tracking-tight border-b-2 border-black py-4 text-white'>Posts</h1>
 {% include post-index.html %}
 {% include post-index-paginator.html %}
+</div>

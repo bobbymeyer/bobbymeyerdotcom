@@ -3,6 +3,7 @@ layout: post
 title:  "Reset Rails DB Environment after a Pull"
 date:   2021-03-17 08:00:00 -0800
 categories: code
+emoji: 🆙
 tags:
 - rails
 - ruby

@@ -1,4 +1,5 @@
 items:
+- title: posts
+  url: /
 - title: about
-  display: "?"
   url: /about

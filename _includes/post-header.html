@@ -1,9 +1,6 @@
-<div>
-<div class="text-teal-600 pb-4">
+<div class="border-b-2 border-black py-4 grid grid-cols-1 gap-4">
   {{ page.tags | join: " | "}}
-</div>
-  <h2 class="text-rose-500 pb-2">{{ page.title }}</h2>
+  <h1 class="text-4xl text-white">{{ page.title }}</h1>
   {{ page.date | date: "%B %-d, %Y"}}
   by Bobby Meyer<br/>
-  <h6></h6><a href="/" class="text-rose-500 font-bold hover:border-b-4 border-rose-500">back to posts</a></h6>
 </div>
