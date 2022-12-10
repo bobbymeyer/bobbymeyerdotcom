@@ -1,6 +1,6 @@
 <a class='transition-all hover:text-white' href="{{ post.url }}">
-<div class="grid grid-cols-6 gap-8 border-b-2 border-black p-4">
-  <div class='flex items-end justify-end flex-col text-sm'>
+<div class="grid grid-cols-1 md:grid-cols-6 gap-4 border-b-2 border-black p-4">
+  <div class='flex items-end gap-4 md:flex-col text-sm'>
     {% for tag in post.tags %}
       <div>{{ tag }}</div>
     {% endfor %}
