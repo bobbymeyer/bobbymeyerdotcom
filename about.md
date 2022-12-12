@@ -23,6 +23,7 @@ title: "about"
   <div class="col-span-6 md:col-span-2 flex items-end justify-start">
     <div class="flex gap-2 flex-wrap">
       <b>I post about...</b>
+
       {% assign sorted_items = site.tags | sort %}
       {% for item in sorted_items %}
         <span>{{ item[0] }}</span>

@@ -1,7 +1,8 @@
 <a class='transition-all hover:text-white' href="{{ post.url }}">
 <div class="grid grid-cols-1 md:grid-cols-6 gap-4 border-b-2 border-black p-4">
-  <div class='flex items-end gap-4 md:gap-1 md:flex-col text-sm'>
-    {% for tag in post.tags %}
+  <div class='flex items-end gap-4 md:gap-1 flex-wrap text-sm'>
+    {% assign sorted_items = post.tags | sort %}
+    {% for tag in sorted_items %}
       <div>{{ tag }}</div>
     {% endfor %}
   </div>

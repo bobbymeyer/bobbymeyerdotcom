@@ -1,5 +1,7 @@
 <div class="border-b-2 border-black py-4 grid grid-cols-1 gap-4">
-  {{ page.tags | join: " | "}}
+
+  {% assign tags = page.tags | sort %}
+  {{ tags | join: " | "}}
   <h1 class="text-4xl text-white">{{ page.title }}</h1>
   {{ page.date | date: "%B %-d, %Y"}}
   by Bobby Meyer<br/>
