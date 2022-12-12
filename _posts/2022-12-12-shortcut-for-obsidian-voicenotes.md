@@ -12,6 +12,8 @@ tags:
 - automation
 ---
 
+**[Add to Voice Notes](https://www.icloud.com/shortcuts/e771079b40684ae9a8c379dd0fb83ab4)**
+
 This is a MacOS/iOS shortcut that allows users to quickly dictate notes that are transcribed and added to Obsidian, a note-taking app. The shortcut includes the following steps:
 
 1. Dictate a text note and transcribe the user's voice.
