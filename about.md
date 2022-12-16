@@ -20,7 +20,11 @@ title: "about"
   I create applications that are functional and appealing. Whether I am building a web application from scratch or working on a team to bring a client's vision to life, I am committed to delivering high-quality work that meets the needs of my clients.
   </div>
 
-  <div class="col-span-6 md:col-span-2 flex items-end justify-start">
+  <div class="col-span-6 md:col-span-2 flex flex-col gap-8">
+    <div class='rounded-full bg-teal-500 hover:bg-teal-200 transition-all duration-500 h-64 w-64 md:h-32 md:w-32 pt-4 mx-auto'>
+      <img src="{{site.baseurl}}/assets/img/bobby.png" class="mix-blend-multiply hover:mix-blend-normal grayscale hover:grayscale-0 transition-all duration-500 mx-auto h-64 md:h-32">
+    </div>
+  <div class="flex items-end justify-start">
     <div class="flex gap-2 flex-wrap">
       <b>I post about...</b>
 

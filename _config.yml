@@ -5,6 +5,7 @@ title: 'bobbymeyer.com'
 plugins:
   - jekyll-postcss
   - jekyll-paginate-v2
+  - jekyll-feed
 
 postcss:
   cache: false
