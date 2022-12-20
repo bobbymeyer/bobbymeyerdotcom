@@ -6,6 +6,7 @@ plugins:
   - jekyll-postcss
   - jekyll-paginate-v2
   - jekyll-feed
+  - jekyll-postfiles
 
 postcss:
   cache: false

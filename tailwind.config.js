@@ -5,6 +5,8 @@ module.exports = {
     './_layouts/**/*.html',
     './_posts/*.md',
     './_posts/*.markdown',
+    './_posts/**/*.md',
+    './_posts/**/*.markdown',
     './*.md',
     './*.html',
   ],
