@@ -1,10 +1,10 @@
 ---
 ---
-@import "assets/css/tailwind.css";
-@import "assets/css/headers.css";
-@import "assets/css/typography.css";
-@import "assets/css/lists.css";
-@import "assets/css/syntax.css";
+@import "tailwind.css";
+@import "headers.css";
+@import "typography.css";
+@import "lists.css";
+@import "syntax.css";
 
 
 .content {

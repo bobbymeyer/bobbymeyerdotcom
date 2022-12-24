@@ -3,7 +3,7 @@ baseurl: ''
 title: 'bobbymeyer.com'
 
 plugins:
-  - jekyll-postcss
+  - jekyll-postcss-v2
   - jekyll-paginate-v2
   - jekyll-feed
   - jekyll-postfiles
