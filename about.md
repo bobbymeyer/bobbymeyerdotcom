@@ -11,21 +11,20 @@ title: "about"
 
 
   <h1 class='col-span-6 border-b-2 border-black py-2 text-white text-6xl md:text-8xl tracking-tight'>Who am I?</h1>
+  <div class="col-span-6 md:col-span-2 flex flex-col gap-8">
+    <div class='rounded-full bg-teal-500 hover:bg-teal-200 transition-all duration-500 h-64 w-64 md:h-48 md:w-48 pt-4 mx-auto'>
+      <img src="{{site.baseurl}}/assets/img/bobby.png" class="mix-blend-multiply grayscale hover:grayscale-0 transition-all duration-500 mx-auto h-64 md:h-48">
+    </div>
+  </div>
 
-  <div class='md:col-start-2 col-span-6 md:col-span-3 grid gap-4' markdown=1>
+  <div class='col-span-6 md:col-span-4 flex flex-col gap-4' markdown=1>
   My name is **Bobby Meyer**. I am a designer and a developer. I have a passion for creating simple, elegant solutions to complex problems.
 
   I write clean, well tested code & attractive, intuitive interfaces.
 
   I create applications that are functional and appealing. Whether I am building a web application from scratch or working on a team to bring a client's vision to life, I am committed to delivering high-quality work that meets the needs of my clients.
-  </div>
 
-  <div class="col-span-6 md:col-span-2 flex flex-col gap-8">
-    <div class='rounded-full bg-teal-500 hover:bg-teal-200 transition-all duration-500 h-64 w-64 md:h-32 md:w-32 pt-4 mx-auto'>
-      <img src="{{site.baseurl}}/assets/img/bobby.png" class="mix-blend-multiply hover:mix-blend-normal grayscale hover:grayscale-0 transition-all duration-500 mx-auto h-64 md:h-32">
-    </div>
-  <div class="flex items-end justify-start">
-    <div class="flex gap-2 flex-wrap">
+  <div class="flex gap-2 flex-wrap">
       <b>I post about...</b>
 
       {% assign sorted_items = site.tags | sort %}
@@ -34,9 +33,8 @@ title: "about"
       {% endfor %}
     </div>
   </div>
-  <div class="hidden lg:flex bg-black opacity-10 justify-end items-end w-full">
 
-  </div>
+
 </div>
 
 
