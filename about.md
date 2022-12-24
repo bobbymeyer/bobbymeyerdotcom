@@ -34,5 +34,3 @@ title: "about"
     </div>
   </div>
 </div>
-
-
