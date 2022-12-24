@@ -33,8 +33,6 @@ title: "about"
       {% endfor %}
     </div>
   </div>
-
-
 </div>
 
 
