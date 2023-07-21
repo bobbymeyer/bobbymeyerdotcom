@@ -1,0 +1,50 @@
+.illustration-container {
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  background: linear-gradient(0deg, #27D, #867, #F55, #213, #002);
+	background-size: 100% 1000%;
+	animation: gradient 30s ease-in-out infinite;
+  position: relative;
+  border-radius: 100%;
+  overflow: hidden;
+}
+
+@keyframes gradient {
+	0% {
+		background-position: 0% 0%;
+	}
+	50% {
+		background-position: 0% 100%;
+  }
+	100% {
+		background-position: 0% 0%;
+  }
+}
+
+.foreground {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 10;
+}
+
+.sunmoon {
+  animation:spin 30s ease-in-out infinite;
+}
+
+@keyframes spin {
+  0% {
+    -webkit-transform: rotate(-360deg);
+    transform:rotate(-360deg);
+  }
+  50% {
+      -webkit-transform: rotate(-180deg);
+      transform:rotate(-180deg);
+  }
+  100% {
+    -webkit-transform: rotate(0deg);
+    transform:rotate(0deg);
+  }
+}
