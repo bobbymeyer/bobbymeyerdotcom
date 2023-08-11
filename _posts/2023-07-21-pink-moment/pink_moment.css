@@ -3,7 +3,7 @@
   max-width: 600px;
   aspect-ratio: 1 / 1;
   margin: 0 auto;
-  background: linear-gradient(0deg, #27D, #867, #F55, #213, #002);
+  background: linear-gradient(0deg, #27D, #27D, #359, #F55, #213, #002);
 	background-size: 100% 1000%;
 	animation: gradient 30s ease-in-out infinite;
   position: relative;

@@ -1,0 +1,29 @@
+#illustration-container {
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  mix-blend-mode: hard-light;
+}
+
+.column {
+  display: flex;
+  flex-direction: column-reverse;
+  width: 100%;
+  height: 100%;
+}
+
+.block {
+  width: auto;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border-top: 10px solid rgba(255,255,255, 0.25);
+  border-left: 10px solid rgba(255,255,255, 0.05);
+  border-bottom: 10px solid rgba(0, 0, 0, 0.25);
+  border-right: 10px solid rgba(0, 0, 0, 0.05);
+  box-shadow: inset 0 0 30px rgba(0,0,0, 0.15);
+
+}
