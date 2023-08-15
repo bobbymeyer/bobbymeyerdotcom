@@ -18,8 +18,8 @@ function preload() {
 function setup() {
   angleMode(DEGREES);
   playing = false;
-
-  cnv = createCanvas(600, 600);
+  size = Math.min(windowWidth, windowWidth, 600);
+  cnv = createCanvas(size, size);
   cnv.parent('song-container');
   cnv.mousePressed(toggleMusic);
 
@@ -53,20 +53,24 @@ function playSample() {
   samples[sampleIndex].play(0, 0.5, 1, 0, samples[sampleIndex].duration());
 }
 
+function windowResized() {
+  size = Math.min(windowWidth, windowWidth, 600);
+  resizeCanvas(size, size);
+}
 
 function draw() {
   fill(230, 220, 200);
   push();
   tint(255, 127);
-  image(bg, 0, 0, 600, 600);
+  image(bg, 0, 0, size, size);
   pop();
   strokeWeight(0);
-  rect(0, 10, 600, 120);
+  rect(0, 10, size, 120);
   textSize(48);
   fill(230, 220, 200);
-  rect(545, 545, 160, 160);
+  rect(size - 75, size - 75, 160, 160);
   fill(0);
-  text(playing == true ? '⏸' : '⏵', 560, 590);
+  text(playing == true ? '⏸' : '⏵', size - 50, size - 20);
 
   noFill();
 

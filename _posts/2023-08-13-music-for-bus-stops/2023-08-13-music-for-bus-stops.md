@@ -9,6 +9,9 @@ tags:
 - music
 - procedural generation
 ---
+Click the album art to start.
+
+
 
 <div id='song-container'>
   <div class='title-box'>

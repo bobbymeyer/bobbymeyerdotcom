@@ -3,9 +3,11 @@
   max-width: 600px;
   aspect-ratio: 1 / 1;
   margin: 0 auto;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
   position: relative;
   padding: 1rem;
-  background-image: url('map.png');
+  overflow: hidden;
 }
 
 .p5Canvas {
