@@ -9,7 +9,7 @@ tags:
 - music
 - procedural generation
 ---
-Click the album art to start.
+Click the album art to start generating. Click again to (gracefully) stop.
 
 
 
