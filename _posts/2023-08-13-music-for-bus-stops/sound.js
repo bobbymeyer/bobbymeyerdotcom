@@ -1,6 +1,6 @@
-console.log('lowrider.js');
 
 let samples = [];
+let activeSounds = [];
 let ffts = [];
 let playing;
 let r = 0;
@@ -41,7 +41,10 @@ function toggleMusic() {
 
 async function playMusic() {
   while (playing == true) {
-    playSample();
+    activeSounds = activeSounds.filter(sample => sample.isPlaying());  // Remove any sounds that have finished playing
+    if (activeSounds.length < 3) {
+      playSample();
+    }
     waitTime = random(4, 10) * 1000;
     await new Promise(r => setTimeout(r, waitTime));
   }
@@ -50,8 +53,15 @@ async function playMusic() {
 function playSample() {
   sampleIndex = Math.floor(random(0, samples.length - 1));
   console.log(sampleIndex);
-  samples[sampleIndex].play(0, 0.5, 1, 0, samples[sampleIndex].duration());
+  let sample = samples[sampleIndex];
+  rates = [0.25, 0.5, 1.0, 2];
+  rate_index = Math.floor(Math.random() * months.length)
+
+  sample.play(0, rates[rate_index], 0.05, 0, sample.duration());  // Volume set to 0.25, which is 25%
+  activeSounds.push(sample);  // Add the new sound to the activeSounds array
 }
+
+
 
 function windowResized() {
   size = Math.min(windowWidth, windowWidth, 600);
@@ -89,5 +99,3 @@ function draw() {
     endShape();
   }
 }
-
-// http://localhost:4000/2023/08/13/music-for-bus-stations.html
