@@ -54,7 +54,7 @@ function playSample() {
   sampleIndex = Math.floor(random(0, samples.length - 1));
   console.log(sampleIndex);
   let sample = samples[sampleIndex];
-  rates = [0.25, 0.5, 1.0, 2];
+  rates = [0.5, 1.0];
   rate_index = Math.floor(Math.random() * rates.length)
 
   sample.play(0, rates[rate_index], 0.05, 0, sample.duration());  // Volume set to 0.25, which is 25%
