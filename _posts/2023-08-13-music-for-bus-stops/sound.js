@@ -84,7 +84,7 @@ function draw() {
 
   noFill();
 
-  strokeWeight(1);
+  strokeWeight(1);``
   translate(250, 20);
   for (fft of ffts) {
 
