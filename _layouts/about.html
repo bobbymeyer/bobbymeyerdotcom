@@ -4,11 +4,13 @@
     {% include head.html %}
   </head>
 
-  <body class="mx-auto container bg-teal-600">
+  <body class="bg-teal-600 paper-texture">
     {% include navbar.html %}
-    <div class="my-16 p-2">
-      {{ content }}
+    <div class="mx-auto container">
+      <div class="my-16 p-2">
+        {{ content }}
+      </div>
+      {% include footer.html %}
     </div>
-    {% include footer.html %}
   </body>
 </html>

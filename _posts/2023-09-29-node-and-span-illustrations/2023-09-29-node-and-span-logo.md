@@ -16,5 +16,8 @@ tags:
   <div id='logo'></div>
   <h1>node and span</h1>
 </div>
+<div class='full-center'>
+  <p>☝🏻 Click the logo to generate new variations</p>
+</div>
 
 <script src='nslogo.js'></script>

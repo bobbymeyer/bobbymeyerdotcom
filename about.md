@@ -11,9 +11,9 @@ title: "about"
 
 
   <h1 class='col-span-6 border-b-2 border-black py-2 text-white text-6xl md:text-8xl tracking-tight'>Who am I?</h1>
-  <div class="col-span-6 md:col-span-2 flex flex-col gap-8">
-    <div class='rounded-full bg-teal-500 hover:bg-teal-200 transition-all duration-500 h-64 w-64 md:h-48 md:w-48 pt-4 mx-auto'>
-      <img src="{{site.baseurl}}/assets/img/bobby.png" class="mix-blend-multiply grayscale hover:grayscale-0 transition-all duration-500 mx-auto h-64 md:h-48">
+  <div class="col-span-6 md:col-span-2 flex justify-end flex-col gap-8">
+    <div class='rounded-full pt-4 mx-auto'>
+      <img src="{{site.baseurl}}/assets/img/bobby.png" class="border-b-2 border-teal-800 transition-all duration-500 mx-auto h-64 md:h-48">
     </div>
   </div>
 

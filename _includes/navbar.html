@@ -1,4 +1,4 @@
-<ul class="flex z-50  justify-around items-center py-4 pb-4 border-b-2 border-black sticky top-0 left-0 right-0 bg-inherit">
+<ul class="flex z-50  justify-around items-center py-4 pb-4 border-b-2 border-black sticky top-0 left-0 right-0 bg-inherit paper-texture">
   {% for item in site.data.navbar.items %}
     <li class="list-none {% if item.title == page.title %}font-bold{% endif %}"><a href="{{ item.url }}">{{ item.title }}</a></li>
     {% endfor %}

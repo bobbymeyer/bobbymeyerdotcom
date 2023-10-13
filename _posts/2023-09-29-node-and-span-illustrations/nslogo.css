@@ -37,3 +37,15 @@
   box-shadow: inset 0 0 30px rgba(0,0,0, 0.15);
 
 }
+
+.full-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.full-center p {
+  background-color: #ccc;
+  padding: 0.5rem 1rem;
+  border-radius: 0.25rem;
+
+}
