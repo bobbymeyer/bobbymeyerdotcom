@@ -1,25 +1,24 @@
-let canvasSize = 1000;
+let canvasSize = 400;
 let gridSize = 20;
 let canvasColor, centerColor, midColor;
-let gridSizeInput, canvasColorPicker, centerColorPicker, midColorPicker;
+let gridSizeInput, canvasColorPicker, centerColorPicker, midColorPicker, downloadButton;
 
 function setup() {
-  let cnv = createCanvas(canvasSize, canvasSize);
-  noStroke();
+
 
   // Create DOM elements inside 'canvas-container'
   let container = select('#canvas-container-controls');
 
 
-  canvasColorPicker = createColorPicker('#FFFFFF');
+  canvasColorPicker = createColorPicker('#A33E8D');
   canvasColorPicker.parent(container);
   canvasColorPicker.input(updateCanvas);
 
-  midColorPicker = createColorPicker('#FFC2F2');
+  midColorPicker = createColorPicker('#FF8800');
   midColorPicker.parent(container);
   midColorPicker.input(updateCanvas);
 
-  centerColorPicker = createColorPicker('#FF3300');
+  centerColorPicker = createColorPicker('#FFEA00');
   centerColorPicker.parent(container);
   centerColorPicker.input(updateCanvas);
 
@@ -29,9 +28,27 @@ function setup() {
   gridSizeInput.input(updateCanvas);
   gridSizeInput.id('grid-squares-input');
 
+  downloadButton = createButton('Download');
+  downloadButton.parent(container);
+  downloadButton.mousePressed(downloadImage);
+
+  let containerWidth = select('#canvas-container').width;
+  let cnv = createCanvas(containerWidth, containerWidth);
   cnv.parent('canvas-container');
+
+  noStroke();
+
   updateCanvas();  // Update and draw the canvas with initial values
+
+
 }
+
+function windowResized() {
+    let containerWidth = document.getElementById('canvas-container').clientWidth;
+    resizeCanvas(containerWidth, containerWidth);
+    canvasSize = containerWidth;
+    updateCanvas();
+  }
 
 function drawGradient() {
   if (canvasColor && centerColor && midColor) {
@@ -51,6 +68,8 @@ function drawGradient() {
 }
 
 function updateCanvas() {
+  let containerWidth = document.getElementById('canvas-container').clientWidth;
+  canvasSize = containerWidth;
   canvasColor = canvasColorPicker.color();
   centerColor = centerColorPicker.color();
   midColor = midColorPicker.color();
@@ -59,6 +78,10 @@ function updateCanvas() {
   if (canvasColor && centerColor && midColor) {
     drawGradient();
   }
+}
+
+function downloadImage() {
+  saveCanvas('gradient_grid', 'png');
 }
 
 function draw() {
