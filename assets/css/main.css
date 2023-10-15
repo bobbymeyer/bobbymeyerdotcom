@@ -13,5 +13,5 @@
 
 .paper-texture {
   background-image: url("{{site.baseurl}}/assets/img/paper-texture.png");
-
+  background-repeat: repeat;
 }
