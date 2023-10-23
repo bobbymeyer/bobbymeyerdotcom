@@ -36,6 +36,7 @@
   padding: var(--gap-width);
 }
 .img-wrapper img { width: 100%; height: auto; }
+.img-wrapper-2 img { width: 100%; height: auto; }
 
 .haiku {
   display: flex;
