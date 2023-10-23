@@ -13,7 +13,7 @@ title: "about"
   <h1 class='col-span-6 border-b-2 border-black py-2 text-white text-6xl md:text-8xl tracking-tight'>Who am I?</h1>
   <div class="col-span-6 md:col-span-2 flex justify-end flex-col gap-8">
     <div class='rounded-full pt-4 mx-auto'>
-      <img src="{{site.baseurl}}/assets/img/bobby.png" class="border-b-2 border-teal-800 transition-all duration-500 mx-auto h-64 md:h-48">
+      <img src="{{site.baseurl}}/assets/img/bobby.png" class="border-b-2 border-teal-800 saturate-0 mix-blend-hard-light transition-all duration-500 mx-auto h-96 md:h-48">
     </div>
   </div>
 
