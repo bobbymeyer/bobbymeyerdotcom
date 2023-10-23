@@ -15,7 +15,8 @@ function setup() {
   bgColorPicker.parent('canvas-container-controls');
 
   cellSizeLabel = createP('Size:');
-  cellSizeSlider = createSlider(2, 20, 6);  // min, max, starting value
+  cellSizeSlider = createSlider(1, 20, 16);  // max, min, starting value
+  // min, max, starting value
   cellSizeSlider.input(redraw);  // Redraw when value changes
   cellSizeLabel.parent('canvas-container-controls');
   cellSizeSlider.parent('canvas-container-controls');
@@ -43,7 +44,9 @@ function draw() {
   noStroke();
   background(bgColorPicker.color());
 
-  cellSize = containerWidth / cellSizeSlider.value();
+  //cellSize = containerWidth / cellSizeSlider.value();
+  cellSize = containerWidth / (21 - cellSizeSlider.value());  // this inverts the effect
+
   probabilityCircle = probabilityCircleSlider.value();
   probabilityBisect = probabilityBisectSlider.value();
 
