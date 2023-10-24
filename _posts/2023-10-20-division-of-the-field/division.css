@@ -1,0 +1,41 @@
+canvas {
+  max-width: 100%;
+}
+
+
+#canvas-container-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  background-color: #ccc;
+  border-radius:  1rem 1rem 0 0;
+  padding: 1rem;
+}
+
+#canvas-container-controls button {
+  background: #333;
+  color: white;
+  border: 1px solid white;
+  padding: 0 1rem;
+  cursor: pointer;
+  border-radius: 1rem;
+}
+
+input {
+  background: none;
+}
+
+#grid-squares-input {
+  margin: 0 1rem;
+  width: 3rem;
+  text-align: center;
+  border-radius: 1rem;
+  border: 1px solid #ccc;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
