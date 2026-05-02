@@ -80,14 +80,18 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   let walls: Matter.Body[] = [];
   const buildWalls = () => {
     Matter.World.remove(engine.world, walls);
+    const wallOpts: Matter.IChamferableBodyDefinition = {
+      isStatic: true,
+      render: { visible: false }, // physics only — never drawn by Matter.Render
+    };
     walls = [
       // floor at the bottom of the container
-      Matter.Bodies.rectangle(w / 2, h + 25, w + 100, 50, { isStatic: true }),
+      Matter.Bodies.rectangle(w / 2, h + 25, w + 100, 50, wallOpts),
       // left + right
-      Matter.Bodies.rectangle(-25, h / 2, 50, h * 2, { isStatic: true }),
-      Matter.Bodies.rectangle(w + 25, h / 2, 50, h * 2, { isStatic: true }),
+      Matter.Bodies.rectangle(-25, h / 2, 50, h * 2, wallOpts),
+      Matter.Bodies.rectangle(w + 25, h / 2, 50, h * 2, wallOpts),
       // top — splash header is a hard ceiling; cells can't push past it
-      Matter.Bodies.rectangle(w / 2, -25, w + 100, 50, { isStatic: true }),
+      Matter.Bodies.rectangle(w / 2, -25, w + 100, 50, wallOpts),
     ];
     Matter.World.add(engine.world, walls);
   };
@@ -251,7 +255,10 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
         const originY = body.position.y - baseY;
         el.style.transition = '';                    // physics-driven, no easing
         el.style.willChange = 'transform';
-        el.style.backfaceVisibility = 'hidden';      // forces compositor layer
+        // Keep the element on a single persistent compositor layer so
+        // text antialiasing doesn't switch modes when motion starts /
+        // stops (subpixel ↔ grayscale would read as a saturation flash).
+        el.style.transform = 'translateZ(0)';
         el.style.transformOrigin = `${originX.toFixed(1)}px ${originY.toFixed(1)}px`;
       }
     });
@@ -299,10 +306,11 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
         && Math.abs(body.angularVelocity) < 0.0008
         && Math.hypot(body.velocity.x, body.velocity.y) < 0.05;
       if (isResting) {
-        state.el.style.transform = '';
+        // Don't clear the transform — keep the element on its existing
+        // compositor layer so antialiasing stays in the same mode it
+        // had during motion. Visually identical to no transform.
+        state.el.style.transform = 'translateZ(0)';
       } else {
-        // translate3d composites on a dedicated GPU layer instead of
-        // repainting the element each frame.
         state.el.style.transform =
           `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0) rotate(${deg.toFixed(2)}deg)`;
       }
