@@ -10,9 +10,9 @@ export const GRID_H = 24;
 export const SUB_W = GRID_W * 2;
 export const SUB_H = GRID_H * 2;
 
-// Each GoL hit first rolls 50/50 blank or content. If content, the
-// color and character layers then roll independently.
-const BLANK_P = 0.5;
+// Each GoL hit first rolls blank vs content (BLANK_P chance of blank).
+// If content, the color and character layers then roll independently.
+const BLANK_P = 2 / 3;
 const COLOR_P = 0.30;
 const CHAR_P  = 0.55;
 
