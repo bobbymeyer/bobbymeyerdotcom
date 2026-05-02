@@ -16,8 +16,10 @@ export interface AtlasOptions {
 }
 
 export function makeFontAtlas(opts: AtlasOptions = {}): THREE.CanvasTexture {
-  const cellSize = opts.cellSize ?? 128;
-  const glyphSize = opts.glyphSize ?? 92;
+  // POT cell size + larger glyph render so even on mobile (24px cells)
+  // the atlas has enough fidelity once mipmapped.
+  const cellSize = opts.cellSize ?? 256;
+  const glyphSize = opts.glyphSize ?? 184;
   const fontFamily = opts.fontFamily ?? '"Space Grotesk", system-ui, sans-serif';
   const fontWeight = opts.fontWeight ?? 700;
 
@@ -43,10 +45,15 @@ export function makeFontAtlas(opts: AtlasOptions = {}): THREE.CanvasTexture {
   }
 
   const texture = new THREE.CanvasTexture(canvas);
-  texture.minFilter = THREE.LinearFilter;
+  // LinearMipmapLinear (trilinear) keeps glyphs crisp at any cell size,
+  // including the 24px mobile grid where we'd otherwise see aliasing
+  // from a single high-res mip.
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.wrapS = THREE.ClampToEdgeWrapping;
   texture.wrapT = THREE.ClampToEdgeWrapping;
+  texture.anisotropy = 4;
   texture.needsUpdate = true;
   return texture;
 }
