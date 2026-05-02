@@ -7,6 +7,43 @@ const SPAWN_MS = 4000;
 const FIRST_DROP_DELAY_MS = 8000;
 const MAX_CELLS = 60;
 
+// data-collide-shape="<image url>" voxelises the image into a grid of
+// foreground pixels. Each foreground pixel becomes a small static rect
+// and cells bounce off the silhouette instead of the bounding box.
+const VOX_COLS = 18;
+const VOX_ROWS = 30;
+const VOX_LUM_THRESHOLD = 28;
+const voxelCache = new Map<string, boolean[]>();
+
+async function loadVoxels(url: string): Promise<boolean[]> {
+  const cached = voxelCache.get(url);
+  if (cached) return cached;
+  const img = new Image();
+  img.crossOrigin = 'anonymous';
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error(`load ${url}`));
+    img.src = url;
+  });
+  const cnv = document.createElement('canvas');
+  cnv.width = VOX_COLS;
+  cnv.height = VOX_ROWS;
+  const ctx = cnv.getContext('2d');
+  if (!ctx) throw new Error('canvas 2d unavailable');
+  ctx.drawImage(img, 0, 0, VOX_COLS, VOX_ROWS);
+  const { data } = ctx.getImageData(0, 0, VOX_COLS, VOX_ROWS);
+  const mask = new Array<boolean>(VOX_COLS * VOX_ROWS);
+  for (let i = 0; i < VOX_COLS * VOX_ROWS; i++) {
+    const r = data[i * 4];
+    const g = data[i * 4 + 1];
+    const b = data[i * 4 + 2];
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    mask[i] = lum > VOX_LUM_THRESHOLD;
+  }
+  voxelCache.set(url, mask);
+  return mask;
+}
+
 export interface Handle {
   destroy(): void;
 }
@@ -51,7 +88,11 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     rot: number;     // current rotation in deg
     rotVel: number;  // angular velocity
   }
+  // Each body.id points to its element's ElState. Multiple voxel
+  // sub-bodies share the same ElState object so the whole element
+  // wobbles together. uniqueStates is the dedup'd set we iterate.
   const elState = new Map<number, ElState>();
+  const uniqueStates = new Set<ElState>();
   let domBodies: Matter.Body[] = [];
 
   // Search the whole document — data-collide elements live alongside
@@ -62,29 +103,78 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   const buildDomBodies = () => {
     Matter.World.remove(engine.world, domBodies);
     elState.clear();
+    uniqueStates.clear();
     domBodies = [];
     const cRect = container.getBoundingClientRect();
     const targets = findCollideEls();
+    const opts: Matter.IChamferableBodyDefinition = {
+      isStatic: true,
+      friction: 0.5,
+      restitution: 0.3,
+      render: { visible: false },
+    };
     targets.forEach((el) => {
       const r = el.getBoundingClientRect();
       if (r.width < 2 || r.height < 2) return;
-      const x = r.left - cRect.left + r.width / 2;
-      const y = r.top - cRect.top + r.height / 2;
-      const body = Matter.Bodies.rectangle(x, y, r.width, r.height, {
-        isStatic: true,
-        friction: 0.5,
-        restitution: 0.3,
-        render: { visible: false },
-      });
-      domBodies.push(body);
-      elState.set(body.id, { el, rot: 0, rotVel: 0 });
-      // Make sure transform animates smoothly even on rapid hits.
+      const baseX = r.left - cRect.left;
+      const baseY = r.top - cRect.top;
+      const shapeUrl = el.dataset.collideShape;
+      const mask = shapeUrl ? voxelCache.get(shapeUrl) : null;
+
+      const created: Matter.Body[] = [];
+      if (mask) {
+        // Voxelised silhouette — one tiny static rect per foreground pixel.
+        const cellW = r.width / VOX_COLS;
+        const cellH = r.height / VOX_ROWS;
+        for (let yy = 0; yy < VOX_ROWS; yy++) {
+          for (let xx = 0; xx < VOX_COLS; xx++) {
+            if (!mask[yy * VOX_COLS + xx]) continue;
+            created.push(
+              Matter.Bodies.rectangle(
+                baseX + xx * cellW + cellW / 2,
+                baseY + yy * cellH + cellH / 2,
+                cellW + 0.5, // small overlap to avoid seams
+                cellH + 0.5,
+                opts,
+              ),
+            );
+          }
+        }
+      } else {
+        created.push(
+          Matter.Bodies.rectangle(
+            baseX + r.width / 2,
+            baseY + r.height / 2,
+            r.width,
+            r.height,
+            opts,
+          ),
+        );
+      }
+
+      domBodies.push(...created);
+      // All sub-bodies route nudges back to the same DOM element so the
+      // whole portrait wobbles as one when any voxel takes a hit.
+      const stateEntry: ElState = { el, rot: 0, rotVel: 0 };
+      uniqueStates.add(stateEntry);
+      created.forEach((b) => elState.set(b.id, stateEntry));
       el.style.transition = 'transform 60ms linear';
       el.style.willChange = 'transform';
     });
     Matter.World.add(engine.world, domBodies);
   };
   buildDomBodies();
+
+  // Async: voxelise any data-collide-shape images, then rebuild bodies
+  // so those elements upgrade from bounding rect to silhouette.
+  const shapeUrls = Array.from(findCollideEls())
+    .map((el) => el.dataset.collideShape)
+    .filter((s): s is string => !!s);
+  const uniqueShapes = Array.from(new Set(shapeUrls));
+  if (uniqueShapes.length > 0) {
+    Promise.all(uniqueShapes.map((u) => loadVoxels(u).catch(() => null)))
+      .then(() => buildDomBodies());
+  }
 
   // Listen for collisions between cells and DOM-mirrored bodies, kick
   // the matching element's angular velocity.
@@ -109,8 +199,10 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   });
 
   // Spring + damping decay so kicked elements settle back to rest.
+  // Iterate the dedup'd Set — each element's state is updated once
+  // per frame regardless of how many voxel sub-bodies it has.
   const springAnimate = () => {
-    elState.forEach((state) => {
+    uniqueStates.forEach((state) => {
       state.rotVel += -state.rot * 0.06;   // spring toward 0
       state.rotVel *= 0.90;                // damping
       state.rot += state.rotVel;
@@ -188,7 +280,7 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       cancelAnimationFrame(rafId);
       ro.disconnect();
       elRo.disconnect();
-      elState.forEach((state) => {
+      uniqueStates.forEach((state) => {
         state.el.style.transform = '';
         state.el.style.transition = '';
         state.el.style.willChange = '';
