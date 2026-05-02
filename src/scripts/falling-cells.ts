@@ -10,8 +10,8 @@ const MAX_CELLS = 60;
 // data-collide-shape="<image url>" voxelises the image into a grid of
 // foreground pixels. Each foreground pixel becomes a small static rect
 // and cells bounce off the silhouette instead of the bounding box.
-const VOX_COLS = 18;
-const VOX_ROWS = 30;
+const VOX_COLS = 36;
+const VOX_ROWS = 60;
 const VOX_LUM_THRESHOLD = 28;
 const voxelCache = new Map<string, boolean[]>();
 
