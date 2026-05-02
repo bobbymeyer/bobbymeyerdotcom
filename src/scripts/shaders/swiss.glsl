@@ -169,6 +169,13 @@ float charSDF(vec2 grd, float seedByte) {
 }
 
 // ---- title row -----------------------------------------------------------
+// True for any cell on the title row inside the title column range,
+// including the gap at id.x == 0. Whole row is immutable.
+bool isTitleCell(vec2 id) {
+    if (id.y < -0.5 || id.y > 0.5) return false;
+    return id.x >= -5.5 && id.x <= 5.5;
+}
+
 // Atlas index for the title letter at this fine cell, or -1 otherwise.
 // Layout: B O B B Y _ M E Y E R  on row id.y == 0, id.x ∈ [-5, +5].
 int titleAt(vec2 id) {
@@ -236,10 +243,15 @@ void main() {
     vec3 fg = hasColor ? fieldFG(colorIdx) : KEY;
 
     // -- character layer --------------------------------------------------
-    int tch = titleAt(id);
-    if (tch >= 0) {
-        // Title cells render the masthead letter at base scale,
-        // regardless of split state.
+    if (isTitleCell(id)) {
+        // Title row is immutable. The gap (id.x == 0) renders as paper.
+        // Letters render at base scale on whatever colour their anchor
+        // sub-cell happened to roll.
+        int tch = titleAt(id);
+        if (tch < 0) {
+            gl_FragColor = vec4(PAPER, 1.0);
+            return;
+        }
         float d = drawFont(grd, tch);
         gl_FragColor = vec4(mix(bg, fg, S(d, 0.0)), 1.0);
         return;

@@ -34,13 +34,19 @@ const idxSub = (x: number, y: number) => y * SUB_W + x;
 const wrap = (v: number, m: number) => ((v % m) + m) % m;
 const r255 = () => 1 + ((Math.random() * 255) | 0);
 
-// Title cells (BOBBY MEYER) live on a fixed row of the base grid and are
-// always rendered merged so the masthead never fragments.
+// Title cells (BOBBY MEYER + the gap) live on a fixed row and column
+// range. They're always rendered merged so the masthead never fragments.
 const TITLE_ROW = Math.floor(GRID_H / 2);
 const TITLE_X_MIN = Math.floor(GRID_W / 2) - 5;
 const TITLE_X_MAX = Math.floor(GRID_W / 2) + 5;
 const isTitleBase = (x: number, y: number) =>
   y === TITLE_ROW && x >= TITLE_X_MIN && x <= TITLE_X_MAX;
+
+// Reveal sequence starts with just the title row + one ring around it.
+// Once BOBBY MEYER is fully revealed, the radius grows outward.
+const INITIAL_REVEAL_RADIUS = 1;
+const REVEAL_EXPAND_EVERY = 2;
+const REVEAL_EXPAND_DELAY = 4;
 
 export class GridLife {
   // Base GoL (48 × 24) — alive bit means "split".
@@ -60,7 +66,13 @@ export class GridLife {
   readonly subTexture: THREE.DataTexture;
 
   private tickCount = 0;
-  private readonly spawnEvery = 14;
+  private readonly spawnEvery = 10;
+
+  // Reveal sequence state.
+  private revealRadius = INITIAL_REVEAL_RADIUS;
+  private titleRevealed = false;
+  private ticksAfterReveal = 0;
+  private titleAnchors: ReadonlyArray<readonly [number, number]>;
 
   constructor() {
     const NB = GRID_W * GRID_H;
@@ -77,14 +89,18 @@ export class GridLife {
     this.baseData = new Uint8Array(NB * 4);
     this.subData = new Uint8Array(NS * 4);
 
-    // Sparse random initial states.
-    for (let i = 0; i < NB; i++) this.baseAlive[i] = Math.random() < 0.18 ? 1 : 0;
-    for (let i = 0; i < NS; i++) this.subAlive[i] = Math.random() < 0.14 ? 1 : 0;
-
-    // Title cells stay merged regardless of GoL.
-    for (let x = TITLE_X_MIN; x <= TITLE_X_MAX; x++) {
-      this.baseAlive[idxBase(x, TITLE_ROW)] = 0;
+    // Anchor sub-cells used to detect title reveal: the bottom-left sub-cell
+    // of each title letter base cell (skipping the gap at id.x == 0).
+    const anchors: Array<[number, number]> = [];
+    for (let baseX = TITLE_X_MIN; baseX <= TITLE_X_MAX; baseX++) {
+      const idX = baseX - GRID_W / 2;
+      if (idX === 0) continue;
+      anchors.push([baseX * 2, TITLE_ROW * 2]);
     }
+    this.titleAnchors = anchors;
+
+    // Seed life only inside the initial reveal area.
+    this.seedActiveRegion();
 
     this.baseTexture = new THREE.DataTexture(this.baseData, GRID_W, GRID_H, THREE.RGBAFormat);
     this.subTexture = new THREE.DataTexture(this.subData, SUB_W, SUB_H, THREE.RGBAFormat);
@@ -102,6 +118,22 @@ export class GridLife {
   tick(): void {
     this.stepBase();
     this.stepSub();
+    this.clampInactive();
+
+    if (!this.titleRevealed) {
+      // Nudge the reveal along with the occasional forced hit on a still-dark
+      // title anchor, so the masthead is guaranteed to finish appearing.
+      if (Math.random() < 0.25) this.forceRevealOneTitleAnchor();
+      if (this.checkTitleRevealed()) this.titleRevealed = true;
+    } else {
+      this.ticksAfterReveal++;
+      if (
+        this.ticksAfterReveal > REVEAL_EXPAND_DELAY
+        && this.ticksAfterReveal % REVEAL_EXPAND_EVERY === 0
+      ) {
+        this.expandRadius();
+      }
+    }
 
     this.tickCount++;
     if (this.tickCount % this.spawnEvery === 0) this.spawnPattern();
@@ -109,12 +141,83 @@ export class GridLife {
     this.writeTextures();
   }
 
-  // ---- internal -----------------------------------------------------------
+  // ---- reveal mask --------------------------------------------------------
+
+  private isBaseActive(x: number, y: number): boolean {
+    const vDist = Math.abs(y - TITLE_ROW);
+    const hDist = Math.max(0, x - TITLE_X_MAX, TITLE_X_MIN - x);
+    return Math.max(vDist, hDist) <= this.revealRadius;
+  }
+  private isSubActive(x: number, y: number): boolean {
+    return this.isBaseActive(x >> 1, y >> 1);
+  }
+
+  private seedActiveRegion(): void {
+    for (let y = 0; y < SUB_H; y++) {
+      for (let x = 0; x < SUB_W; x++) {
+        if (this.isSubActive(x, y) && Math.random() < 0.32) {
+          this.subAlive[idxSub(x, y)] = 1;
+        }
+      }
+    }
+  }
+
+  private clampInactive(): void {
+    for (let y = 0; y < GRID_H; y++) {
+      for (let x = 0; x < GRID_W; x++) {
+        if (!this.isBaseActive(x, y)) this.baseAlive[idxBase(x, y)] = 0;
+      }
+    }
+    for (let y = 0; y < SUB_H; y++) {
+      for (let x = 0; x < SUB_W; x++) {
+        if (!this.isSubActive(x, y)) this.subAlive[idxSub(x, y)] = 0;
+      }
+    }
+  }
+
+  private checkTitleRevealed(): boolean {
+    for (const [x, y] of this.titleAnchors) {
+      if (!this.subEverHit[idxSub(x, y)]) return false;
+    }
+    return true;
+  }
+
+  private forceRevealOneTitleAnchor(): void {
+    const dark: Array<readonly [number, number]> = [];
+    for (const a of this.titleAnchors) {
+      if (!this.subEverHit[idxSub(a[0], a[1])]) dark.push(a);
+    }
+    if (dark.length === 0) return;
+    const [x, y] = dark[(Math.random() * dark.length) | 0];
+    const i = idxSub(x, y);
+    this.subEverHit[i] = 1;
+    this.subColor[i] = Math.random() < COLOR_P ? r255() : 0;
+    // Title char is overridden in the shader; charVal here doesn't matter.
+  }
+
+  private expandRadius(): void {
+    if (this.revealRadius >= 60) return;
+    this.revealRadius++;
+    // Sprinkle life along the new ring so GoL has something to chew on.
+    for (let y = 0; y < SUB_H; y++) {
+      for (let x = 0; x < SUB_W; x++) {
+        if (!this.isSubActive(x, y)) continue;
+        const bx = x >> 1, by = y >> 1;
+        const vDist = Math.abs(by - TITLE_ROW);
+        const hDist = Math.max(0, bx - TITLE_X_MAX, TITLE_X_MIN - bx);
+        if (Math.max(vDist, hDist) === this.revealRadius && Math.random() < 0.22) {
+          this.subAlive[idxSub(x, y)] = 1;
+        }
+      }
+    }
+  }
+
+  // ---- standard GoL update -----------------------------------------------
 
   private stepBase(): void {
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
-        if (isTitleBase(x, y)) {
+        if (isTitleBase(x, y) || !this.isBaseActive(x, y)) {
           this.baseNext[idxBase(x, y)] = 0;
           continue;
         }
@@ -132,6 +235,10 @@ export class GridLife {
   private stepSub(): void {
     for (let y = 0; y < SUB_H; y++) {
       for (let x = 0; x < SUB_W; x++) {
+        if (!this.isSubActive(x, y)) {
+          this.subNext[idxSub(x, y)] = 0;
+          continue;
+        }
         const n = this.countSubN(x, y);
         const a = this.subAlive[idxSub(x, y)];
         this.subNext[idxSub(x, y)] =
@@ -174,15 +281,23 @@ export class GridLife {
 
   private spawnPattern(): void {
     const p = PATTERNS[(Math.random() * PATTERNS.length) | 0];
-    const ox = (Math.random() * SUB_W) | 0;
-    const oy = (Math.random() * SUB_H) | 0;
+    let ox = 0, oy = 0, found = false;
+    for (let attempt = 0; attempt < 30; attempt++) {
+      ox = (Math.random() * SUB_W) | 0;
+      oy = (Math.random() * SUB_H) | 0;
+      if (this.isSubActive(ox, oy)) { found = true; break; }
+    }
+    if (!found) return;
     for (const [dx, dy] of p) {
-      this.subAlive[idxSub(wrap(ox + dx, SUB_W), wrap(oy + dy, SUB_H))] = 1;
+      const sx = wrap(ox + dx, SUB_W);
+      const sy = wrap(oy + dy, SUB_H);
+      if (this.isSubActive(sx, sy)) {
+        this.subAlive[idxSub(sx, sy)] = 1;
+      }
     }
   }
 
   private writeTextures(): void {
-    // baseData: R = isSplit (alive), GBA reserved.
     for (let i = 0; i < this.baseAlive.length; i++) {
       const j = i * 4;
       this.baseData[j + 0] = this.baseAlive[i] ? 255 : 0;
@@ -192,7 +307,6 @@ export class GridLife {
     }
     this.baseTexture.needsUpdate = true;
 
-    // subData: R=color, G=char, B=everHit, A=alive.
     for (let i = 0; i < this.subAlive.length; i++) {
       const j = i * 4;
       this.subData[j + 0] = this.subColor[i];
