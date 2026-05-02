@@ -1,0 +1,19 @@
+---
+interface Props {
+  shader?: string;
+  class?: string;
+}
+
+const { shader = 'plasma', class: className = '' } = Astro.props;
+---
+
+<canvas data-shader={shader} class:list={['block w-full h-full', className]}></canvas>
+
+<script>
+  import { mountShaderBackground } from '@/scripts/shader-background';
+
+  document.querySelectorAll<HTMLCanvasElement>('canvas[data-shader]').forEach((canvas) => {
+    const key = canvas.dataset.shader ?? 'plasma';
+    mountShaderBackground(canvas, key);
+  });
+</script>

@@ -1,0 +1,19 @@
+---
+import Base from '@/layouts/Base.astro';
+import Splash from '@/components/Splash.astro';
+import ArtBox from '@/components/ArtBox.astro';
+
+const elements = ['/art/element-1.svg', '/art/element-2.svg', '/art/element-3.svg'];
+---
+
+<Base title="bobbymeyer.com">
+  <div class="grid grid-cols-1 md:grid-cols-[1fr_3fr_1fr] gap-4 p-4 items-center">
+    <ArtBox elements={elements} class="hidden md:block" />
+    <Splash shader="plasma" title="theme goes here" />
+    <ArtBox elements={elements} class="hidden md:block" />
+  </div>
+
+  <main class="max-w-3xl mx-auto p-8 prose prose-invert">
+    <p>Per-page content goes here. Swap this page out whenever the theme changes.</p>
+  </main>
+</Base>

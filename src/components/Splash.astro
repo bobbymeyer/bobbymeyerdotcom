@@ -1,0 +1,32 @@
+---
+import ShaderBackground from './ShaderBackground.astro';
+
+interface Props {
+  portrait?: string;
+  logo?: string;
+  shader?: string;
+  title?: string;
+}
+
+const { portrait, logo, shader = 'plasma', title } = Astro.props;
+---
+
+<section class="relative w-full h-[60vh] min-h-[400px] overflow-hidden">
+  <div class="absolute inset-0">
+    <ShaderBackground shader={shader} />
+  </div>
+
+  <div class="relative z-10 flex h-full items-center justify-center">
+    {portrait && (
+      <img src={portrait} alt="" class="max-h-full object-contain mix-blend-screen" />
+    )}
+    {logo && (
+      <img src={logo} alt="" class="absolute bottom-6 left-6 h-16" />
+    )}
+    {title && (
+      <h1 class="absolute bottom-6 right-6 text-4xl md:text-6xl font-black tracking-tight">
+        {title}
+      </h1>
+    )}
+  </div>
+</section>
