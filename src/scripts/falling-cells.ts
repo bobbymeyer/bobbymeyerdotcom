@@ -79,21 +79,40 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   };
   buildWalls();
 
-  // Mirror any [data-collide] DOM elements as static bodies so cells
-  // pile on top of them and bounce off their edges. Each body keeps a
-  // back-reference to its element so we can nudge its CSS transform
-  // when something hits it.
+  // Mirror any [data-collide] DOM elements as physics bodies. Voxelised
+  // shapes stay static (silhouette is the whole point). Other elements
+  // are dynamic but pinned at their centre — gravity / cell impacts
+  // tilt them, an angular spring brings them back upright. The DOM
+  // element gets a CSS rotate that follows the body's actual angle.
   interface ElState {
     el: HTMLElement;
-    rot: number;     // current rotation in deg
-    rotVel: number;  // angular velocity
+    body: Matter.Body | null;   // dynamic body for tippable elements
   }
-  // Each body.id points to its element's ElState. Multiple voxel
-  // sub-bodies share the same ElState object so the whole element
-  // wobbles together. uniqueStates is the dedup'd set we iterate.
   const elState = new Map<number, ElState>();
   const uniqueStates = new Set<ElState>();
   let domBodies: Matter.Body[] = [];
+  let pinConstraints: Matter.Constraint[] = [];
+
+  // Wrap each character of an element in its own [data-collide] span so
+  // cells bounce off the letters themselves, not the paragraph box.
+  const wrapChars = (el: HTMLElement) => {
+    if (el.dataset.charsWrapped === '1') return;
+    const text = el.textContent ?? '';
+    el.textContent = '';
+    for (const ch of text) {
+      if (ch === ' ' || ch === ' ' || ch === '\n' || ch === '\t') {
+        el.appendChild(document.createTextNode(ch));
+        continue;
+      }
+      const span = document.createElement('span');
+      span.textContent = ch;
+      span.style.display = 'inline-block';
+      span.setAttribute('data-collide', '');
+      el.appendChild(span);
+    }
+    el.dataset.charsWrapped = '1';
+  };
+  document.querySelectorAll<HTMLElement>('[data-collide-chars]').forEach(wrapChars);
 
   // Search the whole document — data-collide elements live alongside
   // (not inside) the FallingCells container.
@@ -101,18 +120,29 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     document.querySelectorAll<HTMLElement>('[data-collide]');
 
   const buildDomBodies = () => {
-    Matter.World.remove(engine.world, domBodies);
+    Matter.World.remove(engine.world, [...domBodies, ...pinConstraints]);
     elState.clear();
     uniqueStates.clear();
     domBodies = [];
+    pinConstraints = [];
     const cRect = container.getBoundingClientRect();
     const targets = findCollideEls();
-    const opts: Matter.IChamferableBodyDefinition = {
+
+    const staticOpts: Matter.IChamferableBodyDefinition = {
       isStatic: true,
       friction: 0.5,
       restitution: 0.3,
       render: { visible: false },
     };
+    const tippableOpts: Matter.IChamferableBodyDefinition = {
+      isStatic: false,
+      density: 0.0008,
+      friction: 0.5,
+      frictionAir: 0.10,
+      restitution: 0.18,
+      render: { visible: false },
+    };
+
     targets.forEach((el) => {
       const r = el.getBoundingClientRect();
       if (r.width < 2 || r.height < 2) return;
@@ -121,11 +151,11 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       const shapeUrl = el.dataset.collideShape;
       const mask = shapeUrl ? voxelCache.get(shapeUrl) : null;
 
-      const created: Matter.Body[] = [];
       if (mask) {
-        // Voxelised silhouette — one tiny static rect per foreground pixel.
+        // Voxelised silhouette — static, no tipping.
         const cellW = r.width / VOX_COLS;
         const cellH = r.height / VOX_ROWS;
+        const created: Matter.Body[] = [];
         for (let yy = 0; yy < VOX_ROWS; yy++) {
           for (let xx = 0; xx < VOX_COLS; xx++) {
             if (!mask[yy * VOX_COLS + xx]) continue;
@@ -133,35 +163,49 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
               Matter.Bodies.rectangle(
                 baseX + xx * cellW + cellW / 2,
                 baseY + yy * cellH + cellH / 2,
-                cellW + 0.5, // small overlap to avoid seams
+                cellW + 0.5,
                 cellH + 0.5,
-                opts,
+                staticOpts,
               ),
             );
           }
         }
+        domBodies.push(...created);
+        const stateEntry: ElState = { el, body: null };
+        uniqueStates.add(stateEntry);
+        created.forEach((b) => elState.set(b.id, stateEntry));
+        el.style.transition = '';
+        el.style.willChange = '';
+        el.style.transformOrigin = '';
+        el.style.transform = '';
       } else {
-        created.push(
-          Matter.Bodies.rectangle(
-            baseX + r.width / 2,
-            baseY + r.height / 2,
-            r.width,
-            r.height,
-            opts,
-          ),
-        );
-      }
+        // Tippable: dynamic body pinned at its centre. Gravity / impacts
+        // tilt it; the spring + frictionAir bring it back to upright.
+        const cx = baseX + r.width / 2;
+        const cy = baseY + r.height / 2;
+        const body = Matter.Bodies.rectangle(cx, cy, r.width, r.height, tippableOpts);
+        const pin = Matter.Constraint.create({
+          pointA: { x: cx, y: cy },
+          bodyB: body,
+          pointB: { x: 0, y: 0 },
+          length: 0,
+          stiffness: 1,
+          damping: 1,
+          render: { visible: false },
+        });
+        domBodies.push(body);
+        pinConstraints.push(pin);
 
-      domBodies.push(...created);
-      // All sub-bodies route nudges back to the same DOM element so the
-      // whole portrait wobbles as one when any voxel takes a hit.
-      const stateEntry: ElState = { el, rot: 0, rotVel: 0 };
-      uniqueStates.add(stateEntry);
-      created.forEach((b) => elState.set(b.id, stateEntry));
-      el.style.transition = 'transform 60ms linear';
-      el.style.willChange = 'transform';
+        const stateEntry: ElState = { el, body };
+        uniqueStates.add(stateEntry);
+        elState.set(body.id, stateEntry);
+
+        el.style.transition = '';                    // physics-driven, no easing
+        el.style.willChange = 'transform';
+        el.style.transformOrigin = 'center center';
+      }
     });
-    Matter.World.add(engine.world, domBodies);
+    Matter.World.add(engine.world, [...domBodies, ...pinConstraints]);
   };
   buildDomBodies();
 
@@ -176,47 +220,33 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       .then(() => buildDomBodies());
   }
 
-  // Listen for collisions between cells and DOM-mirrored bodies, kick
-  // the matching element's angular velocity.
-  Matter.Events.on(engine, 'collisionStart', (event) => {
-    for (const pair of event.pairs) {
-      const aStatic = pair.bodyA.isStatic;
-      const bStatic = pair.bodyB.isStatic;
-      if (aStatic === bStatic) continue;
-      const staticBody = aStatic ? pair.bodyA : pair.bodyB;
-      const cellBody   = aStatic ? pair.bodyB : pair.bodyA;
-      const state = elState.get(staticBody.id);
-      if (!state) continue;
-
-      // Hit hard? Kick the element's rotation. Sign comes from where on
-      // the element's width the impact lands so cells striking the right
-      // edge tilt it clockwise and vice versa.
-      const speed = Math.hypot(cellBody.velocity.x, cellBody.velocity.y);
-      const offset = (cellBody.position.x - staticBody.position.x) / (staticBody.bounds.max.x - staticBody.bounds.min.x);
-      const sign = Math.sign(offset || (Math.random() - 0.5));
-      state.rotVel += sign * Math.min(speed * 0.18, 1.4);
-    }
+  // Soft angular spring back to upright on every physics step. Cell
+  // collisions naturally apply torque via Matter; this keeps elements
+  // from drifting indefinitely after the cells leave.
+  Matter.Events.on(engine, 'beforeUpdate', () => {
+    uniqueStates.forEach((state) => {
+      const body = state.body;
+      if (!body) return;
+      Matter.Body.setAngularVelocity(body, body.angularVelocity - body.angle * 0.005);
+    });
   });
 
-  // Spring + damping decay so kicked elements settle back to rest.
-  // Iterate the dedup'd Set — each element's state is updated once
-  // per frame regardless of how many voxel sub-bodies it has.
-  const springAnimate = () => {
+  // Mirror each tippable body's actual angle onto the DOM element it
+  // represents.
+  const updateTransforms = () => {
     uniqueStates.forEach((state) => {
-      state.rotVel += -state.rot * 0.06;   // spring toward 0
-      state.rotVel *= 0.90;                // damping
-      state.rot += state.rotVel;
-      if (Math.abs(state.rot) < 0.01 && Math.abs(state.rotVel) < 0.01) {
-        state.rot = 0;
-        state.rotVel = 0;
+      const body = state.body;
+      if (!body) return;
+      if (Math.abs(body.angle) < 0.0005 && Math.abs(body.angularVelocity) < 0.0005) {
         state.el.style.transform = '';
       } else {
-        state.el.style.transform = `rotate(${state.rot.toFixed(2)}deg)`;
+        const deg = body.angle * (180 / Math.PI);
+        state.el.style.transform = `rotate(${deg.toFixed(2)}deg)`;
       }
     });
-    rafId = requestAnimationFrame(springAnimate);
+    rafId = requestAnimationFrame(updateTransforms);
   };
-  let rafId = requestAnimationFrame(springAnimate);
+  let rafId = requestAnimationFrame(updateTransforms);
 
   const ro = new ResizeObserver(() => {
     w = container.clientWidth;
