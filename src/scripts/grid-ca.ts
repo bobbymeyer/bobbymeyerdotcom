@@ -40,11 +40,17 @@ const r255 = () => 1 + ((Math.random() * 255) | 0);
 
 // Title cells (BOBBY MEYER + the gap) live on a fixed row and column
 // range. They're always rendered merged so the masthead never fragments.
+// We pin a 3-row band so both the single-line layout (id.y == 0) and
+// the stacked layout (id.y == ±1) are protected without needing to
+// know the active layout.
 const TITLE_ROW = Math.floor(GRID_H / 2);
 const TITLE_X_MIN = Math.floor(GRID_W / 2) - 5;
 const TITLE_X_MAX = Math.floor(GRID_W / 2) + 5;
 const isTitleBase = (x: number, y: number) =>
-  y === TITLE_ROW && x >= TITLE_X_MIN && x <= TITLE_X_MAX;
+  y >= TITLE_ROW - 1
+  && y <= TITLE_ROW + 1
+  && x >= TITLE_X_MIN
+  && x <= TITLE_X_MAX;
 
 // Reveal sequence starts with just the title row + one ring around it.
 // Once BOBBY MEYER is fully revealed, the radius grows outward.
@@ -87,7 +93,14 @@ export class GridLife {
   private revealRadius = INITIAL_REVEAL_RADIUS;
   private titleRevealed = false;
   private ticksAfterReveal = 0;
-  private titleAnchors: ReadonlyArray<readonly [number, number]>;
+  private stacked = false;
+  // Two pre-computed anchor sets so we can switch layouts without
+  // touching titleRevealed bookkeeping.
+  private singleAnchors: ReadonlyArray<readonly [number, number]>;
+  private stackedAnchors: ReadonlyArray<readonly [number, number]>;
+  private get titleAnchors(): ReadonlyArray<readonly [number, number]> {
+    return this.stacked ? this.stackedAnchors : this.singleAnchors;
+  }
 
   constructor() {
     const NB = GRID_W * GRID_H;
@@ -111,15 +124,24 @@ export class GridLife {
     this.baseDataPrev = new Uint8Array(NB * 4);
     this.subDataPrev = new Uint8Array(NS * 4);
 
-    // Anchor sub-cells used to detect title reveal: the bottom-left sub-cell
-    // of each title letter base cell (skipping the gap at id.x == 0).
-    const anchors: Array<[number, number]> = [];
+    // Single-line anchors (B O B B Y _ M E Y E R on TITLE_ROW).
+    const single: Array<[number, number]> = [];
     for (let baseX = TITLE_X_MIN; baseX <= TITLE_X_MAX; baseX++) {
       const idX = baseX - GRID_W / 2;
       if (idX === 0) continue;
-      anchors.push([baseX * 2, TITLE_ROW * 2]);
+      single.push([baseX * 2, TITLE_ROW * 2]);
     }
-    this.titleAnchors = anchors;
+    this.singleAnchors = single;
+
+    // Stacked anchors: BOBBY on TITLE_ROW + 1, MEYER on TITLE_ROW - 1,
+    // both at id.x ∈ [-2, 2] → baseX ∈ [GRID_W/2 - 2, GRID_W/2 + 2].
+    const stackedList: Array<[number, number]> = [];
+    const cx = Math.floor(GRID_W / 2);
+    for (let dx = -2; dx <= 2; dx++) {
+      stackedList.push([(cx + dx) * 2, (TITLE_ROW + 1) * 2]); // BOBBY row
+      stackedList.push([(cx + dx) * 2, (TITLE_ROW - 1) * 2]); // MEYER row
+    }
+    this.stackedAnchors = stackedList;
 
     // Seed life only inside the initial reveal area.
     this.seedActiveRegion();
@@ -142,6 +164,15 @@ export class GridLife {
     this.subDataPrev.set(this.subData);
     this.baseTexturePrev.needsUpdate = true;
     this.subTexturePrev.needsUpdate = true;
+  }
+
+  /** The shader picks layout from viewport width; the JS side mirrors
+   *  it so titleAnchors / titleRevealed point at the right cells. */
+  setStackedTitle(stacked: boolean): void {
+    if (this.stacked === stacked) return;
+    this.stacked = stacked;
+    // Re-evaluate the reveal flag against the new anchor set.
+    this.titleRevealed = this.checkTitleRevealed();
   }
 
   tick(): void {

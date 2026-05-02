@@ -178,25 +178,59 @@ float charSDF(vec2 grd, float seedByte) {
 }
 
 // ---- title row -----------------------------------------------------------
-// True for any cell on the title row inside the title column range,
-// including the gap at id.x == 0. Whole row is immutable.
+// Single-row "BOBBY MEYER" needs 11 cells of horizontal space. Below
+// that, the title stacks: BOBBY on id.y == 1, MEYER on id.y == -1,
+// both id.x ∈ [-2, 2].
+bool useStackedTitle() {
+    return floor(uResolution.x / CELL_PX) < 11.0;
+}
+
+// True for any cell that belongs to the masthead, regardless of layout.
 bool isTitleCell(vec2 id) {
+    if (useStackedTitle()) {
+        if (id.x < -2.5 || id.x > 2.5) return false;
+        // Three rows: BOBBY (y=1), gap (y=0), MEYER (y=-1)
+        return id.y >= -1.5 && id.y <= 1.5;
+    }
     if (id.y < -0.5 || id.y > 0.5) return false;
     return id.x >= -5.5 && id.x <= 5.5;
 }
 
-// One-cell border wrapping the title row. GoL keeps running through
-// these cells, but they never get coloured or stamped with a glyph —
-// they read as silent margin around BOBBY MEYER.
+// One-cell border wrapping the title. GoL keeps running through these
+// cells but they never get coloured or stamped with a glyph.
 bool isMastheadMargin(vec2 id) {
+    if (useStackedTitle()) {
+        if (id.y < -2.5 || id.y > 2.5) return false;
+        if (id.x < -3.5 || id.x > 3.5) return false;
+        return !isTitleCell(id);
+    }
     if (id.y < -1.5 || id.y > 1.5) return false;
     if (id.x < -6.5 || id.x > 6.5) return false;
     return !isTitleCell(id);
 }
 
 // Atlas index for the title letter at this fine cell, or -1 otherwise.
-// Layout: B O B B Y _ M E Y E R  on row id.y == 0, id.x ∈ [-5, +5].
+//   wide:    B O B B Y _ M E Y E R   on id.y == 0, id.x ∈ [-5, +5]
+//   stacked: BOBBY on id.y == 1, MEYER on id.y == -1, id.x ∈ [-2, +2]
 int titleAt(vec2 id) {
+    if (useStackedTitle()) {
+        if (id.x < -2.5 || id.x > 2.5) return -1;
+        if (abs(id.y - 1.0) < 0.5) {
+            if (abs(id.x + 2.0) < 0.5) return 11; // B
+            if (abs(id.x + 1.0) < 0.5) return 24; // O
+            if (abs(id.x      ) < 0.5) return 11; // B
+            if (abs(id.x - 1.0) < 0.5) return 11; // B
+            if (abs(id.x - 2.0) < 0.5) return 34; // Y
+        }
+        if (abs(id.y + 1.0) < 0.5) {
+            if (abs(id.x + 2.0) < 0.5) return 22; // M
+            if (abs(id.x + 1.0) < 0.5) return 14; // E
+            if (abs(id.x      ) < 0.5) return 34; // Y
+            if (abs(id.x - 1.0) < 0.5) return 14; // E
+            if (abs(id.x - 2.0) < 0.5) return 27; // R
+        }
+        return -1; // gap row
+    }
     if (id.y < -0.5 || id.y > 0.5) return -1;
     float ix = id.x;
     if (ix < -5.5 || ix > 5.5) return -1;

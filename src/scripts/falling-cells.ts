@@ -74,10 +74,13 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   const buildWalls = () => {
     Matter.World.remove(engine.world, walls);
     walls = [
-      // floor at the bottom of the container (= bottom of main = bottom of page content)
+      // floor at the bottom of the container
       Matter.Bodies.rectangle(w / 2, h + 25, w + 100, 50, { isStatic: true }),
+      // left + right
       Matter.Bodies.rectangle(-25, h / 2, 50, h * 2, { isStatic: true }),
       Matter.Bodies.rectangle(w + 25, h / 2, 50, h * 2, { isStatic: true }),
+      // top — splash header is a hard ceiling; cells can't push past it
+      Matter.Bodies.rectangle(w / 2, -25, w + 100, 50, { isStatic: true }),
     ];
     Matter.World.add(engine.world, walls);
   };
@@ -305,7 +308,8 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     const x = padX + idx * CELL + CELL / 2;
     const color = COLORS[(Math.random() * COLORS.length) | 0];
 
-    const body = Matter.Bodies.rectangle(x, -CELL, CELL, CELL, {
+    // Spawn just inside the world (below the top wall at y ≈ 0).
+    const body = Matter.Bodies.rectangle(x, CELL / 2 + 4, CELL, CELL, {
       restitution: 0.42,
       friction: 0.5,
       frictionAir: 0.012,

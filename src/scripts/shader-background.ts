@@ -66,6 +66,9 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     uniforms.uStateSubPrev = { value: life.subTexturePrev };
     uniforms.uBaseSize = { value: new THREE.Vector2(GRID_W, GRID_H) };
     uniforms.uSubSize = { value: new THREE.Vector2(SUB_W, SUB_H) };
+    // Match the shader's title-stacking decision so the reveal anchors
+    // and "always merged" pinning point at the right cells.
+    life.setStackedTitle(Math.floor(canvas.clientWidth / 48) < 11);
     lastTickTime = performance.now();
     tickTimer = setInterval(() => {
       life!.tick();
@@ -87,6 +90,7 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     const { clientWidth: w, clientHeight: h } = canvas;
     renderer.setSize(w, h, false);
     (uniforms.uResolution.value as THREE.Vector2).set(w, h);
+    if (life) life.setStackedTitle(Math.floor(w / 48) < 11);
   };
   resize();
   const ro = new ResizeObserver(resize);
