@@ -1,6 +1,8 @@
 import * as THREE from 'three';
+import swissShader from './shaders/swiss.glsl?raw';
 
 const SHADERS: Record<string, string> = {
+  swiss: swissShader,
   plasma: `
     precision highp float;
     uniform float uTime;

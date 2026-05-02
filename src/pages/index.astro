@@ -1,19 +1,84 @@
 ---
 import Base from '@/layouts/Base.astro';
-import Splash from '@/components/Splash.astro';
+import ShaderBackground from '@/components/ShaderBackground.astro';
 import ArtBox from '@/components/ArtBox.astro';
 
 const elements = ['/art/element-1.svg', '/art/element-2.svg', '/art/element-3.svg'];
+
+const issue = '01';
+const dateLabel = new Date().toLocaleDateString('en-US', {
+  month: '2-digit',
+  year: 'numeric',
+}).replace('/', '.');
 ---
 
-<Base title="bobbymeyer.com">
-  <div class="grid grid-cols-1 md:grid-cols-[1fr_3fr_1fr] gap-4 p-4 items-center">
-    <ArtBox elements={elements} class="hidden md:block" />
-    <Splash shader="plasma" title="theme goes here" />
-    <ArtBox elements={elements} class="hidden md:block" />
-  </div>
+<Base title="Bobby Meyer">
+  <div class="min-h-screen bg-paper text-ink">
+    <!-- Hero strip: [box | splash | box] -->
+    <section class="grid grid-cols-12 gap-px bg-ink/15 border-b border-ink">
+      <!-- left art box -->
+      <div class="col-span-12 md:col-span-2 bg-paper p-4 flex items-center">
+        <ArtBox elements={elements} class="w-full" />
+      </div>
 
-  <main class="max-w-3xl mx-auto p-8 prose prose-invert">
-    <p>Per-page content goes here. Swap this page out whenever the theme changes.</p>
-  </main>
+      <!-- splash -->
+      <div class="col-span-12 md:col-span-8 bg-paper relative overflow-hidden min-h-[78vh]">
+        <!-- shader fills the canvas -->
+        <div class="absolute inset-0">
+          <ShaderBackground shader="swiss" />
+        </div>
+
+        <!-- top meta strip, sits over shader -->
+        <div class="absolute top-0 inset-x-0 z-20 flex justify-between items-baseline
+                    px-6 md:px-10 py-4
+                    text-[10px] md:text-xs tracking-[0.3em] uppercase
+                    bg-paper/85 backdrop-blur-[2px]
+                    border-b border-ink">
+          <span>N°{issue}</span>
+          <span class="hidden md:inline">bobbymeyer.com</span>
+          <span>{dateLabel}</span>
+        </div>
+
+        <!-- yellow band — horizontal geometric accent -->
+        <div class="absolute z-10 left-0 right-[18%] top-[38%] h-[10%] bg-flag"></div>
+
+        <!-- vermilion block carrying the masthead -->
+        <div class="absolute z-20 left-0 bottom-0
+                    w-[78%] md:w-[64%]
+                    bg-signal text-paper
+                    border-t border-r border-ink
+                    px-6 md:px-10 py-6 md:py-8">
+          <h1 class="font-grotesk font-bold leading-[0.85] tracking-tight
+                     text-[16vw] md:text-[11vw] lg:text-[9.5rem]">
+            <span class="block">Bobby</span>
+            <span class="block pl-[8%]">Meyer</span>
+          </h1>
+        </div>
+
+        <!-- small ink square — bottom-right counterweight -->
+        <div class="absolute z-20 right-0 bottom-0
+                    w-[18%] md:w-[14%] aspect-square
+                    bg-ink border-t border-l border-ink
+                    flex items-end justify-end p-3 md:p-4">
+          <span class="text-paper text-[10px] md:text-xs tracking-[0.3em] uppercase">
+            dev / des
+          </span>
+        </div>
+      </div>
+
+      <!-- right art box -->
+      <div class="col-span-12 md:col-span-2 bg-paper p-4 flex items-center">
+        <ArtBox elements={elements} class="w-full" />
+      </div>
+    </section>
+
+    <!-- per-page content -->
+    <main class="max-w-3xl mx-auto px-6 md:px-10 py-16">
+      <p class="text-lg leading-relaxed">
+        This page is the theme of the moment. It might be a project, a parody,
+        a mixtape, or something I'll find embarrassing in a week and quietly
+        take down. Check back; root is never the same twice.
+      </p>
+    </main>
+  </div>
 </Base>
