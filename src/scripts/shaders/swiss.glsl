@@ -4,6 +4,11 @@ precision highp int;
 uniform float uTime;
 uniform vec2 uResolution;
 uniform sampler2D uAtlas;
+// CA state: per grid cell, encodes (offsetX, offsetY, size, seed).
+// offsetX/offsetY are the fragment's position within its containing
+// CA cell (0..size-1). size is the cell's edge length in fine cells.
+uniform sampler2D uState;
+uniform vec2 uGridSize;
 // Fraction of cells that carry content. 0 = all paper, 1 = all populated.
 // Wired to mouse X by the JS host (left = 0.01, right = 0.99).
 uniform float uObjectDensity;
@@ -16,20 +21,9 @@ uniform float uObjectDensity;
 #define S(d,b) smoothstep(antialiasing(1.0),b,d)
 #define B(p,s) max(abs(p).x-s.x,abs(p).y-s.y)
 
-// Tight Swiss grid.
+// Tight Swiss grid. Cell sizes and arrangement come from the JS-side
+// cellular automaton (see grid-ca.ts), uploaded each tick into uState.
 #define DENSITY 20.0
-// Each COARSE×COARSE block of fine cells has at most one macro cell
-// anchored at its corner; the rest are 1×1 fillers, which may
-// subdivide up to three levels (½, ¼, ⅛ size).
-#define COARSE 6.0
-// Probability a 1×1 filler subdivides into 2×2 half-size cells.
-#define SUBDIVIDE_P 0.30
-// Probability a half-size cell subdivides again into 2×2 quarter cells.
-#define SUBSUB_P 0.32
-// Probability a quarter-size cell subdivides once more into eighth cells.
-#define SUBSUBSUB_P 0.28
-// Each tick, one random coarse cell expands (becomes 6×6) or subdivides.
-#define TICK_DURATION 1.0
 
 #define ATLAS_COLS 6.0
 #define ATLAS_ROWS 6.0
@@ -199,19 +193,6 @@ vec3 cellColor(vec2 grd, vec2 id) {
     return field;
 }
 
-// Pick this coarse-cell's macro size. Bigger cells are rarer.
-// Title row stays as 1×1 fillers so nothing overruns the BOBBY MEYER cells.
-float macroSizeAt(vec2 coarseId) {
-    if (coarseId.y > -0.5 && coarseId.y < 0.5) return 1.0;
-    float h = rand2(coarseId, 41.0);
-    if (h > 0.97) return 6.0;  // 6×6 — ~3%  (fills entire coarse cell)
-    if (h > 0.90) return 5.0;  // 5×5 — ~7%
-    if (h > 0.78) return 4.0;  // 4×4 — ~12%
-    if (h > 0.62) return 3.0;  // 3×3 — ~16%
-    if (h > 0.36) return 2.0;  // 2×2 — ~26%
-    return 1.0;                // 1×1 — ~36%
-}
-
 // Atlas index for the title letter at this fine cell, or -1 otherwise.
 // Layout: B O B B Y _ M E Y E R  on row id.y == 0, id.x ∈ [-5, +5].
 int titleAt(vec2 id) {
@@ -231,14 +212,6 @@ int titleAt(vec2 id) {
     return -1; // gap
 }
 
-// Anchor offset within the coarse cell, so macros aren't all in the same corner.
-vec2 macroAnchorOffsetAt(vec2 coarseId, float macroSize) {
-    float maxOff = COARSE - macroSize;
-    float ox = floor(rand2(coarseId, 51.0) * (maxOff + 1.0));
-    float oy = floor(rand2(coarseId, 53.0) * (maxOff + 1.0));
-    return vec2(ox, oy);
-}
-
 void main() {
     vec2 p = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
     p *= DENSITY;
@@ -253,68 +226,26 @@ void main() {
         return;
     }
 
-    // Find which coarse super-cell we're in.
-    vec2 coarseId = floor(id / COARSE);
-    vec2 coarseAnchor = coarseId * COARSE;
-    float macroSize = macroSizeAt(coarseId);
-    vec2 macroAnchor = coarseAnchor + macroAnchorOffsetAt(coarseId, macroSize);
-
-    // Tick mechanism: each TICK_DURATION seconds one random coarse cell
-    // either fully expands (becomes a 6×6 mega cell) or fully subdivides
-    // (every fine cell in it becomes deeply divided sub-cells).
-    float tickIdx = floor(iTime / TICK_DURATION);
-    vec2 tickRand = vec2(tickIdx, 0.0);
-    float ax = floor(rand2(tickRand, 17.3) * 6.0) - 3.0; // -3..2 (likely visible)
-    float ay = floor(rand2(tickRand, 19.7) * 4.0) - 2.0; // -2..1
-    if (ay > -0.5 && ay < 0.5) ay = 1.0;                 // never override the title row
-    bool tickActive = abs(coarseId.x - ax) < 0.5 && abs(coarseId.y - ay) < 0.5;
-    int tickAction = int(rand2(tickRand, 23.1) * 2.0);   // 0 = expand, 1 = subdivide
-    bool tickExpand    = tickActive && tickAction == 0;
-    bool tickSubdivide = tickActive && tickAction == 1;
-
-    if (tickExpand) {
-        macroSize = COARSE;
-        macroAnchor = coarseAnchor;
-    } else if (tickSubdivide) {
-        macroSize = 0.0;
+    // Read the cellular automaton state for this fragment's grid cell.
+    // grid coords place id == 0 at the centre of the texture.
+    vec2 gridXY = id + uGridSize * 0.5;
+    if (gridXY.x < 0.0 || gridXY.x >= uGridSize.x || gridXY.y < 0.0 || gridXY.y >= uGridSize.y) {
+        gl_FragColor = vec4(PAPER, 1.0);
+        return;
     }
 
-    vec2 offset = id - macroAnchor;
-    vec3 col;
-    if (macroSize > 0.0 && offset.x >= 0.0 && offset.y >= 0.0
-        && offset.x < macroSize && offset.y < macroSize) {
-        vec2 macroGrd = (offset + grd + vec2(0.5)) / macroSize - vec2(0.5);
-        col = cellColor(macroGrd, coarseId + vec2(1000.0));
-    } else if (tickSubdivide || rand2(id, 71.0) < SUBDIVIDE_P) {
-        // ½-size cells
-        vec2 sub1 = (grd + vec2(0.5)) * 2.0;
-        vec2 subId1 = floor(sub1);
-        vec2 subGrd1 = fract(sub1) - 0.5;
-        vec2 fullId1 = id * 2.0 + subId1 + vec2(7777.0);
+    vec2 stateUv = (gridXY + vec2(0.5)) / uGridSize;
+    vec4 state = texture2D(uState, stateUv);
+    float ox = floor(state.r * 255.0 + 0.5);
+    float oy = floor(state.g * 255.0 + 0.5);
+    float sz = floor(state.b * 255.0 + 0.5);
+    float seed = state.a * 255.0;
 
-        if (tickSubdivide || rand2(fullId1, 113.0) < SUBSUB_P) {
-            // ¼-size cells
-            vec2 sub2 = (subGrd1 + vec2(0.5)) * 2.0;
-            vec2 subId2 = floor(sub2);
-            vec2 subGrd2 = fract(sub2) - 0.5;
-            vec2 fullId2 = fullId1 * 2.0 + subId2 + vec2(31337.0);
+    // Local coord inside the CA cell, normalised to [-0.5, 0.5].
+    vec2 cellLocal = (vec2(ox, oy) + grd + vec2(0.5)) / max(sz, 1.0) - vec2(0.5);
+    // Stable per-cell id derived from anchor + seed.
+    vec2 cellAnchor = id - vec2(ox, oy);
+    vec2 cellId = cellAnchor + vec2(seed * 0.137, seed * 0.311);
 
-            if (tickSubdivide || rand2(fullId2, 167.0) < SUBSUBSUB_P) {
-                // ⅛-size cells
-                vec2 sub3 = (subGrd2 + vec2(0.5)) * 2.0;
-                vec2 subId3 = floor(sub3);
-                vec2 subGrd3 = fract(sub3) - 0.5;
-                vec2 fullId3 = fullId2 * 2.0 + subId3 + vec2(91011.0);
-                col = cellColor(subGrd3, fullId3);
-            } else {
-                col = cellColor(subGrd2, fullId2);
-            }
-        } else {
-            col = cellColor(subGrd1, fullId1);
-        }
-    } else {
-        col = cellColor(grd, id);
-    }
-
-    gl_FragColor = vec4(col, 1.0);
+    gl_FragColor = vec4(cellColor(cellLocal, cellId), 1.0);
 }

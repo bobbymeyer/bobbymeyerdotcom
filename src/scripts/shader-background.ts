@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import swissShader from './shaders/swiss.glsl?raw';
 import { makeFontAtlas, whenFontReady } from './font-atlas';
+import { GridCA, GRID_W, GRID_H } from './grid-ca';
+
+const TICK_DURATION_MS = 700;
 
 const SHADERS: Record<string, string> = {
   swiss: swissShader,
@@ -47,10 +50,17 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   };
 
   let atlasTexture: THREE.CanvasTexture | null = null;
+  let ca: GridCA | null = null;
+  let tickTimer: ReturnType<typeof setInterval> | null = null;
   if (SHADERS_NEEDING_ATLAS.has(shaderKey)) {
     await whenFontReady('Space Grotesk', '700', 64);
     atlasTexture = makeFontAtlas();
     uniforms.uAtlas = { value: atlasTexture };
+
+    ca = new GridCA();
+    uniforms.uState = { value: ca.texture };
+    uniforms.uGridSize = { value: new THREE.Vector2(GRID_W, GRID_H) };
+    tickTimer = setInterval(() => ca!.tick(), TICK_DURATION_MS);
   }
 
   // object_density driver:
@@ -110,11 +120,13 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
 
   return () => {
     cancelAnimationFrame(raf);
+    if (tickTimer) clearInterval(tickTimer);
     ro.disconnect();
     if (onMouseMove) window.removeEventListener('mousemove', onMouseMove);
     renderer.dispose();
     geometry.dispose();
     material.dispose();
     atlasTexture?.dispose();
+    ca?.texture.dispose();
   };
 }
