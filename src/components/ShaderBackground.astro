@@ -14,6 +14,6 @@ const { shader = 'plasma', class: className = '' } = Astro.props;
 
   document.querySelectorAll<HTMLCanvasElement>('canvas[data-shader]').forEach((canvas) => {
     const key = canvas.dataset.shader ?? 'plasma';
-    mountShaderBackground(canvas, key);
+    void mountShaderBackground(canvas, key);
   });
 </script>

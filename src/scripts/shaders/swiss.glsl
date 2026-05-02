@@ -3,6 +3,7 @@ precision highp int;
 
 uniform float uTime;
 uniform vec2 uResolution;
+uniform sampler2D uAtlas;
 
 #define iTime uTime
 #define iResolution uResolution
@@ -16,365 +17,34 @@ uniform vec2 uResolution;
 #define FS 0.46
 #define FGS (FS / 5.0)
 
-#define char_0 0
-#define char_1 1
-#define char_2 2
-#define char_3 3
-#define char_4 4
-#define char_5 5
-#define char_6 6
-#define char_7 7
-#define char_8 8
-#define char_9 9
-#define char_A 10
-#define char_B 11
-#define char_C 12
-#define char_D 13
-#define char_E 14
-#define char_F 15
-#define char_G 16
-#define char_H 17
-#define char_I 18
-#define char_J 19
-#define char_K 20
-#define char_L 21
-#define char_M 22
-#define char_N 23
-#define char_O 24
-#define char_P 25
-#define char_Q 26
-#define char_R 27
-#define char_S 28
-#define char_T 29
-#define char_U 30
-#define char_V 31
-#define char_W 32
-#define char_X 33
-#define char_Y 34
-#define char_Z 35
+#define ATLAS_COLS 6.0
+#define ATLAS_ROWS 6.0
 
 float random(vec2 p) {
     return fract(sin(dot(p.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
 
-// --- Stroke primitives (centered at origin; all strokes 2*FGS thick) -----------
-// Full bar across letter at row r: half-extents (FS, FGS), shifted to (0, r*FGS)
-// Full stem at column c:           half-extents (FGS, FS), shifted to (c*FGS, 0)
-// Half stem (top or bottom half):  half-extents (FGS, 3*FGS), shifted by ±2*FGS in y
+// Sample the glyph atlas. Returns a fake-SDF: ~0.5 outside, ~-0.5 inside,
+// with a smooth transition across glyph edges (canvas already AAs).
+// Outside the cell (|p| > 0.5) we return a positive box-distance so the
+// glyph is naturally clipped to its tile.
+float drawFont(vec2 p, int charId) {
+    float fc = float(charId);
+    float col = mod(fc, ATLAS_COLS);
+    float row = floor(fc / ATLAS_COLS);
 
-float bar(vec2 p, float row) {
-    return B(p - vec2(0.0, row * FGS), vec2(FS, FGS));
-}
-float stem(vec2 p, float col) {
-    return B(p - vec2(col * FGS, 0.0), vec2(FGS, FS));
-}
-// half-height stem; ySign = +1 (top half) or -1 (bottom half)
-float halfStem(vec2 p, float col, float ySign) {
-    return B(p - vec2(col * FGS, ySign * 2.0 * FGS), vec2(FGS, 3.0 * FGS));
-}
-// short bar, centered at (cx*FGS, cy*FGS), half-width hw*FGS
-float shortBar(vec2 p, float cx, float cy, float hw) {
-    return B(p - vec2(cx * FGS, cy * FGS), vec2(hw * FGS, FGS));
-}
-// 45° diagonal stroke, length 2*hh, centered at (cx, cy), sign = +1 ('/') or -1 ('\')
-float diag(vec2 p, float cx, float cy, float hh, float sign) {
-    p -= vec2(cx, cy);
-    p *= Rot(radians(sign * 45.0));
-    return B(p, vec2(FGS, hh));
-}
+    // p ∈ ~[-0.5, 0.5]; map to atlas UV, flipping Y for canvas coords.
+    vec2 cellUv = vec2(p.x + 0.5, 0.5 - p.y);
+    // tiny inset to avoid neighbor bleed under linear filtering
+    vec2 inner = clamp(cellUv, 0.002, 0.998);
+    vec2 uv = (vec2(col, row) + inner) / vec2(ATLAS_COLS, ATLAS_ROWS);
 
-// --- Numerals ------------------------------------------------------------------
+    float a = texture2D(uAtlas, uv).r;
+    float glyphD = 0.5 - a;
 
-float char0(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, bar(p, -4.0));
-    d = min(d, stem(p, -4.0));
-    d = min(d, stem(p, 4.0));
-    return d;
+    float boxClip = max(abs(p.x), abs(p.y)) - 0.5;
+    return max(glyphD, boxClip);
 }
-float char1(vec2 p) {
-    return stem(p, 0.0);
-}
-float char2(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, halfStem(p, 4.0, 1.0));
-    d = min(d, bar(p, 0.0));
-    d = min(d, halfStem(p, -4.0, -1.0));
-    d = min(d, bar(p, -4.0));
-    return d;
-}
-float char3(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, bar(p, 0.0));
-    d = min(d, bar(p, -4.0));
-    d = min(d, stem(p, 4.0));
-    return d;
-}
-float char4(vec2 p) {
-    float d = halfStem(p, -4.0, 1.0);
-    d = min(d, bar(p, 0.0));
-    d = min(d, stem(p, 4.0));
-    return d;
-}
-float char5(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, halfStem(p, -4.0, 1.0));
-    d = min(d, bar(p, 0.0));
-    d = min(d, halfStem(p, 4.0, -1.0));
-    d = min(d, bar(p, -4.0));
-    return d;
-}
-float char6(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, stem(p, -4.0));
-    d = min(d, bar(p, 0.0));
-    d = min(d, halfStem(p, 4.0, -1.0));
-    d = min(d, bar(p, -4.0));
-    return d;
-}
-float char7(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, stem(p, 4.0));
-    return d;
-}
-float char8(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, bar(p, 0.0));
-    d = min(d, bar(p, -4.0));
-    d = min(d, stem(p, -4.0));
-    d = min(d, stem(p, 4.0));
-    return d;
-}
-float char9(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, halfStem(p, -4.0, 1.0));
-    d = min(d, bar(p, 0.0));
-    d = min(d, stem(p, 4.0));
-    d = min(d, bar(p, -4.0));
-    return d;
-}
-
-// --- Letters -------------------------------------------------------------------
-
-// A — stencil A: top, crossbar, two full stems
-float charA(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, bar(p, 0.0));
-    d = min(d, stem(p, -4.0));
-    d = min(d, stem(p, 4.0));
-    return d;
-}
-// B = 8 (Crouwel-style ambiguity)
-float charB(vec2 p) {
-    return char8(p);
-}
-float charC(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, bar(p, -4.0));
-    d = min(d, stem(p, -4.0));
-    return d;
-}
-// D = 0
-float charD(vec2 p) {
-    return char0(p);
-}
-float charE(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, bar(p, 0.0));
-    d = min(d, bar(p, -4.0));
-    d = min(d, stem(p, -4.0));
-    return d;
-}
-float charF(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, bar(p, 0.0));
-    d = min(d, stem(p, -4.0));
-    return d;
-}
-// G — C with a hook on the right
-float charG(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, bar(p, -4.0));
-    d = min(d, stem(p, -4.0));
-    d = min(d, halfStem(p, 4.0, -1.0));
-    d = min(d, shortBar(p, 2.0, 0.0, 3.0));
-    return d;
-}
-float charH(vec2 p) {
-    float d = stem(p, -4.0);
-    d = min(d, stem(p, 4.0));
-    d = min(d, bar(p, 0.0));
-    return d;
-}
-// I = 1
-float charI(vec2 p) {
-    return char1(p);
-}
-float charJ(vec2 p) {
-    float d = stem(p, 4.0);
-    d = min(d, bar(p, -4.0));
-    d = min(d, halfStem(p, -4.0, -1.0));
-    return d;
-}
-// K — left stem + center bar (left half) + two diagonals
-float charK(vec2 p) {
-    float d = stem(p, -4.0);
-    d = min(d, shortBar(p, -2.0, 0.0, 3.0));
-    d = min(d, diag(p, 2.0 * FGS, 2.0 * FGS, 3.0 * FGS, -1.0));
-    d = min(d, diag(p, 2.0 * FGS, -2.0 * FGS, 3.0 * FGS, 1.0));
-    return d;
-}
-float charL(vec2 p) {
-    float d = stem(p, -4.0);
-    d = min(d, bar(p, -4.0));
-    return d;
-}
-// M — two outer stems + top bar + two upper inner half-stems
-float charM(vec2 p) {
-    float d = stem(p, -4.0);
-    d = min(d, stem(p, 4.0));
-    d = min(d, bar(p, 4.0));
-    d = min(d, halfStem(p, -2.0, 1.0));
-    d = min(d, halfStem(p, 2.0, 1.0));
-    return d;
-}
-// N — outer stems + stair-step (top-left short bar + bottom-right short bar)
-float charN(vec2 p) {
-    float d = stem(p, -4.0);
-    d = min(d, stem(p, 4.0));
-    d = min(d, shortBar(p, -2.0, 4.0, 3.0));
-    d = min(d, shortBar(p, 2.0, -4.0, 3.0));
-    return d;
-}
-float charO(vec2 p) {
-    return char0(p);
-}
-float charP(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, bar(p, 0.0));
-    d = min(d, stem(p, -4.0));
-    d = min(d, halfStem(p, 4.0, 1.0));
-    return d;
-}
-// Q — O with a small diagonal nub at bottom-right
-float charQ(vec2 p) {
-    float d = char0(p);
-    d = min(d, diag(p, 3.0 * FGS, -3.0 * FGS, 2.0 * FGS, -1.0));
-    return d;
-}
-// R — P with a leg
-float charR(vec2 p) {
-    float d = charP(p);
-    d = min(d, diag(p, 2.5 * FGS, -2.0 * FGS, 3.0 * FGS, 1.0));
-    return d;
-}
-// S = 5
-float charS(vec2 p) {
-    return char5(p);
-}
-float charT(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, stem(p, 0.0));
-    return d;
-}
-float charU(vec2 p) {
-    float d = stem(p, -4.0);
-    d = min(d, stem(p, 4.0));
-    d = min(d, bar(p, -4.0));
-    return d;
-}
-// V — two diagonals meeting at bottom center
-float charV(vec2 p) {
-    vec2 q = p;
-    q.x = abs(q.x);
-    q -= vec2(2.0 * FGS, 0.0);
-    q *= Rot(radians(-45.0));
-    return B(q, vec2(FGS, 4.0 * FGS));
-}
-// W — outer stems + bottom bar + two lower inner half-stems
-float charW(vec2 p) {
-    float d = stem(p, -4.0);
-    d = min(d, stem(p, 4.0));
-    d = min(d, bar(p, -4.0));
-    d = min(d, halfStem(p, -2.0, -1.0));
-    d = min(d, halfStem(p, 2.0, -1.0));
-    return d;
-}
-// X — two crossing diagonals
-float charX(vec2 p) {
-    vec2 q = p * Rot(radians(45.0));
-    float d = B(q, vec2(FGS, FS * 1.2));
-    q = p * Rot(radians(-45.0));
-    return min(d, B(q, vec2(FGS, FS * 1.2)));
-}
-// Y — two upper diagonals + lower center stem
-float charY(vec2 p) {
-    float d = halfStem(p, 0.0, -1.0);
-    d = min(d, diag(p, -2.0 * FGS, 2.0 * FGS, 3.0 * FGS, 1.0));
-    d = min(d, diag(p, 2.0 * FGS, 2.0 * FGS, 3.0 * FGS, -1.0));
-    return d;
-}
-// Z — top, bottom, full diagonal
-float charZ(vec2 p) {
-    float d = bar(p, 4.0);
-    d = min(d, bar(p, -4.0));
-    vec2 q = p * Rot(radians(-45.0));
-    d = min(d, B(q, vec2(FGS, FS * 1.2)));
-    return d;
-}
-
-// --- Dispatch ------------------------------------------------------------------
-
-float checkChar(int targetChar, int char) {
-    return 1.0 - abs(sign(float(targetChar) - float(char)));
-}
-
-float drawFont(vec2 p, int char) {
-    float d = char0(p) * checkChar(char_0, char);
-    d += char1(p) * checkChar(char_1, char);
-    d += char2(p) * checkChar(char_2, char);
-    d += char3(p) * checkChar(char_3, char);
-    d += char4(p) * checkChar(char_4, char);
-    d += char5(p) * checkChar(char_5, char);
-    d += char6(p) * checkChar(char_6, char);
-    d += char7(p) * checkChar(char_7, char);
-    d += char8(p) * checkChar(char_8, char);
-    d += char9(p) * checkChar(char_9, char);
-    d += charA(p) * checkChar(char_A, char);
-    d += charB(p) * checkChar(char_B, char);
-    d += charC(p) * checkChar(char_C, char);
-    d += charD(p) * checkChar(char_D, char);
-    d += charE(p) * checkChar(char_E, char);
-    d += charF(p) * checkChar(char_F, char);
-    d += charG(p) * checkChar(char_G, char);
-    d += charH(p) * checkChar(char_H, char);
-    d += charI(p) * checkChar(char_I, char);
-    d += charJ(p) * checkChar(char_J, char);
-    d += charK(p) * checkChar(char_K, char);
-    d += charL(p) * checkChar(char_L, char);
-    d += charM(p) * checkChar(char_M, char);
-    d += charN(p) * checkChar(char_N, char);
-    d += charO(p) * checkChar(char_O, char);
-    d += charP(p) * checkChar(char_P, char);
-    d += charQ(p) * checkChar(char_Q, char);
-    d += charR(p) * checkChar(char_R, char);
-    d += charS(p) * checkChar(char_S, char);
-    d += charT(p) * checkChar(char_T, char);
-    d += charU(p) * checkChar(char_U, char);
-    d += charV(p) * checkChar(char_V, char);
-    d += charW(p) * checkChar(char_W, char);
-    d += charX(p) * checkChar(char_X, char);
-    d += charY(p) * checkChar(char_Y, char);
-    d += charZ(p) * checkChar(char_Z, char);
-
-    // clip to letter box
-    float a = radians(45.0);
-    p = abs(p) - 0.37;
-    d = max(dot(p, vec2(cos(a), sin(a))), d);
-    return d;
-}
-
-// --- Decorative tiles (kept for gridSystem variety) ----------------------------
 
 float dSlopeLines(vec2 p) {
     float lineSize = 24.0;

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import swissShader from './shaders/swiss.glsl?raw';
+import { makeFontAtlas, whenFontReady } from './font-atlas';
 
 const SHADERS: Record<string, string> = {
   swiss: swissShader,
@@ -30,17 +31,26 @@ const SHADERS: Record<string, string> = {
   `,
 };
 
-export function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey: string) {
+const SHADERS_NEEDING_ATLAS = new Set(['swiss']);
+
+export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey: string) {
   const fragmentShader = SHADERS[shaderKey] ?? SHADERS.plasma;
 
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-  const uniforms = {
+  const uniforms: Record<string, { value: unknown }> = {
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2() },
   };
+
+  let atlasTexture: THREE.CanvasTexture | null = null;
+  if (SHADERS_NEEDING_ATLAS.has(shaderKey)) {
+    await whenFontReady('Space Grotesk', '700', 64);
+    atlasTexture = makeFontAtlas();
+    uniforms.uAtlas = { value: atlasTexture };
+  }
 
   const material = new THREE.ShaderMaterial({
     uniforms,
@@ -54,7 +64,7 @@ export function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey: stri
   const resize = () => {
     const { clientWidth: w, clientHeight: h } = canvas;
     renderer.setSize(w, h, false);
-    uniforms.uResolution.value.set(w, h);
+    (uniforms.uResolution.value as THREE.Vector2).set(w, h);
   };
   resize();
   const ro = new ResizeObserver(resize);
@@ -75,5 +85,6 @@ export function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey: stri
     renderer.dispose();
     geometry.dispose();
     material.dispose();
+    atlasTexture?.dispose();
   };
 }
