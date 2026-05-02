@@ -19,7 +19,7 @@ import FallingCells from '@/components/FallingCells.astro';
       <!-- Back grid: 4 columns. Portrait fills cols 3-4 at a tall
            3:5 aspect so the face actually reads at this size. -->
       <div class="hidden md:grid absolute inset-x-6 md:inset-x-10 top-24 md:top-20 grid-cols-4 gap-6 z-0 pointer-events-none">
-        <div class="col-start-3 col-end-5 aspect-[3/5] overflow-hidden">
+        <div data-collide class="col-start-3 col-end-5 aspect-[3/5] overflow-hidden">
           <img
             src="/img/bobby.png"
             alt="Bobby Meyer"
@@ -30,7 +30,7 @@ import FallingCells from '@/components/FallingCells.astro';
 
       <!-- Front grid: 12 columns. Bio + patter claims the left 7-8. -->
       <div class="relative grid grid-cols-12 gap-6 z-10">
-        <div class="col-span-12 md:col-span-8">
+        <div data-collide class="col-span-12 md:col-span-8">
           <p class="font-grotesk text-xs uppercase tracking-[0.3em] mb-10">
             This is just about me
           </p>
@@ -79,6 +79,7 @@ import FallingCells from '@/components/FallingCells.astro';
       </h2>
 
       <form
+        data-collide
         name="contact"
         method="POST"
         data-netlify="true"

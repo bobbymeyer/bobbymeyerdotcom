@@ -42,6 +42,32 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   };
   buildWalls();
 
+  // Mirror any [data-collide] DOM elements as static bodies so cells
+  // pile on top of them and bounce off their edges.
+  let domBodies: Matter.Body[] = [];
+  const buildDomBodies = () => {
+    Matter.World.remove(engine.world, domBodies);
+    domBodies = [];
+    const cRect = container.getBoundingClientRect();
+    const targets = container.querySelectorAll<HTMLElement>('[data-collide]');
+    targets.forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.width < 2 || r.height < 2) return;
+      const x = r.left - cRect.left + r.width / 2;
+      const y = r.top - cRect.top + r.height / 2;
+      domBodies.push(
+        Matter.Bodies.rectangle(x, y, r.width, r.height, {
+          isStatic: true,
+          friction: 0.5,
+          restitution: 0.3,
+          render: { visible: false },
+        }),
+      );
+    });
+    Matter.World.add(engine.world, domBodies);
+  };
+  buildDomBodies();
+
   const ro = new ResizeObserver(() => {
     w = container.clientWidth;
     h = container.clientHeight;
@@ -52,8 +78,13 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     Matter.Render.setPixelRatio(render, window.devicePixelRatio || 1);
     Matter.Render.lookAt(render, { min: { x: 0, y: 0 }, max: { x: w, y: h } });
     buildWalls();
+    buildDomBodies();
   });
   ro.observe(container);
+  // Also rebuild collide bodies whenever any tracked element resizes
+  // (text reflow, image load, font swap, etc.).
+  const elRo = new ResizeObserver(() => buildDomBodies());
+  container.querySelectorAll<HTMLElement>('[data-collide]').forEach((el) => elRo.observe(el));
 
   const live: Matter.Body[] = [];
   const spawn = () => {
@@ -97,6 +128,7 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       window.clearTimeout(spawnStart);
       if (spawnInterval !== null) window.clearInterval(spawnInterval);
       ro.disconnect();
+      elRo.disconnect();
       Matter.Render.stop(render);
       Matter.Runner.stop(runner);
       Matter.Engine.clear(engine);
