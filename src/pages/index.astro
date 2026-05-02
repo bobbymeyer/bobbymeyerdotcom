@@ -19,9 +19,9 @@ import FallingCells from '@/components/FallingCells.astro';
       <!-- Back grid: 4 columns. Portrait fills cols 3-4 at a tall
            3:5 aspect so the face actually reads at this size. -->
       <div class="hidden md:grid absolute inset-x-6 md:inset-x-10 top-24 md:top-20 grid-cols-4 gap-6 z-0 pointer-events-none">
-        <div data-collide data-collide-shape="/img/bobby.png" class="col-start-3 col-end-5 aspect-[3/5] overflow-hidden">
+        <div data-collide data-collide-shape="/img/bobby-sidebar.png" class="col-start-3 col-end-5 aspect-[3/5] overflow-hidden">
           <img
-            src="/img/bobby.png"
+            src="/img/bobby-sidebar.png"
             alt="Bobby Meyer"
             class="h-full w-full object-cover object-top"
           />
@@ -68,7 +68,7 @@ import FallingCells from '@/components/FallingCells.astro';
       <!-- Mobile portrait: stacked under the bio, no overlap. -->
       <div class="md:hidden mt-12 aspect-[3/5] overflow-hidden">
         <img
-          src="/img/bobby.png"
+          src="/img/bobby-sidebar.png"
           alt="Bobby Meyer"
           class="h-full w-full object-cover object-top"
         />
