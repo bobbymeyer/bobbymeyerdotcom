@@ -4,7 +4,9 @@ import ShaderBackground from '@/components/ShaderBackground.astro';
 ---
 
 <Base title="Bobby Meyer">
-  <div class="fixed inset-0">
-    <ShaderBackground shader="swiss" />
+  <div class="min-h-screen bg-paper flex items-center justify-center p-8">
+    <div class="w-full max-w-5xl aspect-[4/3] border border-ink relative overflow-hidden">
+      <ShaderBackground shader="swiss" />
+    </div>
   </div>
 </Base>
