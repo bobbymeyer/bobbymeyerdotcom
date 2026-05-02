@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import swissShader from './shaders/swiss.glsl?raw';
 import { makeFontAtlas, whenFontReady } from './font-atlas';
-import { GridLife, GRID_W, GRID_H } from './grid-ca';
+import { GridLife, GRID_W, GRID_H, SUB_W, SUB_H } from './grid-ca';
 
 const TICK_DURATION_MS = 500;
 
@@ -57,8 +57,10 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     uniforms.uAtlas = { value: atlasTexture };
 
     life = new GridLife();
-    uniforms.uState = { value: life.texture };
-    uniforms.uGridSize = { value: new THREE.Vector2(GRID_W, GRID_H) };
+    uniforms.uStateBase = { value: life.baseTexture };
+    uniforms.uStateSub = { value: life.subTexture };
+    uniforms.uBaseSize = { value: new THREE.Vector2(GRID_W, GRID_H) };
+    uniforms.uSubSize = { value: new THREE.Vector2(SUB_W, SUB_H) };
     tickTimer = setInterval(() => life!.tick(), TICK_DURATION_MS);
   }
 
@@ -97,6 +99,7 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     geometry.dispose();
     material.dispose();
     atlasTexture?.dispose();
-    life?.texture.dispose();
+    life?.baseTexture.dispose();
+    life?.subTexture.dispose();
   };
 }

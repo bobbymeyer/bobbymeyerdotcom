@@ -4,12 +4,14 @@ precision highp int;
 uniform float uTime;
 uniform vec2 uResolution;
 uniform sampler2D uAtlas;
-// Per-grid-cell state from the JS Game-of-Life simulator.
-//   R = placement seed (0 = unrevealed → paper, 1..255 = active seed)
-//   G = current GoL alive bit (unused by the shader for now)
-//   B/A reserved
-uniform sampler2D uState;
-uniform vec2 uGridSize;
+// Two-resolution Game of Life. uStateBase encodes whether each base cell
+// is "split" (alive in the base GoL); uStateSub encodes content per
+// sub-cell (2× resolution per axis): R=colorVal, G=charVal, B=everHit,
+// A=alive.
+uniform sampler2D uStateBase;
+uniform sampler2D uStateSub;
+uniform vec2 uBaseSize;
+uniform vec2 uSubSize;
 
 #define iTime uTime
 #define iResolution uResolution
@@ -194,15 +196,33 @@ void main() {
     vec2 id = floor(p);
     vec2 grd = fract(p) - 0.5;
 
-    // Inside the logical CA grid? If not, we're showing margin.
-    vec2 gridXY = id + uGridSize * 0.5;
-    if (gridXY.x < 0.0 || gridXY.x >= uGridSize.x
-        || gridXY.y < 0.0 || gridXY.y >= uGridSize.y) {
+    // Inside the base grid? If not, we're showing margin.
+    vec2 baseXY = id + uBaseSize * 0.5;
+    if (baseXY.x < 0.0 || baseXY.x >= uBaseSize.x
+        || baseXY.y < 0.0 || baseXY.y >= uBaseSize.y) {
         gl_FragColor = vec4(PAPER, 1.0);
         return;
     }
 
-    vec4 state = texture2D(uState, (gridXY + vec2(0.5)) / uGridSize);
+    // Base layer: is this cell split into 4 sub-cells?
+    vec4 baseState = texture2D(uStateBase, (baseXY + vec2(0.5)) / uBaseSize);
+    bool isSplit = baseState.r > 0.5;
+
+    // Pick the sub-cell to read. Merged cells use the top-left sub-cell
+    // (rendering it across the whole base cell). Split cells map each
+    // quadrant of grd to its corresponding sub-cell.
+    vec2 subXY;
+    vec2 subGrd;
+    if (isSplit) {
+        vec2 quadrant = step(vec2(0.0), grd);          // (0|1, 0|1)
+        subXY = baseXY * 2.0 + quadrant;
+        subGrd = grd * 2.0 + (vec2(0.5) - quadrant);   // remap to [-0.5, 0.5]
+    } else {
+        subXY = baseXY * 2.0;
+        subGrd = grd;
+    }
+
+    vec4 state = texture2D(uStateSub, (subXY + vec2(0.5)) / uSubSize);
     float colorVal = floor(state.r * 255.0 + 0.5);
     float charVal  = floor(state.g * 255.0 + 0.5);
     bool everHit   = state.b > 0.5;
@@ -218,17 +238,16 @@ void main() {
     // -- character layer --------------------------------------------------
     int tch = titleAt(id);
     if (tch >= 0) {
-        // Title cells are immutable: their character is fixed regardless
-        // of the random char layer roll. The color layer still applies.
+        // Title cells render the masthead letter at base scale,
+        // regardless of split state.
         float d = drawFont(grd, tch);
         gl_FragColor = vec4(mix(bg, fg, S(d, 0.0)), 1.0);
         return;
     }
     if (charVal < 0.5) {
-        // No character — just the color layer.
         gl_FragColor = vec4(bg, 1.0);
         return;
     }
-    float d = charSDF(grd, charVal);
+    float d = charSDF(subGrd, charVal);
     gl_FragColor = vec4(mix(bg, fg, S(d, 0.0)), 1.0);
 }
