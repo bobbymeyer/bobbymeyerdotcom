@@ -31,8 +31,8 @@ uniform float uTickProgress;
 // mobile can use a smaller grid than desktop.
 uniform float uCellPx;
 #define CELL_PX uCellPx
-#define ATLAS_COLS 6.0
-#define ATLAS_ROWS 6.0
+#define ATLAS_COLS 8.0
+#define ATLAS_ROWS 8.0
 
 const vec3 PAPER   = vec3(1.0, 1.0, 1.0);
 const vec3 KEY     = vec3(0.137, 0.122, 0.125);

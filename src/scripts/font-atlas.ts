@@ -1,8 +1,11 @@
 import * as THREE from 'three';
 
 export const ATLAS_GLYPHS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-export const ATLAS_COLS = 6;
-export const ATLAS_ROWS = 6;
+// 8×8 grid (64 slots, only 36 used) so the texture comes out at a
+// power-of-two size — required for mipmaps on WebGL1, and a
+// performance / quality win on WebGL2 too.
+export const ATLAS_COLS = 8;
+export const ATLAS_ROWS = 8;
 
 export interface AtlasOptions {
   /** Pixel size of each cell. */
