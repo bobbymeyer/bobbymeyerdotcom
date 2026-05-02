@@ -19,10 +19,11 @@ export interface AtlasOptions {
 }
 
 export function makeFontAtlas(opts: AtlasOptions = {}): THREE.CanvasTexture {
-  // POT cell size + larger glyph render so even on mobile (24px cells)
-  // the atlas has enough fidelity once mipmapped.
-  const cellSize = opts.cellSize ?? 256;
-  const glyphSize = opts.glyphSize ?? 184;
+  // 128px cells in a 1024x1024 POT atlas. Glyph is rendered at 96% of
+  // the cell so there's lots of letter to look at when downsampled to
+  // 24px on mobile. Mipmaps generate cleanly because the texture is POT.
+  const cellSize = opts.cellSize ?? 128;
+  const glyphSize = opts.glyphSize ?? Math.round(cellSize * 0.92);
   const fontFamily = opts.fontFamily ?? '"Space Grotesk", system-ui, sans-serif';
   const fontWeight = opts.fontWeight ?? 700;
 
@@ -38,6 +39,10 @@ export function makeFontAtlas(opts: AtlasOptions = {}): THREE.CanvasTexture {
   ctx.font = `${fontWeight} ${glyphSize}px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  // Geometric precision keeps strokes from getting hinted into weird
+  // widths at the atlas size — important when we downsample to 24px.
+  (ctx as CanvasRenderingContext2D & { textRendering?: string }).textRendering =
+    'geometricPrecision';
 
   for (let i = 0; i < ATLAS_GLYPHS.length; i++) {
     const col = i % ATLAS_COLS;
@@ -48,9 +53,6 @@ export function makeFontAtlas(opts: AtlasOptions = {}): THREE.CanvasTexture {
   }
 
   const texture = new THREE.CanvasTexture(canvas);
-  // LinearMipmapLinear (trilinear) keeps glyphs crisp at any cell size,
-  // including the 24px mobile grid where we'd otherwise see aliasing
-  // from a single high-res mip.
   texture.generateMipmaps = true;
   texture.minFilter = THREE.LinearMipmapLinearFilter;
   texture.magFilter = THREE.LinearFilter;
