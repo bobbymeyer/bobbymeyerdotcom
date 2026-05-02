@@ -14,13 +14,16 @@ uniform sampler2D uAtlas;
 #define B(p,s) max(abs(p).x-s.x,abs(p).y-s.y)
 
 // Tight Swiss grid.
-#define DENSITY 15.0
+#define DENSITY 16.0
 // Each COARSE×COARSE block of fine cells has at most one macro cell
 // anchored at its corner; the rest are 1×1 fillers (sometimes
-// subdivided further into half-size mini cells).
-#define COARSE 4.0
-// Probability that a 1×1 filler subdivides into 2×2 half-size cells.
-#define SUBDIVIDE_P 0.28
+// subdivided further into half-size mini cells, and those mini cells
+// can subdivide once more into quarter-size cells).
+#define COARSE 5.0
+// Probability a 1×1 filler subdivides into 2×2 half-size cells.
+#define SUBDIVIDE_P 0.30
+// Probability a half-size mini cell subdivides again into 2×2 quarter cells.
+#define SUBSUB_P 0.32
 
 #define ATLAS_COLS 6.0
 #define ATLAS_ROWS 6.0
@@ -51,21 +54,63 @@ float drawFont(vec2 p, int charId) {
     return max(glyphD, boxClip);
 }
 
+// 14 symbols, ~ASCII vibe.
 float symbol(vec2 p, int idx) {
-    if (idx == 0) return B(p, vec2(0.28));
-    if (idx == 1) return abs(B(p, vec2(0.34))) - 0.03;
-    if (idx == 2) {
+    if (idx == 0) return B(p, vec2(0.28));                                    // ■ filled square
+    if (idx == 1) return abs(B(p, vec2(0.34))) - 0.03;                        // □ square outline
+    if (idx == 2) {                                                            // + plus
         float h = B(p, vec2(0.34, 0.06));
         float v = B(p, vec2(0.06, 0.34));
         return min(h, v);
     }
-    if (idx == 3) return length(p) - 0.28;
-    if (idx == 4) return abs(length(p) - 0.30) - 0.03;
-    float d = length(p - vec2(-0.22, 0.0)) - 0.06;
-    d = min(d, length(p) - 0.06);
-    d = min(d, length(p - vec2(0.22, 0.0)) - 0.06);
-    return d;
+    if (idx == 3) return length(p) - 0.28;                                    // ● filled circle
+    if (idx == 4) return abs(length(p) - 0.30) - 0.03;                        // ○ circle outline
+    if (idx == 5) {                                                            // … three dots
+        float d = length(p - vec2(-0.22, 0.0)) - 0.06;
+        d = min(d, length(p) - 0.06);
+        d = min(d, length(p - vec2(0.22, 0.0)) - 0.06);
+        return d;
+    }
+    if (idx == 6) {                                                            // × cross
+        vec2 q = p * Rot(radians(45.0));
+        float h = B(q, vec2(0.34, 0.05));
+        float v = B(q, vec2(0.05, 0.34));
+        return min(h, v);
+    }
+    if (idx == 7) {                                                            // ◆ diamond filled
+        return B(p * Rot(radians(45.0)), vec2(0.22));
+    }
+    if (idx == 8) return abs(B(p * Rot(radians(45.0)), vec2(0.26))) - 0.03;   // ◇ diamond outline
+    if (idx == 9) {                                                            // ▲ filled triangle pointing up
+        float a = radians(60.0);
+        vec2 q = vec2(abs(p.x), p.y - 0.04);
+        return max(q.y - 0.30, dot(q, vec2(cos(a), sin(a))) - 0.30);
+    }
+    if (idx == 10) {                                                           // ‖ three vertical bars
+        float d = B(p - vec2(-0.18, 0.0), vec2(0.04, 0.30));
+        d = min(d, B(p, vec2(0.04, 0.30)));
+        d = min(d, B(p - vec2(0.18, 0.0), vec2(0.04, 0.30)));
+        return d;
+    }
+    if (idx == 11) {                                                           // ≡ three horizontal bars
+        float d = B(p - vec2(0.0, -0.18), vec2(0.30, 0.04));
+        d = min(d, B(p, vec2(0.30, 0.04)));
+        d = min(d, B(p - vec2(0.0, 0.18), vec2(0.30, 0.04)));
+        return d;
+    }
+    if (idx == 12) {                                                           // / single diagonal slash
+        return B(p * Rot(radians(45.0)), vec2(0.05, 0.36));
+    }
+    // arrow → pointing right
+    float shaft = B(p - vec2(-0.05, 0.0), vec2(0.22, 0.05));
+    vec2 tipQ = p - vec2(0.20, 0.0);
+    float a = radians(45.0);
+    float tip = max(tipQ.x - 0.12,
+                    max(dot(tipQ, vec2(cos(a), sin(a))) - 0.0,
+                        dot(tipQ, vec2(cos(-a), sin(-a))) - 0.0));
+    return min(shaft, tip);
 }
+#define SYMBOL_COUNT 14.0
 
 float animatedTile(vec2 p, int kind, vec2 id) {
     if (kind == 0) {
@@ -86,12 +131,24 @@ float animatedTile(vec2 p, int kind, vec2 id) {
     return drawFont(p, dig);
 }
 
-vec3 fieldColor(float h) {
-    // Even-ish split across the four process inks.
-    if (h < 0.27) return CYAN;
-    if (h < 0.52) return MAGENTA;
-    if (h < 0.77) return YELLOW;
+// Field types: 0=CYAN, 1=MAGENTA, 2=YELLOW, 3=KEY
+int pickField(float h) {
+    if (h < 0.27) return 0;
+    if (h < 0.52) return 1;
+    if (h < 0.77) return 2;
+    return 3;
+}
+vec3 fieldBG(int idx) {
+    if (idx == 0) return CYAN;
+    if (idx == 1) return MAGENTA;
+    if (idx == 2) return YELLOW;
     return KEY;
+}
+// Yellow has too little contrast against paper, so reverse glyphs in
+// black on yellow fields. Other inks reverse in paper.
+vec3 fieldFG(int idx) {
+    if (idx == 2) return KEY;
+    return PAPER;
 }
 
 // Render the four cell-content types at any size — caller supplies a
@@ -105,7 +162,7 @@ vec3 cellColor(vec2 grd, vec2 id) {
         return mix(PAPER, KEY, S(d, 0.0));
     }
     if (n < 0.77) {
-        int sym = int(rand2(id, 0.59) * 6.0);
+        int sym = int(rand2(id, 0.59) * SYMBOL_COUNT);
         float d = symbol(grd, sym);
         return mix(PAPER, KEY, S(d, 0.0));
     }
@@ -114,11 +171,21 @@ vec3 cellColor(vec2 grd, vec2 id) {
         float d = animatedTile(grd, kind, id);
         return mix(PAPER, KEY, S(d, 0.0));
     }
-    vec3 field = fieldColor(rand2(id, 0.91));
-    if (rand2(id, 0.97) > 0.45) {
+    int fIdx = pickField(rand2(id, 0.91));
+    vec3 field = fieldBG(fIdx);
+    vec3 fg    = fieldFG(fIdx);
+    float kindRoll = rand2(id, 0.97);
+    if (kindRoll > 0.65) {
+        // reversed letter
         int char = int(rand2(id, 0.31) * 35.0);
         float d = drawFont(grd, char);
-        return mix(field, PAPER, S(d, 0.0));
+        return mix(field, fg, S(d, 0.0));
+    }
+    if (kindRoll > 0.30) {
+        // reversed symbol
+        int sym = int(rand2(id, 0.59) * SYMBOL_COUNT);
+        float d = symbol(grd, sym);
+        return mix(field, fg, S(d, 0.0));
     }
     return field;
 }
@@ -128,10 +195,11 @@ vec3 cellColor(vec2 grd, vec2 id) {
 float macroSizeAt(vec2 coarseId) {
     if (coarseId.y > -0.5 && coarseId.y < 0.5) return 1.0;
     float h = rand2(coarseId, 41.0);
-    if (h > 0.92) return 4.0;  // 4×4 — ~8%   (fills entire coarse cell)
-    if (h > 0.76) return 3.0;  // 3×3 — ~16%
-    if (h > 0.45) return 2.0;  // 2×2 — ~31%
-    return 1.0;                // 1×1 — ~45%
+    if (h > 0.96) return 5.0;  // 5×5 — ~4%  (fills entire coarse cell)
+    if (h > 0.86) return 4.0;  // 4×4 — ~10%
+    if (h > 0.70) return 3.0;  // 3×3 — ~16%
+    if (h > 0.42) return 2.0;  // 2×2 — ~28%
+    return 1.0;                // 1×1 — ~42%
 }
 
 // Atlas index for the title letter at this fine cell, or -1 otherwise.
@@ -193,7 +261,16 @@ void main() {
         vec2 sub = (grd + vec2(0.5)) * 2.0;
         vec2 subId = floor(sub);
         vec2 subGrd = fract(sub) - 0.5;
-        col = cellColor(subGrd, id * 2.0 + subId + vec2(7777.0));
+        vec2 subFullId = id * 2.0 + subId + vec2(7777.0);
+        // ...and one of those mini cells may subdivide once more into quarters
+        if (rand2(subFullId, 113.0) < SUBSUB_P) {
+            vec2 sub2 = (subGrd + vec2(0.5)) * 2.0;
+            vec2 sub2Id = floor(sub2);
+            vec2 sub2Grd = fract(sub2) - 0.5;
+            col = cellColor(sub2Grd, subFullId * 2.0 + sub2Id + vec2(31337.0));
+        } else {
+            col = cellColor(subGrd, subFullId);
+        }
     } else {
         col = cellColor(grd, id);
     }
