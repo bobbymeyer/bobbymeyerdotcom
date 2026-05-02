@@ -94,6 +94,8 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   interface ElState {
     el: HTMLElement;
     body: Matter.Body | null;   // dynamic body for tippable elements
+    baseX?: number;             // initial body.position.x — for translate
+    baseY?: number;
   }
   const elState = new Map<number, ElState>();
   const uniqueStates = new Set<ElState>();
@@ -136,8 +138,11 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       isStatic: false,
       density: 0.0008,
       friction: 0.5,
-      frictionAir: 0.10,
-      restitution: 0.18,
+      // High air friction soaks up jitter so brief impacts don't read
+      // as twitches; the soft pin (below) is what permits translation
+      // under sustained load.
+      frictionAir: 0.18,
+      restitution: 0.15,
       render: { visible: false },
     };
 
@@ -211,19 +216,27 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
           Matter.Body.set(body, 'frictionAir', tippableOpts.frictionAir);
         }
 
+        // Soft pin: low stiffness lets the body translate under sustained
+        // load (a stack of cells), high damping keeps single hits from
+        // bouncing the element around.
         const pin = Matter.Constraint.create({
           pointA: { x: body.position.x, y: body.position.y },
           bodyB: body,
           pointB: { x: 0, y: 0 },
           length: 0,
-          stiffness: 1,
-          damping: 1,
+          stiffness: 0.12,
+          damping: 0.55,
           render: { visible: false },
         });
         domBodies.push(body);
         pinConstraints.push(pin);
 
-        const stateEntry: ElState = { el, body };
+        const stateEntry: ElState = {
+          el,
+          body,
+          baseX: body.position.x,
+          baseY: body.position.y,
+        };
         uniqueStates.add(stateEntry);
         elState.set(body.id, stateEntry);
 
@@ -263,17 +276,27 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     });
   });
 
-  // Mirror each tippable body's actual angle onto the DOM element it
-  // represents.
+  // Mirror each tippable body's actual position + angle onto the DOM
+  // element. Translation comes from the soft pin constraint giving way
+  // under sustained collision force.
   const updateTransforms = () => {
     uniqueStates.forEach((state) => {
       const body = state.body;
-      if (!body) return;
-      if (Math.abs(body.angle) < 0.0005 && Math.abs(body.angularVelocity) < 0.0005) {
+      if (!body || state.baseX === undefined || state.baseY === undefined) return;
+      const dx = body.position.x - state.baseX;
+      const dy = body.position.y - state.baseY;
+      const deg = body.angle * (180 / Math.PI);
+      const isResting =
+        Math.abs(dx) < 0.3
+        && Math.abs(dy) < 0.3
+        && Math.abs(body.angle) < 0.0008
+        && Math.abs(body.angularVelocity) < 0.0008
+        && Math.hypot(body.velocity.x, body.velocity.y) < 0.05;
+      if (isResting) {
         state.el.style.transform = '';
       } else {
-        const deg = body.angle * (180 / Math.PI);
-        state.el.style.transform = `rotate(${deg.toFixed(2)}deg)`;
+        state.el.style.transform =
+          `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${deg.toFixed(2)}deg)`;
       }
     });
     rafId = requestAnimationFrame(updateTransforms);
