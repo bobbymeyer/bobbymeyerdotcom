@@ -22,14 +22,14 @@ const dateLabel = new Date().toLocaleDateString('en-US', {
       </div>
 
       <!-- splash -->
-      <div class="col-span-12 md:col-span-8 bg-paper relative overflow-hidden min-h-[78vh]">
+      <div class="col-span-12 md:col-span-8 bg-paper relative overflow-hidden min-h-[80vh]">
         <!-- shader fills the canvas -->
         <div class="absolute inset-0">
           <ShaderBackground shader="swiss" />
         </div>
 
-        <!-- top meta strip, sits over shader -->
-        <div class="absolute top-0 inset-x-0 z-20 flex justify-between items-baseline
+        <!-- top meta strip -->
+        <div class="absolute top-0 inset-x-0 z-30 flex justify-between items-baseline
                     px-6 md:px-10 py-4
                     text-[10px] md:text-xs tracking-[0.3em] uppercase
                     bg-paper/85 backdrop-blur-[2px]
@@ -40,7 +40,19 @@ const dateLabel = new Date().toLocaleDateString('en-US', {
         </div>
 
         <!-- yellow band — horizontal geometric accent -->
-        <div class="absolute z-10 left-0 right-[18%] top-[38%] h-[10%] bg-flag"></div>
+        <div class="absolute z-10 left-0 right-[34%] top-[36%] h-[10%] bg-flag border-y border-ink"></div>
+
+        <!-- portrait block, ink-on-ink so the photo's black bg blends -->
+        <div class="absolute z-20 right-0 top-[14%] bottom-[28%]
+                    w-[42%] md:w-[34%]
+                    bg-ink border-l border-b border-ink
+                    overflow-hidden flex items-end justify-center">
+          <img
+            src="/img/bobby.png"
+            alt="Bobby Meyer"
+            class="h-full w-full object-cover object-top"
+          />
+        </div>
 
         <!-- vermilion block carrying the masthead -->
         <div class="absolute z-20 left-0 bottom-0
@@ -55,9 +67,9 @@ const dateLabel = new Date().toLocaleDateString('en-US', {
           </h1>
         </div>
 
-        <!-- small ink square — bottom-right counterweight -->
+        <!-- ink square — bottom-right counterweight, sits under portrait -->
         <div class="absolute z-20 right-0 bottom-0
-                    w-[18%] md:w-[14%] aspect-square
+                    w-[22%] md:w-[18%] aspect-square
                     bg-ink border-t border-l border-ink
                     flex items-end justify-end p-3 md:p-4">
           <span class="text-paper text-[10px] md:text-xs tracking-[0.3em] uppercase">
