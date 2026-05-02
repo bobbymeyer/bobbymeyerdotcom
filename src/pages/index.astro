@@ -31,11 +31,12 @@ import FallingCells from '@/components/FallingCells.astro';
           <label>Don't fill this out: <input name="bot-field" /></label>
         </p>
 
-        <div data-collide class="space-y-2">
+        <div class="space-y-2">
           <label for="name" class="block text-xs uppercase tracking-[0.3em] text-ink/60">
             Name
           </label>
           <input
+            data-collide
             type="text"
             id="name"
             name="name"
@@ -44,11 +45,12 @@ import FallingCells from '@/components/FallingCells.astro';
           />
         </div>
 
-        <div data-collide class="space-y-2">
+        <div class="space-y-2">
           <label for="email" class="block text-xs uppercase tracking-[0.3em] text-ink/60">
             Email
           </label>
           <input
+            data-collide
             type="email"
             id="email"
             name="email"
@@ -57,11 +59,12 @@ import FallingCells from '@/components/FallingCells.astro';
           />
         </div>
 
-        <div data-collide class="space-y-2">
+        <div class="space-y-2">
           <label for="message" class="block text-xs uppercase tracking-[0.3em] text-ink/60">
             Message
           </label>
           <textarea
+            data-collide
             id="message"
             name="message"
             rows="5"

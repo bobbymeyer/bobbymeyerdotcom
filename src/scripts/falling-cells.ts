@@ -74,6 +74,9 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       wireframes: false,
       background: 'transparent',
       pixelRatio: window.devicePixelRatio || 1,
+      // Engine sleeping is on for smoothness; don't let the renderer
+      // dim sleeping bodies when they come to rest.
+      showSleeping: false,
     },
   });
 
