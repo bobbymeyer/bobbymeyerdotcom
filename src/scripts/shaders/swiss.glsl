@@ -124,26 +124,24 @@ float seedRand(float seedByte, float salt) {
     return fract(sin(k) * 43758.5453123);
 }
 
-// ---- character cascade ---------------------------------------------------
-// When we land on "a character" we choose between four sub-types
-// (each ~25%): a large simple symbol, a non-letter ASCII glyph,
-// a letter, or a number.
+// ---- character SDF ------------------------------------------------------
+// Returns a signed distance for a character glyph chosen from a seed byte.
+// Caller composites it onto whatever background it likes — letting the
+// color layer and the character layer stay independent.
 
-vec3 drawCharacter(vec2 grd, float seedByte, vec3 bg, vec3 fg) {
+float charSDF(vec2 grd, float seedByte) {
     int sub = int(seedRand(seedByte, 7.0) * 4.0);
-    float d;
 
     if (sub == 0) {
         // Large simple symbol — square / circle / triangle.
         int s = int(seedRand(seedByte, 8.0) * 3.0);
         int symIdx = (s == 0) ? 0 : (s == 1 ? 3 : 9);
-        d = symbol(grd * 0.85, symIdx); // slightly bigger
-    } else if (sub == 1) {
-        // Non-letter, non-number — pick from the rest of the symbol table.
-        // Indices 1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 13 (skip the "large" set 0/3/9).
-        float r = seedRand(seedByte, 9.0);
-        int picks = 11;
-        int n = int(r * float(picks));
+        return symbol(grd * 0.85, symIdx);
+    }
+    if (sub == 1) {
+        // Non-letter, non-number — pick from the rest of the symbol table
+        // (skip 0, 3, 9 which are the "large simple" set).
+        int n = int(seedRand(seedByte, 9.0) * 11.0);
         int symIdx = 1;
         if (n == 0) symIdx = 1;
         else if (n == 1) symIdx = 2;
@@ -156,30 +154,16 @@ vec3 drawCharacter(vec2 grd, float seedByte, vec3 bg, vec3 fg) {
         else if (n == 8) symIdx = 11;
         else if (n == 9) symIdx = 12;
         else symIdx = 13;
-        d = symbol(grd, symIdx);
-    } else if (sub == 2) {
+        return symbol(grd, symIdx);
+    }
+    if (sub == 2) {
         // Letter — atlas indices 10..35.
         int charIdx = 10 + int(seedRand(seedByte, 10.0) * 26.0);
-        d = drawFont(grd, charIdx);
-    } else {
-        // Number — atlas indices 0..9.
-        int numIdx = int(seedRand(seedByte, 11.0) * 10.0);
-        d = drawFont(grd, numIdx);
+        return drawFont(grd, charIdx);
     }
-    return mix(bg, fg, S(d, 0.0));
-}
-
-// ---- placement cascade ---------------------------------------------------
-// Five outcomes derived from a single byte seed. 50/50 at each fork:
-//   empty  →  character  →  field  →  field+character  →  character
-
-vec3 placementColor(vec2 grd, float seedByte) {
-    if (seedRand(seedByte, 1.0) < 0.5) return PAPER;                          // empty (50%)
-    if (seedRand(seedByte, 2.0) < 0.5) return drawCharacter(grd, seedByte, PAPER, KEY); // 25%
-    if (seedRand(seedByte, 3.0) < 0.5) return fieldBG(pickField(seedRand(seedByte, 4.0))); // 12.5%
-    int fIdx = pickField(seedRand(seedByte, 5.0));
-    if (seedRand(seedByte, 6.0) < 0.5) return drawCharacter(grd, seedByte, fieldBG(fIdx), fieldFG(fIdx)); // 6.25% field+char
-    return drawCharacter(grd, seedByte, PAPER, KEY);                           // 6.25% char
+    // Number — atlas indices 0..9.
+    int numIdx = int(seedRand(seedByte, 11.0) * 10.0);
+    return drawFont(grd, numIdx);
 }
 
 // ---- title row -----------------------------------------------------------
@@ -219,18 +203,32 @@ void main() {
     }
 
     vec4 state = texture2D(uState, (gridXY + vec2(0.5)) / uGridSize);
-    float seedByte = floor(state.r * 255.0 + 0.5);
-    bool revealed = seedByte > 0.5;
+    float colorVal = floor(state.r * 255.0 + 0.5);
+    float charVal  = floor(state.g * 255.0 + 0.5);
+    bool everHit   = state.b > 0.5;
 
+    if (!everHit) { gl_FragColor = vec4(PAPER, 1.0); return; }
+
+    // -- color layer ------------------------------------------------------
+    int colorIdx = int(mod(colorVal, 4.0));
+    bool hasColor = colorVal > 0.5;
+    vec3 bg = hasColor ? fieldBG(colorIdx) : PAPER;
+    vec3 fg = hasColor ? fieldFG(colorIdx) : KEY;
+
+    // -- character layer --------------------------------------------------
     int tch = titleAt(id);
     if (tch >= 0) {
-        // Immutable placement — but hidden until GoL has hit this cell.
-        if (!revealed) { gl_FragColor = vec4(PAPER, 1.0); return; }
+        // Title cells are immutable: their character is fixed regardless
+        // of the random char layer roll. The color layer still applies.
         float d = drawFont(grd, tch);
-        gl_FragColor = vec4(mix(MAGENTA, PAPER, S(d, 0.0)), 1.0);
+        gl_FragColor = vec4(mix(bg, fg, S(d, 0.0)), 1.0);
         return;
     }
-
-    if (!revealed) { gl_FragColor = vec4(PAPER, 1.0); return; }
-    gl_FragColor = vec4(placementColor(grd, seedByte), 1.0);
+    if (charVal < 0.5) {
+        // No character — just the color layer.
+        gl_FragColor = vec4(bg, 1.0);
+        return;
+    }
+    float d = charSDF(grd, charVal);
+    gl_FragColor = vec4(mix(bg, fg, S(d, 0.0)), 1.0);
 }

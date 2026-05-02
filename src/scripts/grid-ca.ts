@@ -5,6 +5,11 @@ import * as THREE from 'three';
 export const GRID_W = 48;
 export const GRID_H = 24;
 
+// Probability that a hit cell takes on a colored background / a character.
+// Independent rolls — both, neither, or one is fine.
+const COLOR_P = 0.30;
+const CHAR_P  = 0.55;
+
 // A handful of seed patterns. We periodically drop one of these into a
 // random spot on the board so the simulation doesn't burn out.
 const PATTERNS: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
@@ -24,11 +29,19 @@ const PATTERNS: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
 
 const idx = (x: number, y: number) => y * GRID_W + x;
 const wrap = (v: number, m: number) => ((v % m) + m) % m;
+const r255 = () => 1 + ((Math.random() * 255) | 0);
 
 export class GridLife {
+  // The grid layer (Game of Life — invisible).
   private alive: Uint8Array;
   private next: Uint8Array;
-  private seed: Uint8Array; // 0 = unrevealed (paper). 1..255 = placement seed.
+  // The color layer. 0 = paper, otherwise a value mod 4 picks the ink.
+  private colorVal: Uint8Array;
+  // The character layer. 0 = no character, otherwise a seed for charSDF.
+  private charVal: Uint8Array;
+  // Sticky reveal flag — once a cell has been hit, it stays revealed.
+  private everHit: Uint8Array;
+
   readonly data: Uint8Array;
   readonly texture: THREE.DataTexture;
   private tickCount = 0;
@@ -38,7 +51,9 @@ export class GridLife {
     const N = GRID_W * GRID_H;
     this.alive = new Uint8Array(N);
     this.next = new Uint8Array(N);
-    this.seed = new Uint8Array(N); // all start unrevealed
+    this.colorVal = new Uint8Array(N);
+    this.charVal = new Uint8Array(N);
+    this.everHit = new Uint8Array(N);
     this.data = new Uint8Array(N * 4);
 
     // Sparse random initial state.
@@ -55,9 +70,8 @@ export class GridLife {
     this.writeTexture();
   }
 
-  /** Advance one Game-of-Life generation and roll placements for any hit cells. */
+  /** Advance one Game-of-Life generation; re-roll content layers on any hit. */
   tick(): void {
-    // Standard Conway rules with toroidal wrap.
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
         const n = this.countNeighbors(x, y);
@@ -66,11 +80,12 @@ export class GridLife {
       }
     }
 
-    // Any cell whose state changed is a "hit" — re-roll its placement seed.
-    // Pachinko: revealing the cell or shuffling what it shows.
     for (let i = 0; i < this.alive.length; i++) {
       if (this.alive[i] !== this.next[i]) {
-        this.seed[i] = 1 + ((Math.random() * 255) | 0);
+        this.everHit[i] = 1;
+        // Independent rolls for the two content layers.
+        this.colorVal[i] = Math.random() < COLOR_P ? r255() : 0;
+        this.charVal[i]  = Math.random() < CHAR_P  ? r255() : 0;
       }
     }
 
@@ -108,10 +123,10 @@ export class GridLife {
     const N = GRID_W * GRID_H;
     for (let i = 0; i < N; i++) {
       const j = i * 4;
-      this.data[j + 0] = this.seed[i];           // 0 = paper, else placement seed
-      this.data[j + 1] = this.alive[i] ? 255 : 0; // GoL state (currently unused by shader, kept for future ghost effects)
-      this.data[j + 2] = 0;
-      this.data[j + 3] = 255;
+      this.data[j + 0] = this.colorVal[i];
+      this.data[j + 1] = this.charVal[i];
+      this.data[j + 2] = this.everHit[i] ? 255 : 0;
+      this.data[j + 3] = this.alive[i] ? 255 : 0;
     }
     this.texture.needsUpdate = true;
   }
