@@ -14,10 +14,13 @@ uniform sampler2D uAtlas;
 #define B(p,s) max(abs(p).x-s.x,abs(p).y-s.y)
 
 // Tight Swiss grid.
-#define DENSITY 12.0
+#define DENSITY 15.0
 // Each COARSE×COARSE block of fine cells has at most one macro cell
-// anchored at its corner; the rest are 1×1 fillers.
+// anchored at its corner; the rest are 1×1 fillers (sometimes
+// subdivided further into half-size mini cells).
 #define COARSE 4.0
+// Probability that a 1×1 filler subdivides into 2×2 half-size cells.
+#define SUBDIVIDE_P 0.28
 
 #define ATLAS_COLS 6.0
 #define ATLAS_ROWS 6.0
@@ -123,8 +126,9 @@ vec3 cellColor(vec2 grd, vec2 id) {
 float macroSizeAt(vec2 coarseId) {
     if (coarseId.y > -0.5 && coarseId.y < 0.5) return 1.0;
     float h = rand2(coarseId, 41.0);
-    if (h > 0.78) return 3.0;  // 3×3 — ~22%
-    if (h > 0.45) return 2.0;  // 2×2 — ~33%
+    if (h > 0.92) return 4.0;  // 4×4 — ~8%   (fills entire coarse cell)
+    if (h > 0.76) return 3.0;  // 3×3 — ~16%
+    if (h > 0.45) return 2.0;  // 2×2 — ~31%
     return 1.0;                // 1×1 — ~45%
 }
 
@@ -182,6 +186,12 @@ void main() {
         vec2 macroGrd = (offset + grd + vec2(0.5)) / macroSize - vec2(0.5);
         // shift id so macro content is independent of any 1×1 cell that happens to share an id
         col = cellColor(macroGrd, coarseId + vec2(1000.0));
+    } else if (rand2(id, 71.0) < SUBDIVIDE_P) {
+        // subdivide this 1×1 filler into 2×2 half-size cells
+        vec2 sub = (grd + vec2(0.5)) * 2.0;
+        vec2 subId = floor(sub);
+        vec2 subGrd = fract(sub) - 0.5;
+        col = cellColor(subGrd, id * 2.0 + subId + vec2(7777.0));
     } else {
         col = cellColor(grd, id);
     }
