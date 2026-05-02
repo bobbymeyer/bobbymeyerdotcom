@@ -4,7 +4,17 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        grotesk: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
+        // Straight Helvetica stack — system Helvetica on macOS / iOS,
+        // Arial on Windows / Android, falls back to Inter (loaded via
+        // Google Fonts) so Linux + Chrome OS get a tight grotesk too.
+        grotesk: [
+          '"Helvetica Neue"',
+          'Helvetica',
+          'Arial',
+          'Inter',
+          'system-ui',
+          'sans-serif',
+        ],
       },
       colors: {
         paper: '#ffffff',

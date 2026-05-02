@@ -59,7 +59,9 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   let tickTimer: ReturnType<typeof setInterval> | null = null;
   let lastTickTime = performance.now();
   if (SHADERS_NEEDING_LIFE.has(shaderKey)) {
-    await whenFontReady('Space Grotesk', '700', 64);
+    // Wait for Inter as a no-op cost on systems with Helvetica/Arial,
+    // but ensures Linux fallback gets rendered into the atlas.
+    await whenFontReady('Inter', '700', 64);
     atlasTexture = makeFontAtlas();
     uniforms.uAtlas = { value: atlasTexture };
 

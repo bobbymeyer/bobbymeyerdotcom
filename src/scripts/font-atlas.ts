@@ -24,7 +24,9 @@ export function makeFontAtlas(opts: AtlasOptions = {}): THREE.CanvasTexture {
   // 24px on mobile. Mipmaps generate cleanly because the texture is POT.
   const cellSize = opts.cellSize ?? 128;
   const glyphSize = opts.glyphSize ?? Math.round(cellSize * 0.92);
-  const fontFamily = opts.fontFamily ?? '"Space Grotesk", system-ui, sans-serif';
+  const fontFamily =
+    opts.fontFamily
+    ?? '"Helvetica Neue", Helvetica, Arial, Inter, system-ui, sans-serif';
   const fontWeight = opts.fontWeight ?? 700;
 
   const canvas = document.createElement('canvas');
