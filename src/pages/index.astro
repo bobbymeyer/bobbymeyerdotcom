@@ -1,6 +1,7 @@
 ---
 import Base from '@/layouts/Base.astro';
 import ShaderBackground from '@/components/ShaderBackground.astro';
+import FallingCells from '@/components/FallingCells.astro';
 ---
 
 <Base title="Bobby Meyer">
@@ -8,12 +9,13 @@ import ShaderBackground from '@/components/ShaderBackground.astro';
     <ShaderBackground shader="swiss" />
   </header>
 
-  <main class="bg-paper text-ink">
+  <main class="relative [perspective:1500px] [transform-style:preserve-3d]">
+    <FallingCells />
     <!-- Layered intro: portrait on a 4-col back grid; bio on a 12-col
          front grid. Different column counts so the gutters don't line
          up — that's the layered feel. Portrait peeks out around the
          type wherever the bio doesn't reach. -->
-    <section class="relative max-w-6xl mx-auto px-6 md:px-10 py-24 md:py-32">
+    <section class="relative max-w-6xl mx-auto px-6 md:px-10 py-24 md:py-32 md:[transform:rotateY(-15deg)] md:[transform-origin:left_center]">
       <!-- Back grid: 4 columns. Portrait fills cols 3-4 at a tall
            3:5 aspect so the face actually reads at this size. -->
       <div class="hidden md:grid absolute inset-x-6 md:inset-x-10 top-24 md:top-20 grid-cols-4 gap-6 z-0 pointer-events-none">
@@ -71,7 +73,7 @@ import ShaderBackground from '@/components/ShaderBackground.astro';
       </div>
     </section>
 
-    <section id="contact" class="max-w-2xl mx-auto px-6 md:px-10 py-24 md:py-32">
+    <section id="contact" class="relative max-w-2xl mx-auto px-6 md:px-10 py-24 md:py-32 md:[transform:rotateY(15deg)] md:[transform-origin:right_center]">
       <h2 class="font-grotesk text-xs uppercase tracking-[0.3em] mb-10">
         Get in touch
       </h2>
