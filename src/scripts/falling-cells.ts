@@ -337,6 +337,36 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   const elRo = new ResizeObserver(() => buildDomBodies());
   findCollideEls().forEach((el) => elRo.observe(el));
 
+  // Wire keystrokes on form inputs to nudge their parent collide body —
+  // each typed character pushes the field upward + jitters cells off it.
+  type InputListener = { el: HTMLElement; fn: () => void };
+  const inputListeners: InputListener[] = [];
+  const wireInputNudges = () => {
+    inputListeners.forEach(({ el, fn }) => el.removeEventListener('input', fn));
+    inputListeners.length = 0;
+    document
+      .querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')
+      .forEach((input) => {
+        const collideEl = input.closest('[data-collide]') as HTMLElement | null;
+        if (!collideEl) return;
+        const fn = () => {
+          let state: ElState | undefined;
+          uniqueStates.forEach((s) => { if (s.el === collideEl) state = s; });
+          if (!state?.body || state.body.isStatic) return;
+          // Wake the body so the impulse takes effect immediately.
+          if (state.body.isSleeping) Matter.Sleeping.set(state.body, false);
+          Matter.Body.applyForce(
+            state.body,
+            state.body.position,
+            { x: (Math.random() - 0.5) * 0.0012, y: -0.0010 },
+          );
+        };
+        input.addEventListener('input', fn);
+        inputListeners.push({ el: input, fn });
+      });
+  };
+  wireInputNudges();
+
   const live: Matter.Body[] = [];
   const spawn = () => {
     // Snap to the splash grid's column centres so spawns line up with
@@ -383,6 +413,8 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       cancelAnimationFrame(rafId);
       ro.disconnect();
       elRo.disconnect();
+      inputListeners.forEach(({ el, fn }) => el.removeEventListener('input', fn));
+      inputListeners.length = 0;
       uniqueStates.forEach((state) => {
         state.el.style.transform = '';
         state.el.style.transition = '';
