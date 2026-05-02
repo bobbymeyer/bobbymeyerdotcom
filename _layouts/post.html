@@ -3,15 +3,13 @@
   <head>
     {% include head.html %}
   </head>
-  <body class="bg-indigo-400 paper-texture">
+  <body>
     {% include navbar.html %}
-
-    <div id="content" class='mx-auto container grid grid-cols-1 gap-4 lg:w-2/3 xl:w-1/2 mx-auto my-16 p-2'>
-      {% include masthead.html %}
+    <main>
       {% include post-header.html %}
       {{ content }}
-      <a href="/" class="text-white hover:font-bold">back to posts</a>
-    </div>
+      <a href="/">back to posts</a>
+    </main>
     {% include footer.html %}
-    </body>
+  </body>
 </html>

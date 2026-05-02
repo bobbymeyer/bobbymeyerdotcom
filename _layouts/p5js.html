@@ -2,27 +2,17 @@
 <html lang="{{ site.lang | default: "en-US" }}">
   <head>
     {% include head.html %}
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js" integrity="sha512-WJXVjqeINVpi5XXJ2jn0BSCfp0y80IKrYh731gLRnkAS9TKc5KNt/OfLtu+fCueqdWniouJ1ubM+VI/hbo7POQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/addons/p5.sound.min.js" integrity="sha512-WzkwpdWEMAY/W8WvP9KS2/VI6zkgejR4/KTxTl4qHx0utqeyVE0JY+S1DlMuxDChC7x0oXtk/ESji6a0lP/Tdg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/addons/p5.sound.min.js" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/p5.js-svg@1.4.0"></script>
   </head>
-  <body class="bg-stone-400 paper-texture">
+  <body>
     {% include navbar.html %}
-
-    <div id="content" class='mx-auto container grid grid-cols-1 gap-4 lg:w-2/3 xl:w-1/2 mx-auto my-16 p-2'>
-      {% include masthead.html %}
+    <main>
       {% include post-header.html %}
-      <div id='p5_loading' class='loading mx-auto flex flex-col justify-center items-center'>
-        <div class="flex min-h-64 w-full items-center justify-center p-16">
-          <div class="h-8 w-8 rounded-full border-stone-400 border-4 bg-black border-dashed animate-spin flex justify-center items-center">
-            <div class="h-4 w-4 rounded-full bg-stone-400"></div>
-          </div>
-          <span class='text-2xl font-black p-4'>Loading</span>
-        </div>
-      </div>
       {{ content }}
-      <a href="/" class="text-white hover:font-bold">back to posts</a>
-    </div>
+      <a href="/">back to posts</a>
+    </main>
     {% include footer.html %}
-    </body>
+  </body>
 </html>

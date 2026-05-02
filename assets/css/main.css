@@ -1,17 +1,3 @@
 ---
 ---
 @import "tailwind.css";
-@import "headers.css";
-@import "typography.css";
-@import "lists.css";
-@import "syntax.css";
-
-
-.content {
-  @apply p-8 pt-16 rounded-tr-3xl;
-}
-
-.paper-texture {
-  background-image: url("{{site.baseurl}}/assets/img/paper-texture.png");
-  background-repeat: repeat;
-}
