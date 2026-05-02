@@ -24,7 +24,7 @@ uniform vec2 uSubSize;
 // Cell size in pixels — drives the responsive grid. The shader fits as
 // many whole CELL_PX-sized cells as the panel allows and pads the
 // leftover with paper.
-#define CELL_PX 24.0
+#define CELL_PX 48.0
 #define ATLAS_COLS 6.0
 #define ATLAS_ROWS 6.0
 
