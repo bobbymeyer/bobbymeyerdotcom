@@ -3,7 +3,7 @@ import Matter from 'matter-js';
 // Cells the colour of the splash grid's CMYK palette.
 const COLORS = ['#00aeef', '#ec008c', '#fff200', '#1f1f24'];
 const CELL = 48;
-const SPAWN_MS = 2000;
+const SPAWN_MS = 4000;
 const MAX_CELLS = 60;
 
 export interface Handle {
