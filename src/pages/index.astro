@@ -9,16 +9,44 @@ import ShaderBackground from '@/components/ShaderBackground.astro';
   </header>
 
   <main class="bg-paper text-ink">
-    <section class="max-w-3xl mx-auto px-6 md:px-10 pt-20 md:pt-28 pb-16">
-      <p class="font-grotesk text-xs uppercase tracking-[0.3em] mb-10">
-        This is just about me
-      </p>
-      <p class="font-grotesk text-3xl md:text-5xl leading-tight tracking-tight">
-        I wrangle bits. I manipulate pixels, waveforms, and lines of code.
-      </p>
-      <p class="font-grotesk text-3xl md:text-5xl leading-tight tracking-tight mt-6 text-ink/70">
-        I'm old enough to have called that multimedia.
-      </p>
+    <!-- Layered intro: portrait on a 4-col back grid; bio on a 12-col
+         front grid. The two stacks intersect in the middle so the
+         portrait peeks out where the type doesn't reach. -->
+    <section class="relative max-w-6xl mx-auto px-6 md:px-10 py-24 md:py-32">
+      <!-- Back grid: 4 columns, portrait sits in the rightmost three -->
+      <div class="hidden md:grid absolute inset-x-6 md:inset-x-10 inset-y-24 md:inset-y-32 grid-cols-4 gap-6 z-0 pointer-events-none">
+        <div class="col-start-2 col-end-5 bg-ink overflow-hidden">
+          <img
+            src="/img/bobby.png"
+            alt="Bobby Meyer"
+            class="h-full w-full object-cover object-top"
+          />
+        </div>
+      </div>
+
+      <!-- Front grid: 12 columns, bio text claims the left 8 -->
+      <div class="relative grid grid-cols-12 gap-6 z-10">
+        <div class="col-span-12 md:col-span-8">
+          <p class="font-grotesk text-xs uppercase tracking-[0.3em] mb-10">
+            This is just about me
+          </p>
+          <p class="font-grotesk text-3xl md:text-5xl leading-tight tracking-tight">
+            I wrangle bits. I manipulate pixels, waveforms, and lines of code.
+          </p>
+          <p class="font-grotesk text-3xl md:text-5xl leading-tight tracking-tight mt-6 text-ink/70">
+            I'm old enough to have called that multimedia.
+          </p>
+        </div>
+      </div>
+
+      <!-- Mobile portrait: stacked under the bio, no overlap -->
+      <div class="md:hidden mt-10 bg-ink overflow-hidden aspect-[4/5]">
+        <img
+          src="/img/bobby.png"
+          alt="Bobby Meyer"
+          class="h-full w-full object-cover object-top"
+        />
+      </div>
     </section>
 
     <section class="max-w-3xl mx-auto px-6 md:px-10 py-12">
