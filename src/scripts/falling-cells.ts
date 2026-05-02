@@ -54,12 +54,17 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   const elState = new Map<number, ElState>();
   let domBodies: Matter.Body[] = [];
 
+  // Search the whole document — data-collide elements live alongside
+  // (not inside) the FallingCells container.
+  const findCollideEls = () =>
+    document.querySelectorAll<HTMLElement>('[data-collide]');
+
   const buildDomBodies = () => {
     Matter.World.remove(engine.world, domBodies);
     elState.clear();
     domBodies = [];
     const cRect = container.getBoundingClientRect();
-    const targets = container.querySelectorAll<HTMLElement>('[data-collide]');
+    const targets = findCollideEls();
     targets.forEach((el) => {
       const r = el.getBoundingClientRect();
       if (r.width < 2 || r.height < 2) return;
@@ -137,7 +142,7 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   // Also rebuild collide bodies whenever any tracked element resizes
   // (text reflow, image load, font swap, etc.).
   const elRo = new ResizeObserver(() => buildDomBodies());
-  container.querySelectorAll<HTMLElement>('[data-collide]').forEach((el) => elRo.observe(el));
+  findCollideEls().forEach((el) => elRo.observe(el));
 
   const live: Matter.Body[] = [];
   const spawn = () => {
