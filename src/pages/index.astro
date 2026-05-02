@@ -4,9 +4,17 @@ import ShaderBackground from '@/components/ShaderBackground.astro';
 ---
 
 <Base title="Bobby Meyer">
-  <div class="min-h-screen bg-paper flex items-center justify-center p-8">
-    <div class="w-full max-w-5xl aspect-square md:aspect-[4/3] lg:aspect-video border border-ink relative overflow-hidden">
+  <main class="h-svh w-full bg-paper grid place-items-center overflow-hidden">
+    <div
+      class:list={[
+        'border border-ink relative overflow-hidden',
+        'aspect-square md:aspect-[4/3] lg:aspect-video',
+        'w-[min(100vw,100svh)]',
+        'md:w-[min(100vw,calc(100svh*4/3))]',
+        'lg:w-[min(100vw,calc(100svh*16/9))]',
+      ]}
+    >
       <ShaderBackground shader="swiss" />
     </div>
-  </div>
+  </main>
 </Base>
