@@ -1,174 +1,117 @@
 import * as THREE from 'three';
 
-// Logical grid covered by the CA. Should be wide enough to fill any
-// likely viewport at the chosen DENSITY. id.y == 0 in the shader maps
-// to grid_y == GRID_H/2.
+// Grid dimensions. Wide enough to cover any likely viewport at the
+// shader's DENSITY. Toroidal wrap for the GoL update.
 export const GRID_W = 48;
 export const GRID_H = 24;
-export const MAX_SIZE = 5;
-const TITLE_ROW = Math.floor(GRID_H / 2); // never modified, reserved for the BOBBY MEYER row
 
-interface Cell {
-  x: number; // anchor in grid coords [0, GRID_W)
-  y: number; // anchor in grid coords [0, GRID_H)
-  size: number; // 1..MAX_SIZE — square edge length in fine cells
-  seed: number; // 0..255 — drives content selection in the shader
-}
+// A handful of seed patterns. We periodically drop one of these into a
+// random spot on the board so the simulation doesn't burn out.
+const PATTERNS: ReadonlyArray<ReadonlyArray<readonly [number, number]>> = [
+  // glider
+  [[0, 0], [1, 0], [2, 0], [2, 1], [1, 2]],
+  // blinker
+  [[0, 0], [1, 0], [2, 0]],
+  // beacon
+  [[0, 0], [1, 0], [0, 1], [3, 2], [2, 3], [3, 3]],
+  // toad
+  [[1, 0], [2, 0], [3, 0], [0, 1], [1, 1], [2, 1]],
+  // block
+  [[0, 0], [1, 0], [0, 1], [1, 1]],
+  // r-pentomino (chaotic)
+  [[1, 0], [2, 0], [0, 1], [1, 1], [1, 2]],
+];
 
-const rand255 = () => (Math.random() * 256) | 0;
+const idx = (x: number, y: number) => y * GRID_W + x;
+const wrap = (v: number, m: number) => ((v % m) + m) % m;
 
-export class GridCA {
-  private cells: Cell[] = [];
-  // occupancy[y * GRID_W + x] = index into cells, or -1 if empty.
-  private occupancy = new Int32Array(GRID_W * GRID_H).fill(-1);
-  readonly data = new Uint8Array(GRID_W * GRID_H * 4);
+export class GridLife {
+  private alive: Uint8Array;
+  private next: Uint8Array;
+  private seed: Uint8Array; // 0 = unrevealed (paper). 1..255 = placement seed.
+  readonly data: Uint8Array;
   readonly texture: THREE.DataTexture;
+  private tickCount = 0;
+  private readonly spawnEvery = 14;
 
   constructor() {
+    const N = GRID_W * GRID_H;
+    this.alive = new Uint8Array(N);
+    this.next = new Uint8Array(N);
+    this.seed = new Uint8Array(N); // all start unrevealed
+    this.data = new Uint8Array(N * 4);
+
+    // Sparse random initial state.
+    for (let i = 0; i < N; i++) {
+      this.alive[i] = Math.random() < 0.16 ? 1 : 0;
+    }
+
     this.texture = new THREE.DataTexture(this.data, GRID_W, GRID_H, THREE.RGBAFormat);
     this.texture.minFilter = THREE.NearestFilter;
     this.texture.magFilter = THREE.NearestFilter;
     this.texture.wrapS = THREE.ClampToEdgeWrapping;
     this.texture.wrapT = THREE.ClampToEdgeWrapping;
     this.texture.flipY = false;
-    this.texture.needsUpdate = true;
-
-    this.reset();
-    // Warm up so the initial frame already has variety.
-    for (let i = 0; i < 80; i++) this.step();
     this.writeTexture();
   }
 
-  /** Reset to a uniform field of 1×1 cells. */
-  reset(): void {
-    this.cells = [];
+  /** Advance one Game-of-Life generation and roll placements for any hit cells. */
+  tick(): void {
+    // Standard Conway rules with toroidal wrap.
     for (let y = 0; y < GRID_H; y++) {
       for (let x = 0; x < GRID_W; x++) {
-        this.cells.push({ x, y, size: 1, seed: rand255() });
+        const n = this.countNeighbors(x, y);
+        const a = this.alive[idx(x, y)];
+        this.next[idx(x, y)] = a === 1 ? (n === 2 || n === 3 ? 1 : 0) : (n === 3 ? 1 : 0);
       }
     }
-    this.rebuildOccupancy();
-  }
 
-  /** One CA tick: apply a small number of grow/split operations. */
-  tick(): void {
-    const ops = 1 + ((Math.random() * 3) | 0); // 1..3 ops per tick
-    for (let i = 0; i < ops; i++) this.step();
+    // Any cell whose state changed is a "hit" — re-roll its placement seed.
+    // Pachinko: revealing the cell or shuffling what it shows.
+    for (let i = 0; i < this.alive.length; i++) {
+      if (this.alive[i] !== this.next[i]) {
+        this.seed[i] = 1 + ((Math.random() * 255) | 0);
+      }
+    }
+
+    const tmp = this.alive;
+    this.alive = this.next;
+    this.next = tmp;
+
+    this.tickCount++;
+    if (this.tickCount % this.spawnEvery === 0) this.spawnPattern();
+
     this.writeTexture();
   }
 
-  // ---- internal -------------------------------------------------------------
-
-  private step(): void {
-    if (this.cells.length === 0) return;
-    let idx = (Math.random() * this.cells.length) | 0;
-    // Skip title-row cells; they stay 1×1 forever.
-    let attempts = 0;
-    while (this.cells[idx].y === TITLE_ROW && attempts < 8) {
-      idx = (Math.random() * this.cells.length) | 0;
-      attempts++;
-    }
-    if (this.cells[idx].y === TITLE_ROW) return;
-
-    if (Math.random() < 0.55) {
-      if (!this.tryGrow(idx)) this.trySplit(idx);
-    } else {
-      if (!this.trySplit(idx)) this.tryGrow(idx);
-    }
-  }
-
-  private rebuildOccupancy(): void {
-    this.occupancy.fill(-1);
-    for (let i = 0; i < this.cells.length; i++) {
-      const c = this.cells[i];
-      for (let dy = 0; dy < c.size; dy++) {
-        for (let dx = 0; dx < c.size; dx++) {
-          this.occupancy[(c.y + dy) * GRID_W + (c.x + dx)] = i;
-        }
+  private countNeighbors(x: number, y: number): number {
+    let n = 0;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        n += this.alive[idx(wrap(x + dx, GRID_W), wrap(y + dy, GRID_H))];
       }
     }
+    return n;
   }
 
-  /**
-   * Try to grow cell[i] to size+1 by consuming the L-strip on its top and
-   * right (the new (2*size + 1) fine cells). Only succeeds if all consumed
-   * cells are in-bounds, currently 1×1, and not in the title row.
-   */
-  private tryGrow(i: number): boolean {
-    const cell = this.cells[i];
-    if (cell.size >= MAX_SIZE) return false;
-
-    const newSize = cell.size + 1;
-    const ax = cell.x;
-    const ay = cell.y;
-
-    // After growing, the new cell occupies [ax, ax+newSize) × [ay, ay+newSize).
-    if (ax + newSize > GRID_W || ay + newSize > GRID_H) return false;
-    if (ay <= TITLE_ROW && TITLE_ROW < ay + newSize) return false;
-
-    const consumed: number[] = [];
-    // Top row at y = ay + cell.size, x in [ax, ax+newSize)
-    for (let dx = 0; dx < newSize; dx++) {
-      const occ = this.occupancy[(ay + cell.size) * GRID_W + (ax + dx)];
-      if (occ === -1) return false;
-      const c = this.cells[occ];
-      if (c.size !== 1 || c.y === TITLE_ROW) return false;
-      consumed.push(occ);
+  private spawnPattern(): void {
+    const p = PATTERNS[(Math.random() * PATTERNS.length) | 0];
+    const ox = (Math.random() * GRID_W) | 0;
+    const oy = (Math.random() * GRID_H) | 0;
+    for (const [dx, dy] of p) {
+      this.alive[idx(wrap(ox + dx, GRID_W), wrap(oy + dy, GRID_H))] = 1;
     }
-    // Right column at x = ax + cell.size, y in [ay, ay+cell.size)
-    for (let dy = 0; dy < cell.size; dy++) {
-      const occ = this.occupancy[(ay + dy) * GRID_W + (ax + cell.size)];
-      if (occ === -1) return false;
-      const c = this.cells[occ];
-      if (c.size !== 1 || c.y === TITLE_ROW) return false;
-      consumed.push(occ);
-    }
-
-    cell.size = newSize;
-    cell.seed = rand255();
-    const removeSet = new Set(consumed);
-    this.cells = this.cells.filter((_, idx) => !removeSet.has(idx));
-    this.rebuildOccupancy();
-    return true;
   }
 
-  /**
-   * Replace cell[i] (size N) with N² fresh 1×1 cells. No-op for size 1.
-   */
-  private trySplit(i: number): boolean {
-    const cell = this.cells[i];
-    if (cell.size <= 1) return false;
-    const ax = cell.x;
-    const ay = cell.y;
-    const sz = cell.size;
-    this.cells.splice(i, 1);
-    for (let dy = 0; dy < sz; dy++) {
-      for (let dx = 0; dx < sz; dx++) {
-        this.cells.push({ x: ax + dx, y: ay + dy, size: 1, seed: rand255() });
-      }
-    }
-    this.rebuildOccupancy();
-    return true;
-  }
-
-  /**
-   * Fill the GPU-uploadable byte array. Per-fragment encoding: each grid
-   * cell stores its offset within its containing CA cell (R, G), the
-   * containing cell's size (B), and the cell's seed (A).
-   */
   private writeTexture(): void {
-    const data = this.data;
-    for (let i = 0; i < this.cells.length; i++) {
-      const c = this.cells[i];
-      for (let dy = 0; dy < c.size; dy++) {
-        for (let dx = 0; dx < c.size; dx++) {
-          const idx = ((c.y + dy) * GRID_W + (c.x + dx)) * 4;
-          data[idx + 0] = dx;
-          data[idx + 1] = dy;
-          data[idx + 2] = c.size;
-          data[idx + 3] = c.seed;
-        }
-      }
+    const N = GRID_W * GRID_H;
+    for (let i = 0; i < N; i++) {
+      const j = i * 4;
+      this.data[j + 0] = this.seed[i];           // 0 = paper, else placement seed
+      this.data[j + 1] = this.alive[i] ? 255 : 0; // GoL state (currently unused by shader, kept for future ghost effects)
+      this.data[j + 2] = 0;
+      this.data[j + 3] = 255;
     }
     this.texture.needsUpdate = true;
   }

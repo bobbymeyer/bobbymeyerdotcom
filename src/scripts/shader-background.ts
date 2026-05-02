@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 import swissShader from './shaders/swiss.glsl?raw';
 import { makeFontAtlas, whenFontReady } from './font-atlas';
-import { GridCA, GRID_W, GRID_H } from './grid-ca';
+import { GridLife, GRID_W, GRID_H } from './grid-ca';
 
-const TICK_DURATION_MS = 700;
+const TICK_DURATION_MS = 500;
 
 const SHADERS: Record<string, string> = {
   swiss: swissShader,
@@ -34,7 +34,7 @@ const SHADERS: Record<string, string> = {
   `,
 };
 
-const SHADERS_NEEDING_ATLAS = new Set(['swiss']);
+const SHADERS_NEEDING_LIFE = new Set(['swiss']);
 
 export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey: string) {
   const fragmentShader = SHADERS[shaderKey] ?? SHADERS.plasma;
@@ -46,40 +46,20 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   const uniforms: Record<string, { value: unknown }> = {
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2() },
-    uObjectDensity: { value: 0.5 },
   };
 
   let atlasTexture: THREE.CanvasTexture | null = null;
-  let ca: GridCA | null = null;
+  let life: GridLife | null = null;
   let tickTimer: ReturnType<typeof setInterval> | null = null;
-  if (SHADERS_NEEDING_ATLAS.has(shaderKey)) {
+  if (SHADERS_NEEDING_LIFE.has(shaderKey)) {
     await whenFontReady('Space Grotesk', '700', 64);
     atlasTexture = makeFontAtlas();
     uniforms.uAtlas = { value: atlasTexture };
 
-    ca = new GridCA();
-    uniforms.uState = { value: ca.texture };
+    life = new GridLife();
+    uniforms.uState = { value: life.texture };
     uniforms.uGridSize = { value: new THREE.Vector2(GRID_W, GRID_H) };
-    tickTimer = setInterval(() => ca!.tick(), TICK_DURATION_MS);
-  }
-
-  // object_density driver:
-  //  - desktop / fine pointer: mouse X, mapped 1..99 → 0.01..0.99
-  //  - touch / coarse pointer: auto-oscillates between ~0.10 and ~0.95
-  const isTouch =
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(pointer: coarse)').matches;
-
-  let densityTarget = 0.5;
-  let onMouseMove: ((e: MouseEvent) => void) | null = null;
-
-  if (!isTouch) {
-    onMouseMove = (e: MouseEvent) => {
-      const xNorm = Math.min(1, Math.max(0, e.clientX / window.innerWidth));
-      const scale = Math.round(1 + xNorm * 98); // 1..99
-      densityTarget = scale / 100; // 0.01..0.99
-    };
-    window.addEventListener('mousemove', onMouseMove, { passive: true });
+    tickTimer = setInterval(() => life!.tick(), TICK_DURATION_MS);
   }
 
   const material = new THREE.ShaderMaterial({
@@ -103,16 +83,7 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   const start = performance.now();
   let raf = 0;
   const tick = () => {
-    const t = (performance.now() - start) / 1000;
-    uniforms.uTime.value = t;
-
-    if (isTouch) {
-      // Slow sine sweep on touch devices: 0.10..0.95 over ~12s
-      densityTarget = 0.525 + 0.425 * Math.sin(t * (Math.PI * 2 / 12));
-    }
-
-    const cur = uniforms.uObjectDensity.value as number;
-    uniforms.uObjectDensity.value = cur + (densityTarget - cur) * 0.12;
+    uniforms.uTime.value = (performance.now() - start) / 1000;
     renderer.render(scene, camera);
     raf = requestAnimationFrame(tick);
   };
@@ -122,11 +93,10 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     cancelAnimationFrame(raf);
     if (tickTimer) clearInterval(tickTimer);
     ro.disconnect();
-    if (onMouseMove) window.removeEventListener('mousemove', onMouseMove);
     renderer.dispose();
     geometry.dispose();
     material.dispose();
     atlasTexture?.dispose();
-    ca?.texture.dispose();
+    life?.texture.dispose();
   };
 }
