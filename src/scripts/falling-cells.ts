@@ -4,6 +4,7 @@ import Matter from 'matter-js';
 const COLORS = ['#00aeef', '#ec008c', '#fff200', '#1f1f24'];
 const CELL = 48;
 const SPAWN_MS = 4000;
+const FIRST_DROP_DELAY_MS = 8000;
 const MAX_CELLS = 60;
 
 export interface Handle {
@@ -81,8 +82,11 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     }
   };
 
-  const spawnTimer = window.setInterval(spawn, SPAWN_MS);
-  spawn();
+  let spawnInterval: number | null = null;
+  const spawnStart = window.setTimeout(() => {
+    spawn();
+    spawnInterval = window.setInterval(spawn, SPAWN_MS);
+  }, FIRST_DROP_DELAY_MS);
 
   const runner = Matter.Runner.create();
   Matter.Runner.run(runner, engine);
@@ -90,7 +94,8 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
 
   return {
     destroy() {
-      window.clearInterval(spawnTimer);
+      window.clearTimeout(spawnStart);
+      if (spawnInterval !== null) window.clearInterval(spawnInterval);
       ro.disconnect();
       Matter.Render.stop(render);
       Matter.Runner.stop(runner);
