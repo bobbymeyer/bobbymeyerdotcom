@@ -25,11 +25,12 @@ uniform sampler2D uAtlas;
 #define ATLAS_COLS 6.0
 #define ATLAS_ROWS 6.0
 
-const vec3 PAPER  = vec3(0.945, 0.935, 0.905);
-const vec3 INK    = vec3(0.07, 0.07, 0.08);
-const vec3 SIGNAL = vec3(0.83, 0.20, 0.12);  // vermilion
-const vec3 FLAG   = vec3(0.96, 0.77, 0.19);  // chrome yellow
-const vec3 BLOCK  = vec3(0.10, 0.30, 0.55);  // print cyan
+// Process-CMYK palette (rough Pantone Process equivalents in sRGB).
+const vec3 PAPER   = vec3(0.945, 0.935, 0.905);  // warm stock
+const vec3 KEY     = vec3(0.137, 0.122, 0.125);  // process black
+const vec3 CYAN    = vec3(0.000, 0.682, 0.937);
+const vec3 MAGENTA = vec3(0.925, 0.000, 0.549);
+const vec3 YELLOW  = vec3(1.000, 0.949, 0.000);
 
 float random(vec2 p) {
     return fract(sin(dot(p.xy, vec2(12.9898, 78.233))) * 43758.5453123);
@@ -86,10 +87,11 @@ float animatedTile(vec2 p, int kind, vec2 id) {
 }
 
 vec3 fieldColor(float h) {
-    if (h < 0.30) return SIGNAL;
-    if (h < 0.55) return FLAG;
-    if (h < 0.85) return INK;
-    return BLOCK;
+    // Even-ish split across the four process inks.
+    if (h < 0.27) return CYAN;
+    if (h < 0.52) return MAGENTA;
+    if (h < 0.77) return YELLOW;
+    return KEY;
 }
 
 // Render the four cell-content types at any size — caller supplies a
@@ -100,17 +102,17 @@ vec3 cellColor(vec2 grd, vec2 id) {
     if (n < 0.55) {
         int char = int(rand2(id, 0.31) * 35.0);
         float d = drawFont(grd, char);
-        return mix(PAPER, INK, S(d, 0.0));
+        return mix(PAPER, KEY, S(d, 0.0));
     }
     if (n < 0.77) {
         int sym = int(rand2(id, 0.59) * 6.0);
         float d = symbol(grd, sym);
-        return mix(PAPER, INK, S(d, 0.0));
+        return mix(PAPER, KEY, S(d, 0.0));
     }
     if (n < 0.91) {
         int kind = int(rand2(id, 0.79) * 4.0);
         float d = animatedTile(grd, kind, id);
-        return mix(PAPER, INK, S(d, 0.0));
+        return mix(PAPER, KEY, S(d, 0.0));
     }
     vec3 field = fieldColor(rand2(id, 0.91));
     if (rand2(id, 0.97) > 0.45) {
@@ -169,7 +171,7 @@ void main() {
     int tch = titleAt(id);
     if (tch >= 0) {
         float d = drawFont(grd, tch);
-        gl_FragColor = vec4(mix(SIGNAL, PAPER, S(d, 0.0)), 1.0);
+        gl_FragColor = vec4(mix(MAGENTA, PAPER, S(d, 0.0)), 1.0);
         return;
     }
 
