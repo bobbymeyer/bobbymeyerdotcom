@@ -176,6 +176,15 @@ bool isTitleCell(vec2 id) {
     return id.x >= -5.5 && id.x <= 5.5;
 }
 
+// One-cell border wrapping the title row. GoL keeps running through
+// these cells, but they never get coloured or stamped with a glyph —
+// they read as silent margin around BOBBY MEYER.
+bool isMastheadMargin(vec2 id) {
+    if (id.y < -1.5 || id.y > 1.5) return false;
+    if (id.x < -6.5 || id.x > 6.5) return false;
+    return !isTitleCell(id);
+}
+
 // Atlas index for the title letter at this fine cell, or -1 otherwise.
 // Layout: B O B B Y _ M E Y E R  on row id.y == 0, id.x ∈ [-5, +5].
 int titleAt(vec2 id) {
@@ -202,6 +211,12 @@ void main() {
     p *= DENSITY;
     vec2 id = floor(p);
     vec2 grd = fract(p) - 0.5;
+
+    // Immutable masthead margin — pinned paper regardless of GoL.
+    if (isMastheadMargin(id)) {
+        gl_FragColor = vec4(PAPER, 1.0);
+        return;
+    }
 
     // Inside the base grid? If not, we're showing margin.
     vec2 baseXY = id + uBaseSize * 0.5;
