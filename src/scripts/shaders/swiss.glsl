@@ -154,6 +154,9 @@ vec3 fieldFG(int idx) {
 // Render the four cell-content types at any size — caller supplies a
 // local [-0.5,0.5] coord and an id for randomness.
 vec3 cellColor(vec2 grd, vec2 id) {
+    // Half the cells are intentionally blank — pure paper.
+    if (rand2(id, 0.13) < 0.5) return PAPER;
+
     float n = random(id);
 
     if (n < 0.55) {
