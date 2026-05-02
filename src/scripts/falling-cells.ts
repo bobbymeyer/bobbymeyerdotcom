@@ -43,10 +43,20 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   buildWalls();
 
   // Mirror any [data-collide] DOM elements as static bodies so cells
-  // pile on top of them and bounce off their edges.
+  // pile on top of them and bounce off their edges. Each body keeps a
+  // back-reference to its element so we can nudge its CSS transform
+  // when something hits it.
+  interface ElState {
+    el: HTMLElement;
+    rot: number;     // current rotation in deg
+    rotVel: number;  // angular velocity
+  }
+  const elState = new Map<number, ElState>();
   let domBodies: Matter.Body[] = [];
+
   const buildDomBodies = () => {
     Matter.World.remove(engine.world, domBodies);
+    elState.clear();
     domBodies = [];
     const cRect = container.getBoundingClientRect();
     const targets = container.querySelectorAll<HTMLElement>('[data-collide]');
@@ -55,18 +65,61 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       if (r.width < 2 || r.height < 2) return;
       const x = r.left - cRect.left + r.width / 2;
       const y = r.top - cRect.top + r.height / 2;
-      domBodies.push(
-        Matter.Bodies.rectangle(x, y, r.width, r.height, {
-          isStatic: true,
-          friction: 0.5,
-          restitution: 0.3,
-          render: { visible: false },
-        }),
-      );
+      const body = Matter.Bodies.rectangle(x, y, r.width, r.height, {
+        isStatic: true,
+        friction: 0.5,
+        restitution: 0.3,
+        render: { visible: false },
+      });
+      domBodies.push(body);
+      elState.set(body.id, { el, rot: 0, rotVel: 0 });
+      // Make sure transform animates smoothly even on rapid hits.
+      el.style.transition = 'transform 60ms linear';
+      el.style.willChange = 'transform';
     });
     Matter.World.add(engine.world, domBodies);
   };
   buildDomBodies();
+
+  // Listen for collisions between cells and DOM-mirrored bodies, kick
+  // the matching element's angular velocity.
+  Matter.Events.on(engine, 'collisionStart', (event) => {
+    for (const pair of event.pairs) {
+      const aStatic = pair.bodyA.isStatic;
+      const bStatic = pair.bodyB.isStatic;
+      if (aStatic === bStatic) continue;
+      const staticBody = aStatic ? pair.bodyA : pair.bodyB;
+      const cellBody   = aStatic ? pair.bodyB : pair.bodyA;
+      const state = elState.get(staticBody.id);
+      if (!state) continue;
+
+      // Hit hard? Kick the element's rotation. Sign comes from where on
+      // the element's width the impact lands so cells striking the right
+      // edge tilt it clockwise and vice versa.
+      const speed = Math.hypot(cellBody.velocity.x, cellBody.velocity.y);
+      const offset = (cellBody.position.x - staticBody.position.x) / (staticBody.bounds.max.x - staticBody.bounds.min.x);
+      const sign = Math.sign(offset || (Math.random() - 0.5));
+      state.rotVel += sign * Math.min(speed * 0.18, 1.4);
+    }
+  });
+
+  // Spring + damping decay so kicked elements settle back to rest.
+  const springAnimate = () => {
+    elState.forEach((state) => {
+      state.rotVel += -state.rot * 0.06;   // spring toward 0
+      state.rotVel *= 0.90;                // damping
+      state.rot += state.rotVel;
+      if (Math.abs(state.rot) < 0.01 && Math.abs(state.rotVel) < 0.01) {
+        state.rot = 0;
+        state.rotVel = 0;
+        state.el.style.transform = '';
+      } else {
+        state.el.style.transform = `rotate(${state.rot.toFixed(2)}deg)`;
+      }
+    });
+    rafId = requestAnimationFrame(springAnimate);
+  };
+  let rafId = requestAnimationFrame(springAnimate);
 
   const ro = new ResizeObserver(() => {
     w = container.clientWidth;
@@ -127,8 +180,14 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     destroy() {
       window.clearTimeout(spawnStart);
       if (spawnInterval !== null) window.clearInterval(spawnInterval);
+      cancelAnimationFrame(rafId);
       ro.disconnect();
       elRo.disconnect();
+      elState.forEach((state) => {
+        state.el.style.transform = '';
+        state.el.style.transition = '';
+        state.el.style.willChange = '';
+      });
       Matter.Render.stop(render);
       Matter.Runner.stop(runner);
       Matter.Engine.clear(engine);
