@@ -93,31 +93,22 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   let domBodies: Matter.Body[] = [];
   let pinConstraints: Matter.Constraint[] = [];
 
-  // Wrap each character of an element in its own [data-collide] span so
-  // cells bounce off the letters themselves, not the paragraph box.
-  const wrapChars = (el: HTMLElement) => {
-    if (el.dataset.charsWrapped === '1') return;
-    const text = el.textContent ?? '';
-    el.textContent = '';
-    for (const ch of text) {
-      if (ch === ' ' || ch === ' ' || ch === '\n' || ch === '\t') {
-        el.appendChild(document.createTextNode(ch));
-        continue;
-      }
-      const span = document.createElement('span');
-      span.textContent = ch;
-      span.style.display = 'inline-block';
-      span.setAttribute('data-collide', '');
-      el.appendChild(span);
-    }
-    el.dataset.charsWrapped = '1';
-  };
-  document.querySelectorAll<HTMLElement>('[data-collide-chars]').forEach(wrapChars);
-
   // Search the whole document — data-collide elements live alongside
   // (not inside) the FallingCells container.
   const findCollideEls = () =>
     document.querySelectorAll<HTMLElement>('[data-collide]');
+
+  // Per-line client rects for an element. Multi-line text returns one
+  // DOMRect per visual line (including the short trailing line); a
+  // single-line block returns just one. Used to build compound bodies
+  // that hug the actual text shape.
+  const lineRectsOf = (el: HTMLElement): DOMRect[] => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return Array.from(range.getClientRects()).filter(
+      (r) => r.width >= 4 && r.height >= 4,
+    );
+  };
 
   const buildDomBodies = () => {
     Matter.World.remove(engine.world, [...domBodies, ...pinConstraints]);
@@ -179,13 +170,42 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
         el.style.transformOrigin = '';
         el.style.transform = '';
       } else {
-        // Tippable: dynamic body pinned at its centre. Gravity / impacts
-        // tilt it; the spring + frictionAir bring it back to upright.
-        const cx = baseX + r.width / 2;
-        const cy = baseY + r.height / 2;
-        const body = Matter.Bodies.rectangle(cx, cy, r.width, r.height, tippableOpts);
+        // Tippable: a dynamic body pinned at its center of mass.
+        // Multi-line text becomes a compound body of per-line rects so
+        // cells can fall into the empty space alongside a short final
+        // line; everything else collapses to a single rect (the
+        // bounding box).
+        const lineRects = lineRectsOf(el);
+        const useCompound = lineRects.length > 1;
+
+        const partOpts: Matter.IChamferableBodyDefinition = {
+          friction: 0.5,
+          restitution: 0.18,
+          render: { visible: false },
+        };
+
+        const subRects = useCompound
+          ? lineRects
+          : [el.getBoundingClientRect()];
+        const parts = subRects.map((rr) => {
+          const cx = rr.left - cRect.left + rr.width / 2;
+          const cy = rr.top - cRect.top + rr.height / 2;
+          return Matter.Bodies.rectangle(cx, cy, rr.width, rr.height, partOpts);
+        });
+
+        const body = useCompound
+          ? Matter.Body.create({ parts, ...tippableOpts })
+          : parts[0];
+        if (!useCompound) {
+          // Single-rect case still needs the tippableOpts applied —
+          // Bodies.rectangle was created with partOpts. Override here.
+          Matter.Body.set(body, 'isStatic', tippableOpts.isStatic);
+          Matter.Body.set(body, 'density', tippableOpts.density);
+          Matter.Body.set(body, 'frictionAir', tippableOpts.frictionAir);
+        }
+
         const pin = Matter.Constraint.create({
-          pointA: { x: cx, y: cy },
+          pointA: { x: body.position.x, y: body.position.y },
           bodyB: body,
           pointB: { x: 0, y: 0 },
           length: 0,
@@ -200,9 +220,14 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
         uniqueStates.add(stateEntry);
         elState.set(body.id, stateEntry);
 
+        // CSS rotation pivots around the same point Matter pins (the
+        // compound's center of mass), in element-local px so the
+        // visual stays aligned with the physics.
+        const originX = body.position.x - baseX;
+        const originY = body.position.y - baseY;
         el.style.transition = '';                    // physics-driven, no easing
         el.style.willChange = 'transform';
-        el.style.transformOrigin = 'center center';
+        el.style.transformOrigin = `${originX.toFixed(1)}px ${originY.toFixed(1)}px`;
       }
     });
     Matter.World.add(engine.world, [...domBodies, ...pinConstraints]);
