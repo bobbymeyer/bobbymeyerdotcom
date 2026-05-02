@@ -55,21 +55,30 @@ const REVEAL_EXPAND_DELAY = 3;
 const REVEAL_RADIUS_MAX   = 90;
 
 export class GridLife {
-  // Base GoL (48 × 24) — alive bit means "split".
+  // Current state.
   private baseAlive: Uint8Array;
   private baseNext: Uint8Array;
-
-  // Sub GoL (96 × 48) — drives content via hits.
   private subAlive: Uint8Array;
   private subNext: Uint8Array;
   private subColor: Uint8Array;
   private subChar: Uint8Array;
   private subEverHit: Uint8Array;
 
+  // Snapshot of state right before the current tick — uploaded as the
+  // "previous" textures so the shader can cross-fade between ticks.
+  private baseAlivePrev: Uint8Array;
+  private subColorPrev: Uint8Array;
+  private subCharPrev: Uint8Array;
+  private subEverHitPrev: Uint8Array;
+
   readonly baseData: Uint8Array;
   readonly subData: Uint8Array;
+  readonly baseDataPrev: Uint8Array;
+  readonly subDataPrev: Uint8Array;
   readonly baseTexture: THREE.DataTexture;
   readonly subTexture: THREE.DataTexture;
+  readonly baseTexturePrev: THREE.DataTexture;
+  readonly subTexturePrev: THREE.DataTexture;
 
   private tickCount = 0;
   private readonly spawnEvery = 10;
@@ -92,8 +101,15 @@ export class GridLife {
     this.subChar = new Uint8Array(NS);
     this.subEverHit = new Uint8Array(NS);
 
+    this.baseAlivePrev = new Uint8Array(NB);
+    this.subColorPrev = new Uint8Array(NS);
+    this.subCharPrev = new Uint8Array(NS);
+    this.subEverHitPrev = new Uint8Array(NS);
+
     this.baseData = new Uint8Array(NB * 4);
     this.subData = new Uint8Array(NS * 4);
+    this.baseDataPrev = new Uint8Array(NB * 4);
+    this.subDataPrev = new Uint8Array(NS * 4);
 
     // Anchor sub-cells used to detect title reveal: the bottom-left sub-cell
     // of each title letter base cell (skipping the gap at id.x == 0).
@@ -110,7 +126,9 @@ export class GridLife {
 
     this.baseTexture = new THREE.DataTexture(this.baseData, GRID_W, GRID_H, THREE.RGBAFormat);
     this.subTexture = new THREE.DataTexture(this.subData, SUB_W, SUB_H, THREE.RGBAFormat);
-    for (const t of [this.baseTexture, this.subTexture]) {
+    this.baseTexturePrev = new THREE.DataTexture(this.baseDataPrev, GRID_W, GRID_H, THREE.RGBAFormat);
+    this.subTexturePrev = new THREE.DataTexture(this.subDataPrev, SUB_W, SUB_H, THREE.RGBAFormat);
+    for (const t of [this.baseTexture, this.subTexture, this.baseTexturePrev, this.subTexturePrev]) {
       t.minFilter = THREE.NearestFilter;
       t.magFilter = THREE.NearestFilter;
       t.wrapS = THREE.ClampToEdgeWrapping;
@@ -119,9 +137,22 @@ export class GridLife {
     }
 
     this.writeTextures();
+    // Initialise prev textures to current — first frame has no fade.
+    this.baseDataPrev.set(this.baseData);
+    this.subDataPrev.set(this.subData);
+    this.baseTexturePrev.needsUpdate = true;
+    this.subTexturePrev.needsUpdate = true;
   }
 
   tick(): void {
+    // Snapshot current state into prev arrays so the shader can lerp
+    // between the just-finished frame's image and the upcoming one.
+    this.baseAlivePrev.set(this.baseAlive);
+    this.subColorPrev.set(this.subColor);
+    this.subCharPrev.set(this.subChar);
+    this.subEverHitPrev.set(this.subEverHit);
+    this.writePrevTextures();
+
     this.stepBase();
     this.stepSub();
     this.clampInactive();
@@ -329,5 +360,25 @@ export class GridLife {
       this.subData[j + 3] = this.subAlive[i] ? 255 : 0;
     }
     this.subTexture.needsUpdate = true;
+  }
+
+  private writePrevTextures(): void {
+    for (let i = 0; i < this.baseAlivePrev.length; i++) {
+      const j = i * 4;
+      this.baseDataPrev[j + 0] = this.baseAlivePrev[i] ? 255 : 0;
+      this.baseDataPrev[j + 1] = 0;
+      this.baseDataPrev[j + 2] = 0;
+      this.baseDataPrev[j + 3] = 255;
+    }
+    this.baseTexturePrev.needsUpdate = true;
+
+    for (let i = 0; i < this.subColorPrev.length; i++) {
+      const j = i * 4;
+      this.subDataPrev[j + 0] = this.subColorPrev[i];
+      this.subDataPrev[j + 1] = this.subCharPrev[i];
+      this.subDataPrev[j + 2] = this.subEverHitPrev[i] ? 255 : 0;
+      this.subDataPrev[j + 3] = 0;
+    }
+    this.subTexturePrev.needsUpdate = true;
   }
 }

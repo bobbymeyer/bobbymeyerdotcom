@@ -3,7 +3,7 @@ import swissShader from './shaders/swiss.glsl?raw';
 import { makeFontAtlas, whenFontReady } from './font-atlas';
 import { GridLife, GRID_W, GRID_H, SUB_W, SUB_H } from './grid-ca';
 
-const TICK_DURATION_MS = 500;
+const TICK_DURATION_MS = 900;
 
 const SHADERS: Record<string, string> = {
   swiss: swissShader,
@@ -46,11 +46,13 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   const uniforms: Record<string, { value: unknown }> = {
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2() },
+    uTickProgress: { value: 1 },
   };
 
   let atlasTexture: THREE.CanvasTexture | null = null;
   let life: GridLife | null = null;
   let tickTimer: ReturnType<typeof setInterval> | null = null;
+  let lastTickTime = performance.now();
   if (SHADERS_NEEDING_LIFE.has(shaderKey)) {
     await whenFontReady('Space Grotesk', '700', 64);
     atlasTexture = makeFontAtlas();
@@ -59,9 +61,15 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     life = new GridLife();
     uniforms.uStateBase = { value: life.baseTexture };
     uniforms.uStateSub = { value: life.subTexture };
+    uniforms.uStateBasePrev = { value: life.baseTexturePrev };
+    uniforms.uStateSubPrev = { value: life.subTexturePrev };
     uniforms.uBaseSize = { value: new THREE.Vector2(GRID_W, GRID_H) };
     uniforms.uSubSize = { value: new THREE.Vector2(SUB_W, SUB_H) };
-    tickTimer = setInterval(() => life!.tick(), TICK_DURATION_MS);
+    lastTickTime = performance.now();
+    tickTimer = setInterval(() => {
+      life!.tick();
+      lastTickTime = performance.now();
+    }, TICK_DURATION_MS);
   }
 
   const material = new THREE.ShaderMaterial({
@@ -85,7 +93,12 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   const start = performance.now();
   let raf = 0;
   const tick = () => {
-    uniforms.uTime.value = (performance.now() - start) / 1000;
+    const now = performance.now();
+    uniforms.uTime.value = (now - start) / 1000;
+    if (life) {
+      const elapsed = now - lastTickTime;
+      uniforms.uTickProgress.value = Math.min(1, Math.max(0, elapsed / TICK_DURATION_MS));
+    }
     renderer.render(scene, camera);
     raf = requestAnimationFrame(tick);
   };
@@ -101,5 +114,7 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     atlasTexture?.dispose();
     life?.baseTexture.dispose();
     life?.subTexture.dispose();
+    life?.baseTexturePrev.dispose();
+    life?.subTexturePrev.dispose();
   };
 }

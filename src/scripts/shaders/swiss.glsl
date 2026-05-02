@@ -7,11 +7,17 @@ uniform sampler2D uAtlas;
 // Two-resolution Game of Life. uStateBase encodes whether each base cell
 // is "split" (alive in the base GoL); uStateSub encodes content per
 // sub-cell (2× resolution per axis): R=colorVal, G=charVal, B=everHit,
-// A=alive.
+// A=alive. The *Prev textures hold the snapshot from the previous tick
+// so we can cross-fade.
 uniform sampler2D uStateBase;
 uniform sampler2D uStateSub;
+uniform sampler2D uStateBasePrev;
+uniform sampler2D uStateSubPrev;
 uniform vec2 uBaseSize;
 uniform vec2 uSubSize;
+// 0..1 progress through the current tick — 0 just after a tick fires,
+// 1 just before the next one. Smoothed via smoothstep before use.
+uniform float uTickProgress;
 
 #define iTime uTime
 #define iResolution uResolution
@@ -207,11 +213,53 @@ int titleAt(vec2 id) {
     return -1;
 }
 
+// ---- per-snapshot rendering --------------------------------------------
+// Given a base+sub texture pair, return the colour for this fragment.
+// Same logic as before, but parameterised on the texture sources so we
+// can call it once for the previous tick and once for the current one.
+
+vec3 renderState(sampler2D baseTex, sampler2D subTex, vec2 baseXY, vec2 grd, vec2 id) {
+    vec4 baseState = texture2D(baseTex, (baseXY + vec2(0.5)) / uBaseSize);
+    bool isSplit = baseState.r > 0.5;
+
+    vec2 subXY;
+    vec2 subGrd;
+    if (isSplit) {
+        vec2 quadrant = step(vec2(0.0), grd);
+        subXY = baseXY * 2.0 + quadrant;
+        subGrd = grd * 2.0 + (vec2(0.5) - quadrant);
+    } else {
+        subXY = baseXY * 2.0;
+        subGrd = grd;
+    }
+
+    vec4 state = texture2D(subTex, (subXY + vec2(0.5)) / uSubSize);
+    float colorVal = floor(state.r * 255.0 + 0.5);
+    float charVal  = floor(state.g * 255.0 + 0.5);
+    bool everHit   = state.b > 0.5;
+
+    if (!everHit) return PAPER;
+
+    int colorIdx = int(mod(colorVal, 4.0));
+    bool hasColor = colorVal > 0.5;
+    vec3 bg = hasColor ? fieldBG(colorIdx) : PAPER;
+    vec3 fg = hasColor ? fieldFG(colorIdx) : KEY;
+
+    if (isTitleCell(id)) {
+        int tch = titleAt(id);
+        if (tch < 0) return PAPER;
+        float d = drawFont(grd, tch);
+        return mix(bg, fg, S(d, 0.0));
+    }
+    if (charVal < 0.5) return bg;
+    float d = charSDF(subGrd, charVal);
+    return mix(bg, fg, S(d, 0.0));
+}
+
 // ---- main ---------------------------------------------------------------
 
 void main() {
     // Fit as many whole CELL_PX cells as the panel can hold, centered.
-    // Anything outside that window is silent paper margin.
     vec2 cellCount = floor(uResolution / CELL_PX);
     vec2 cellHalf  = floor(cellCount * 0.5);
     vec2 pad       = (uResolution - cellCount * CELL_PX) * 0.5;
@@ -223,17 +271,15 @@ void main() {
         return;
     }
 
-    vec2 cellPos = (fc - pad) / CELL_PX;        // 0..cellCount
-    vec2 id  = floor(cellPos) - cellHalf;       // centered around 0
-    vec2 grd = fract(cellPos) - 0.5;            // local cell coord
+    vec2 cellPos = (fc - pad) / CELL_PX;
+    vec2 id  = floor(cellPos) - cellHalf;
+    vec2 grd = fract(cellPos) - 0.5;
 
-    // Immutable masthead margin — pinned paper regardless of GoL.
     if (isMastheadMargin(id)) {
         gl_FragColor = vec4(PAPER, 1.0);
         return;
     }
 
-    // Inside the base grid? If not, we're showing margin.
     vec2 baseXY = id + uBaseSize * 0.5;
     if (baseXY.x < 0.0 || baseXY.x >= uBaseSize.x
         || baseXY.y < 0.0 || baseXY.y >= uBaseSize.y) {
@@ -241,55 +287,11 @@ void main() {
         return;
     }
 
-    // Base layer: is this cell split into 4 sub-cells?
-    vec4 baseState = texture2D(uStateBase, (baseXY + vec2(0.5)) / uBaseSize);
-    bool isSplit = baseState.r > 0.5;
+    // Render the previous and current snapshots, then cross-fade.
+    vec3 colPrev = renderState(uStateBasePrev, uStateSubPrev, baseXY, grd, id);
+    vec3 colCur  = renderState(uStateBase,     uStateSub,     baseXY, grd, id);
 
-    // Pick the sub-cell to read. Merged cells use the top-left sub-cell
-    // (rendering it across the whole base cell). Split cells map each
-    // quadrant of grd to its corresponding sub-cell.
-    vec2 subXY;
-    vec2 subGrd;
-    if (isSplit) {
-        vec2 quadrant = step(vec2(0.0), grd);          // (0|1, 0|1)
-        subXY = baseXY * 2.0 + quadrant;
-        subGrd = grd * 2.0 + (vec2(0.5) - quadrant);   // remap to [-0.5, 0.5]
-    } else {
-        subXY = baseXY * 2.0;
-        subGrd = grd;
-    }
-
-    vec4 state = texture2D(uStateSub, (subXY + vec2(0.5)) / uSubSize);
-    float colorVal = floor(state.r * 255.0 + 0.5);
-    float charVal  = floor(state.g * 255.0 + 0.5);
-    bool everHit   = state.b > 0.5;
-
-    if (!everHit) { gl_FragColor = vec4(PAPER, 1.0); return; }
-
-    // -- color layer ------------------------------------------------------
-    int colorIdx = int(mod(colorVal, 4.0));
-    bool hasColor = colorVal > 0.5;
-    vec3 bg = hasColor ? fieldBG(colorIdx) : PAPER;
-    vec3 fg = hasColor ? fieldFG(colorIdx) : KEY;
-
-    // -- character layer --------------------------------------------------
-    if (isTitleCell(id)) {
-        // Title row is immutable. The gap (id.x == 0) renders as paper.
-        // Letters render at base scale on whatever colour their anchor
-        // sub-cell happened to roll.
-        int tch = titleAt(id);
-        if (tch < 0) {
-            gl_FragColor = vec4(PAPER, 1.0);
-            return;
-        }
-        float d = drawFont(grd, tch);
-        gl_FragColor = vec4(mix(bg, fg, S(d, 0.0)), 1.0);
-        return;
-    }
-    if (charVal < 0.5) {
-        gl_FragColor = vec4(bg, 1.0);
-        return;
-    }
-    float d = charSDF(subGrd, charVal);
-    gl_FragColor = vec4(mix(bg, fg, S(d, 0.0)), 1.0);
+    // Smoothstep over the tick window for a soft cubic ease.
+    float t = smoothstep(0.0, 1.0, clamp(uTickProgress, 0.0, 1.0));
+    gl_FragColor = vec4(mix(colPrev, colCur, t), 1.0);
 }
