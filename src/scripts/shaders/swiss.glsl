@@ -218,16 +218,16 @@ int titleAt(vec2 id) {
     if (id.y < -0.5 || id.y > 0.5) return -1;
     float ix = id.x;
     if (ix < -5.5 || ix > 5.5) return -1;
-    if (abs(ix - (-5.0)) < 0.5) return 11; // B
-    if (abs(ix - (-4.0)) < 0.5) return 24; // O
-    if (abs(ix - (-3.0)) < 0.5) return 11; // B
-    if (abs(ix - (-2.0)) < 0.5) return 11; // B
-    if (abs(ix - (-1.0)) < 0.5) return 34; // Y
-    if (abs(ix -   1.0 ) < 0.5) return 22; // M
-    if (abs(ix -   2.0 ) < 0.5) return 14; // E
-    if (abs(ix -   3.0 ) < 0.5) return 34; // Y
-    if (abs(ix -   4.0 ) < 0.5) return 14; // E
-    if (abs(ix -   5.0 ) < 0.5) return 27; // R
+    if (abs(ix + 5.0) < 0.5) return 11; // B
+    if (abs(ix + 4.0) < 0.5) return 24; // O
+    if (abs(ix + 3.0) < 0.5) return 11; // B
+    if (abs(ix + 2.0) < 0.5) return 11; // B
+    if (abs(ix + 1.0) < 0.5) return 34; // Y
+    if (abs(ix - 1.0) < 0.5) return 22; // M
+    if (abs(ix - 2.0) < 0.5) return 14; // E
+    if (abs(ix - 3.0) < 0.5) return 34; // Y
+    if (abs(ix - 4.0) < 0.5) return 14; // E
+    if (abs(ix - 5.0) < 0.5) return 27; // R
     return -1; // gap
 }
 

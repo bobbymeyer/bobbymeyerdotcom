@@ -53,14 +53,24 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     uniforms.uAtlas = { value: atlasTexture };
   }
 
-  // Mouse X drives object_density on a 1..99 integer scale (mapped to 0.01..0.99).
+  // object_density driver:
+  //  - desktop / fine pointer: mouse X, mapped 1..99 → 0.01..0.99
+  //  - touch / coarse pointer: auto-oscillates between ~0.10 and ~0.95
+  const isTouch =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse)').matches;
+
   let densityTarget = 0.5;
-  const onMouseMove = (e: MouseEvent) => {
-    const xNorm = Math.min(1, Math.max(0, e.clientX / window.innerWidth));
-    const scale = Math.round(1 + xNorm * 98); // 1..99
-    densityTarget = scale / 100; // 0.01..0.99
-  };
-  window.addEventListener('mousemove', onMouseMove, { passive: true });
+  let onMouseMove: ((e: MouseEvent) => void) | null = null;
+
+  if (!isTouch) {
+    onMouseMove = (e: MouseEvent) => {
+      const xNorm = Math.min(1, Math.max(0, e.clientX / window.innerWidth));
+      const scale = Math.round(1 + xNorm * 98); // 1..99
+      densityTarget = scale / 100; // 0.01..0.99
+    };
+    window.addEventListener('mousemove', onMouseMove, { passive: true });
+  }
 
   const material = new THREE.ShaderMaterial({
     uniforms,
@@ -83,8 +93,14 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   const start = performance.now();
   let raf = 0;
   const tick = () => {
-    uniforms.uTime.value = (performance.now() - start) / 1000;
-    // Lerp the density toward the mouse target so it eases instead of snapping.
+    const t = (performance.now() - start) / 1000;
+    uniforms.uTime.value = t;
+
+    if (isTouch) {
+      // Slow sine sweep on touch devices: 0.10..0.95 over ~12s
+      densityTarget = 0.525 + 0.425 * Math.sin(t * (Math.PI * 2 / 12));
+    }
+
     const cur = uniforms.uObjectDensity.value as number;
     uniforms.uObjectDensity.value = cur + (densityTarget - cur) * 0.12;
     renderer.render(scene, camera);
@@ -95,7 +111,7 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   return () => {
     cancelAnimationFrame(raf);
     ro.disconnect();
-    window.removeEventListener('mousemove', onMouseMove);
+    if (onMouseMove) window.removeEventListener('mousemove', onMouseMove);
     renderer.dispose();
     geometry.dispose();
     material.dispose();
