@@ -71,33 +71,69 @@ import ShaderBackground from '@/components/ShaderBackground.astro';
       </div>
     </section>
 
-    <section class="max-w-3xl mx-auto px-6 md:px-10 py-12">
-      <ul class="grid grid-cols-3 gap-6 text-xs uppercase tracking-[0.3em]">
-        <li><a href="#work" class="hover:opacity-60 transition-opacity">work</a></li>
-        <li><a href="#writing" class="hover:opacity-60 transition-opacity">writing</a></li>
-        <li><a href="#contact" class="hover:opacity-60 transition-opacity">contact</a></li>
-      </ul>
-    </section>
+    <section id="contact" class="max-w-2xl mx-auto px-6 md:px-10 py-24 md:py-32">
+      <h2 class="font-grotesk text-xs uppercase tracking-[0.3em] mb-10">
+        Get in touch
+      </h2>
 
-    <section id="work" class="max-w-3xl mx-auto px-6 md:px-10 py-24">
-      <h2 class="font-grotesk text-xs uppercase tracking-[0.3em] mb-8">Work</h2>
-      <p class="text-base leading-relaxed text-ink/70">
-        Placeholder.
-      </p>
-    </section>
+      <form
+        name="contact"
+        method="POST"
+        data-netlify="true"
+        netlify-honeypot="bot-field"
+        class="space-y-8"
+      >
+        <input type="hidden" name="form-name" value="contact" />
+        <p class="hidden">
+          <label>Don't fill this out: <input name="bot-field" /></label>
+        </p>
 
-    <section id="writing" class="max-w-3xl mx-auto px-6 md:px-10 py-24">
-      <h2 class="font-grotesk text-xs uppercase tracking-[0.3em] mb-8">Writing</h2>
-      <p class="text-base leading-relaxed text-ink/70">
-        Placeholder.
-      </p>
-    </section>
+        <div class="space-y-2">
+          <label for="name" class="block text-xs uppercase tracking-[0.3em] text-ink/60">
+            Name
+          </label>
+          <input
+            type="text"
+            id="name"
+            name="name"
+            required
+            class="w-full bg-transparent border-b border-ink/30 focus:border-ink py-2 outline-none transition-colors"
+          />
+        </div>
 
-    <section id="contact" class="max-w-3xl mx-auto px-6 md:px-10 py-24">
-      <h2 class="font-grotesk text-xs uppercase tracking-[0.3em] mb-8">Contact</h2>
-      <p class="text-base leading-relaxed text-ink/70">
-        Placeholder.
-      </p>
+        <div class="space-y-2">
+          <label for="email" class="block text-xs uppercase tracking-[0.3em] text-ink/60">
+            Email
+          </label>
+          <input
+            type="email"
+            id="email"
+            name="email"
+            required
+            class="w-full bg-transparent border-b border-ink/30 focus:border-ink py-2 outline-none transition-colors"
+          />
+        </div>
+
+        <div class="space-y-2">
+          <label for="message" class="block text-xs uppercase tracking-[0.3em] text-ink/60">
+            Message
+          </label>
+          <textarea
+            id="message"
+            name="message"
+            rows="5"
+            required
+            class="w-full bg-transparent border-b border-ink/30 focus:border-ink py-2 outline-none transition-colors resize-none"
+          ></textarea>
+        </div>
+
+        <button
+          type="submit"
+          class="text-xs uppercase tracking-[0.3em] border border-ink px-8 py-3 hover:bg-ink hover:text-paper transition-colors"
+        >
+          Send
+        </button>
+      </form>
     </section>
 
     <footer class="max-w-3xl mx-auto px-6 md:px-10 py-12 text-xs uppercase tracking-[0.3em] text-ink/50">
