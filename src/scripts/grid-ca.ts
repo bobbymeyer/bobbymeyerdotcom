@@ -10,7 +10,9 @@ export const GRID_H = 24;
 export const SUB_W = GRID_W * 2;
 export const SUB_H = GRID_H * 2;
 
-// Independent rolls when a sub-cell is hit.
+// Each GoL hit first rolls 50/50 blank or content. If content, the
+// color and character layers then roll independently.
+const BLANK_P = 0.5;
 const COLOR_P = 0.30;
 const CHAR_P  = 0.55;
 
@@ -189,10 +191,19 @@ export class GridLife {
     }
     if (dark.length === 0) return;
     const [x, y] = dark[(Math.random() * dark.length) | 0];
-    const i = idxSub(x, y);
+    this.rollHit(idxSub(x, y));
+  }
+
+  /** Standard hit: 50% blank, otherwise independent color + char rolls. */
+  private rollHit(i: number): void {
     this.subEverHit[i] = 1;
+    if (Math.random() < BLANK_P) {
+      this.subColor[i] = 0;
+      this.subChar[i] = 0;
+      return;
+    }
     this.subColor[i] = Math.random() < COLOR_P ? r255() : 0;
-    // Title char is overridden in the shader; charVal here doesn't matter.
+    this.subChar[i]  = Math.random() < CHAR_P  ? r255() : 0;
   }
 
   private expandRadius(): void {
@@ -246,11 +257,7 @@ export class GridLife {
       }
     }
     for (let i = 0; i < this.subAlive.length; i++) {
-      if (this.subAlive[i] !== this.subNext[i]) {
-        this.subEverHit[i] = 1;
-        this.subColor[i] = Math.random() < COLOR_P ? r255() : 0;
-        this.subChar[i]  = Math.random() < CHAR_P  ? r255() : 0;
-      }
+      if (this.subAlive[i] !== this.subNext[i]) this.rollHit(i);
     }
     const tmp = this.subAlive;
     this.subAlive = this.subNext;
