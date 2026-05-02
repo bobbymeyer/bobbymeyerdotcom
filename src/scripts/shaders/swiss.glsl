@@ -13,8 +13,11 @@ uniform sampler2D uAtlas;
 #define S(d,b) smoothstep(antialiasing(1.0),b,d)
 #define B(p,s) max(abs(p).x-s.x,abs(p).y-s.y)
 
-// Tight Swiss grid. Bump for denser cells, drop for chunkier.
-#define DENSITY 6.5
+// Tight Swiss grid.
+#define DENSITY 12.0
+// Each COARSE×COARSE block of fine cells has at most one macro cell
+// anchored at its corner; the rest are 1×1 fillers.
+#define COARSE 4.0
 
 #define ATLAS_COLS 6.0
 #define ATLAS_ROWS 6.0
@@ -28,12 +31,8 @@ const vec3 BLOCK  = vec3(0.10, 0.30, 0.55);  // print cyan
 float random(vec2 p) {
     return fract(sin(dot(p.xy, vec2(12.9898, 78.233))) * 43758.5453123);
 }
+float rand2(vec2 p, float salt) { return random(p + salt); }
 
-float rand2(vec2 p, float salt) {
-    return random(p + salt);
-}
-
-// Sample the canvas-rendered glyph atlas as a fake-SDF.
 float drawFont(vec2 p, int charId) {
     float fc = float(charId);
     float col = mod(fc, ATLAS_COLS);
@@ -47,44 +46,37 @@ float drawFont(vec2 p, int charId) {
     return max(glyphD, boxClip);
 }
 
-// Geometric symbols, indexed 0..5.
 float symbol(vec2 p, int idx) {
-    if (idx == 0) return B(p, vec2(0.28));                         // filled square
-    if (idx == 1) return abs(B(p, vec2(0.34))) - 0.03;             // square outline
-    if (idx == 2) {                                                 // plus
+    if (idx == 0) return B(p, vec2(0.28));
+    if (idx == 1) return abs(B(p, vec2(0.34))) - 0.03;
+    if (idx == 2) {
         float h = B(p, vec2(0.34, 0.06));
         float v = B(p, vec2(0.06, 0.34));
         return min(h, v);
     }
-    if (idx == 3) return length(p) - 0.28;                         // filled circle
-    if (idx == 4) return abs(length(p) - 0.30) - 0.03;             // circle outline
-    // three horizontal dots
+    if (idx == 3) return length(p) - 0.28;
+    if (idx == 4) return abs(length(p) - 0.30) - 0.03;
     float d = length(p - vec2(-0.22, 0.0)) - 0.06;
     d = min(d, length(p) - 0.06);
     d = min(d, length(p - vec2(0.22, 0.0)) - 0.06);
     return d;
 }
 
-// Animated tiles, indexed 0..3.
 float animatedTile(vec2 p, int kind, vec2 id) {
     if (kind == 0) {
-        // pulsing center dot
         float r = 0.10 + 0.06 * sin(iTime * 1.4 + rand2(id, 1.7) * 6.28318);
         return length(p) - r;
     }
     if (kind == 1) {
-        // sliding square
         float dir = step(0.5, rand2(id, 2.3)) * 2.0 - 1.0;
         float t = sin(iTime * 0.8 * dir + rand2(id, 3.1) * 6.28318) * 0.22;
         return B(p - vec2(t, 0.0), vec2(0.12));
     }
     if (kind == 2) {
-        // marching diagonal stripes inside a soft frame
         float lineSize = 18.0;
         float lines = tan((mix(p.x, p.y, 0.7) + (-iTime * 0.4 / lineSize)) * lineSize) * lineSize;
         return max(B(p, vec2(0.36)), lines);
     }
-    // rotating digit
     int dig = int(mod(iTime * 1.8 + rand2(id, 4.7) * 10.0, 10.0));
     return drawFont(p, dig);
 }
@@ -96,31 +88,26 @@ vec3 fieldColor(float h) {
     return BLOCK;
 }
 
+// Render the four cell-content types at any size — caller supplies a
+// local [-0.5,0.5] coord and an id for randomness.
 vec3 cellColor(vec2 grd, vec2 id) {
     float n = random(id);
 
-    // 55% — letter
     if (n < 0.55) {
         int char = int(rand2(id, 0.31) * 35.0);
         float d = drawFont(grd, char);
         return mix(PAPER, INK, S(d, 0.0));
     }
-
-    // 22% — symbol
     if (n < 0.77) {
         int sym = int(rand2(id, 0.59) * 6.0);
         float d = symbol(grd, sym);
         return mix(PAPER, INK, S(d, 0.0));
     }
-
-    // 14% — animated element
     if (n < 0.91) {
         int kind = int(rand2(id, 0.79) * 4.0);
         float d = animatedTile(grd, kind, id);
         return mix(PAPER, INK, S(d, 0.0));
     }
-
-    // 9% — colored field, sometimes with a reversed-out glyph
     vec3 field = fieldColor(rand2(id, 0.91));
     if (rand2(id, 0.97) > 0.45) {
         int char = int(rand2(id, 0.31) * 35.0);
@@ -130,10 +117,44 @@ vec3 cellColor(vec2 grd, vec2 id) {
     return field;
 }
 
+// Pick this coarse-cell's macro size. Bigger cells are rarer.
+float macroSizeAt(vec2 coarseId) {
+    float h = rand2(coarseId, 41.0);
+    if (h > 0.78) return 3.0;  // 3×3 — ~22%
+    if (h > 0.45) return 2.0;  // 2×2 — ~33%
+    return 1.0;                // 1×1 — ~45%
+}
+
+// Anchor offset within the coarse cell, so macros aren't all in the same corner.
+vec2 macroAnchorOffsetAt(vec2 coarseId, float macroSize) {
+    float maxOff = COARSE - macroSize;
+    float ox = floor(rand2(coarseId, 51.0) * (maxOff + 1.0));
+    float oy = floor(rand2(coarseId, 53.0) * (maxOff + 1.0));
+    return vec2(ox, oy);
+}
+
 void main() {
     vec2 p = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
     p *= DENSITY;
     vec2 id = floor(p);
     vec2 grd = fract(p) - 0.5;
-    gl_FragColor = vec4(cellColor(grd, id), 1.0);
+
+    // Find which coarse super-cell we're in, and whether we sit inside its macro.
+    vec2 coarseId = floor(id / COARSE);
+    vec2 coarseAnchor = coarseId * COARSE;
+    float macroSize = macroSizeAt(coarseId);
+    vec2 macroAnchor = coarseAnchor + macroAnchorOffsetAt(coarseId, macroSize);
+    vec2 offset = id - macroAnchor;
+
+    vec3 col;
+    if (offset.x >= 0.0 && offset.y >= 0.0 && offset.x < macroSize && offset.y < macroSize) {
+        // inside macro: remap fine fragment to local [-0.5, 0.5] across the merged region
+        vec2 macroGrd = (offset + grd + vec2(0.5)) / macroSize - vec2(0.5);
+        // shift id so macro content is independent of any 1×1 cell that happens to share an id
+        col = cellColor(macroGrd, coarseId + vec2(1000.0));
+    } else {
+        col = cellColor(grd, id);
+    }
+
+    gl_FragColor = vec4(col, 1.0);
 }
