@@ -27,10 +27,10 @@ uniform float uTickProgress;
 #define S(d,b) smoothstep(antialiasing(1.0),b,d)
 #define B(p,s) max(abs(p).x-s.x,abs(p).y-s.y)
 
-// Cell size in pixels — drives the responsive grid. The shader fits as
-// many whole CELL_PX-sized cells as the panel allows and pads the
-// leftover with paper.
-#define CELL_PX 48.0
+// Cell size in pixels — drives the responsive grid. Set from JS host so
+// mobile can use a smaller grid than desktop.
+uniform float uCellPx;
+#define CELL_PX uCellPx
 #define ATLAS_COLS 6.0
 #define ATLAS_ROWS 6.0
 

@@ -44,10 +44,14 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
+  // Cell size matches the falling-cells grid; smaller on mobile.
+  const cellPxFor = (width: number) => (width < 768 ? 24 : 48);
+
   const uniforms: Record<string, { value: unknown }> = {
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2() },
     uTickProgress: { value: 1 },
+    uCellPx: { value: cellPxFor(window.innerWidth) },
   };
 
   let atlasTexture: THREE.CanvasTexture | null = null;
@@ -68,7 +72,7 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     uniforms.uSubSize = { value: new THREE.Vector2(SUB_W, SUB_H) };
     // Match the shader's title-stacking decision so the reveal anchors
     // and "always merged" pinning point at the right cells.
-    life.setStackedTitle(Math.floor(canvas.clientWidth / 48) < 11);
+    life.setStackedTitle(Math.floor(canvas.clientWidth / cellPxFor(canvas.clientWidth)) < 11);
     lastTickTime = performance.now();
     tickTimer = setInterval(() => {
       life!.tick();
@@ -90,7 +94,9 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     const { clientWidth: w, clientHeight: h } = canvas;
     renderer.setSize(w, h, false);
     (uniforms.uResolution.value as THREE.Vector2).set(w, h);
-    if (life) life.setStackedTitle(Math.floor(w / 48) < 11);
+    const cellPx = cellPxFor(w);
+    (uniforms.uCellPx.value as number) = cellPx;
+    if (life) life.setStackedTitle(Math.floor(w / cellPx) < 11);
   };
   resize();
   const ro = new ResizeObserver(resize);

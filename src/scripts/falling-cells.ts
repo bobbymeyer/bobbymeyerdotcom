@@ -2,7 +2,9 @@ import Matter from 'matter-js';
 
 // Cells the colour of the splash grid's CMYK palette.
 const COLORS = ['#00aeef', '#ec008c', '#fff200', '#1f1f24'];
-const CELL = 48;
+// Match the shader's responsive cell size: smaller on mobile so the
+// falling cells line up with the splash grid above them.
+const cellPxFor = (width: number) => (width < 768 ? 24 : 48);
 const SPAWN_MS = 4000;
 const FIRST_DROP_DELAY_MS = 8000;
 const MAX_CELLS = 60;
@@ -329,16 +331,17 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
 
   const live: Matter.Body[] = [];
   const spawn = () => {
-    // Snap to the splash grid's 48px column centers so spawns line up
-    // with the shader cells overhead.
-    const cellCount = Math.max(1, Math.floor(w / CELL));
-    const padX = (w - cellCount * CELL) / 2;
+    // Snap to the splash grid's column centres so spawns line up with
+    // the shader cells overhead — the splash uses the same cell size.
+    const cell = cellPxFor(window.innerWidth);
+    const cellCount = Math.max(1, Math.floor(w / cell));
+    const padX = (w - cellCount * cell) / 2;
     const idx = (Math.random() * cellCount) | 0;
-    const x = padX + idx * CELL + CELL / 2;
+    const x = padX + idx * cell + cell / 2;
     const color = COLORS[(Math.random() * COLORS.length) | 0];
 
     // Spawn just inside the world (below the top wall at y ≈ 0).
-    const body = Matter.Bodies.rectangle(x, CELL / 2 + 4, CELL, CELL, {
+    const body = Matter.Bodies.rectangle(x, cell / 2 + 4, cell, cell, {
       restitution: 0.42,
       friction: 0.5,
       frictionAir: 0.012,
