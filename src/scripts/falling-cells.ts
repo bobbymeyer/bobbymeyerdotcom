@@ -53,8 +53,13 @@ export interface Handle {
 }
 
 export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElement): Handle {
-  const engine = Matter.Engine.create();
+  const engine = Matter.Engine.create({ enableSleeping: true });
   engine.gravity.y = 1.0;
+  // More solver work per step → constraints (pins) resolve closer to
+  // equilibrium and stacks settle without micro-jitter.
+  engine.positionIterations = 10;
+  engine.velocityIterations = 8;
+  engine.constraintIterations = 4;
 
   let { clientWidth: w, clientHeight: h } = container;
 
@@ -136,13 +141,11 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     };
     const tippableOpts: Matter.IChamferableBodyDefinition = {
       isStatic: false,
-      density: 0.0008,
+      density: 0.0004,        // lighter so cells visibly push them down
       friction: 0.5,
-      // High air friction soaks up jitter so brief impacts don't read
-      // as twitches; the soft pin (below) is what permits translation
-      // under sustained load.
-      frictionAir: 0.18,
-      restitution: 0.15,
+      frictionAir: 0.14,      // moderate damping; not so high it stops motion
+      restitution: 0.10,
+      sleepThreshold: 30,     // sleep after ~half a second of rest
       render: { visible: false },
     };
 
@@ -216,16 +219,15 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
           Matter.Body.set(body, 'frictionAir', tippableOpts.frictionAir);
         }
 
-        // Soft pin: low stiffness lets the body translate under sustained
-        // load (a stack of cells), high damping keeps single hits from
-        // bouncing the element around.
+        // Soft pin: low stiffness lets cells push the element down
+        // under sustained load; high damping eats single-hit oscillation.
         const pin = Matter.Constraint.create({
           pointA: { x: body.position.x, y: body.position.y },
           bodyB: body,
           pointB: { x: 0, y: 0 },
           length: 0,
-          stiffness: 0.12,
-          damping: 0.55,
+          stiffness: 0.06,
+          damping: 0.7,
           render: { visible: false },
         });
         domBodies.push(body);
@@ -247,6 +249,7 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
         const originY = body.position.y - baseY;
         el.style.transition = '';                    // physics-driven, no easing
         el.style.willChange = 'transform';
+        el.style.backfaceVisibility = 'hidden';      // forces compositor layer
         el.style.transformOrigin = `${originX.toFixed(1)}px ${originY.toFixed(1)}px`;
       }
     });
@@ -265,14 +268,15 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       .then(() => buildDomBodies());
   }
 
-  // Soft angular spring back to upright on every physics step. Cell
-  // collisions naturally apply torque via Matter; this keeps elements
-  // from drifting indefinitely after the cells leave.
+  // Soft angular spring back to upright. Skip sleeping bodies so the
+  // engine can actually let them rest; a small deadzone around 0
+  // prevents perpetual nudges that would otherwise read as twitch.
   Matter.Events.on(engine, 'beforeUpdate', () => {
     uniqueStates.forEach((state) => {
       const body = state.body;
-      if (!body) return;
-      Matter.Body.setAngularVelocity(body, body.angularVelocity - body.angle * 0.005);
+      if (!body || body.isSleeping) return;
+      if (Math.abs(body.angle) < 0.004) return;
+      Matter.Body.setAngularVelocity(body, body.angularVelocity - body.angle * 0.004);
     });
   });
 
@@ -295,8 +299,10 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       if (isResting) {
         state.el.style.transform = '';
       } else {
+        // translate3d composites on a dedicated GPU layer instead of
+        // repainting the element each frame.
         state.el.style.transform =
-          `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px) rotate(${deg.toFixed(2)}deg)`;
+          `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0) rotate(${deg.toFixed(2)}deg)`;
       }
     });
     rafId = requestAnimationFrame(updateTransforms);
