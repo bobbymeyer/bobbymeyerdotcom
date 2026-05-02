@@ -39,7 +39,8 @@ const SHADERS_NEEDING_LIFE = new Set(['swiss']);
 export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey: string) {
   const fragmentShader = SHADERS[shaderKey] ?? SHADERS.plasma;
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setClearColor(0x000000, 0);
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
@@ -76,6 +77,7 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     uniforms,
     vertexShader: `void main() { gl_Position = vec4(position, 1.0); }`,
     fragmentShader,
+    transparent: true,
   });
 
   const geometry = new THREE.PlaneGeometry(2, 2);

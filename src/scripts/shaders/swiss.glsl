@@ -214,11 +214,13 @@ int titleAt(vec2 id) {
 }
 
 // ---- per-snapshot rendering --------------------------------------------
-// Given a base+sub texture pair, return the colour for this fragment.
-// Same logic as before, but parameterised on the texture sources so we
-// can call it once for the previous tick and once for the current one.
+// Given a base+sub texture pair, return the (color, alpha) for this
+// fragment. Paper cells emit fully-transparent pixels so the page
+// background shows through.
 
-vec3 renderState(sampler2D baseTex, sampler2D subTex, vec2 baseXY, vec2 grd, vec2 id) {
+const vec4 TRANSPARENT = vec4(0.0);
+
+vec4 renderState(sampler2D baseTex, sampler2D subTex, vec2 baseXY, vec2 grd, vec2 id) {
     vec4 baseState = texture2D(baseTex, (baseXY + vec2(0.5)) / uBaseSize);
     bool isSplit = baseState.r > 0.5;
 
@@ -238,22 +240,28 @@ vec3 renderState(sampler2D baseTex, sampler2D subTex, vec2 baseXY, vec2 grd, vec
     float charVal  = floor(state.g * 255.0 + 0.5);
     bool everHit   = state.b > 0.5;
 
-    if (!everHit) return PAPER;
+    if (!everHit) return TRANSPARENT;
 
     int colorIdx = int(mod(colorVal, 4.0));
     bool hasColor = colorVal > 0.5;
     vec3 bg = hasColor ? fieldBG(colorIdx) : PAPER;
     vec3 fg = hasColor ? fieldFG(colorIdx) : KEY;
+    float bgA = hasColor ? 1.0 : 0.0;
 
+    // Title row.
     if (isTitleCell(id)) {
         int tch = titleAt(id);
-        if (tch < 0) return PAPER;
-        float d = drawFont(grd, tch);
-        return mix(bg, fg, S(d, 0.0));
+        if (tch < 0) return hasColor ? vec4(bg, bgA) : TRANSPARENT;
+        float t = S(drawFont(grd, tch), 0.0);
+        return vec4(mix(bg, fg, t), mix(bgA, 1.0, t));
     }
-    if (charVal < 0.5) return bg;
-    float d = charSDF(subGrd, charVal);
-    return mix(bg, fg, S(d, 0.0));
+
+    // No glyph — just background (which may itself be transparent paper).
+    if (charVal < 0.5) return hasColor ? vec4(bg, bgA) : TRANSPARENT;
+
+    // Glyph stamped on whatever bg is.
+    float t = S(charSDF(subGrd, charVal), 0.0);
+    return vec4(mix(bg, fg, t), mix(bgA, 1.0, t));
 }
 
 // ---- main ---------------------------------------------------------------
@@ -267,7 +275,7 @@ void main() {
     vec2 fc = gl_FragCoord.xy;
     if (fc.x < pad.x || fc.x >= uResolution.x - pad.x
         || fc.y < pad.y || fc.y >= uResolution.y - pad.y) {
-        gl_FragColor = vec4(PAPER, 1.0);
+        gl_FragColor = TRANSPARENT;
         return;
     }
 
@@ -276,22 +284,21 @@ void main() {
     vec2 grd = fract(cellPos) - 0.5;
 
     if (isMastheadMargin(id)) {
-        gl_FragColor = vec4(PAPER, 1.0);
+        gl_FragColor = TRANSPARENT;
         return;
     }
 
     vec2 baseXY = id + uBaseSize * 0.5;
     if (baseXY.x < 0.0 || baseXY.x >= uBaseSize.x
         || baseXY.y < 0.0 || baseXY.y >= uBaseSize.y) {
-        gl_FragColor = vec4(PAPER, 1.0);
+        gl_FragColor = TRANSPARENT;
         return;
     }
 
-    // Render the previous and current snapshots, then cross-fade.
-    vec3 colPrev = renderState(uStateBasePrev, uStateSubPrev, baseXY, grd, id);
-    vec3 colCur  = renderState(uStateBase,     uStateSub,     baseXY, grd, id);
+    // Cross-fade between the previous and current snapshots.
+    vec4 prev = renderState(uStateBasePrev, uStateSubPrev, baseXY, grd, id);
+    vec4 cur  = renderState(uStateBase,     uStateSub,     baseXY, grd, id);
 
-    // Smoothstep over the tick window for a soft cubic ease.
     float t = smoothstep(0.0, 1.0, clamp(uTickProgress, 0.0, 1.0));
-    gl_FragColor = vec4(mix(colPrev, colCur, t), 1.0);
+    gl_FragColor = mix(prev, cur, t);
 }
