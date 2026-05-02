@@ -16,6 +16,11 @@ package-lock.json
 dist/
 .astro/
 
+# Stale Jekyll artifacts
+_site/
+.ruby-version
+Gemfile.lock
+
 # Env
 .env
 .env.production
