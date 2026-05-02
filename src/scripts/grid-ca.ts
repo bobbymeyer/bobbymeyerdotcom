@@ -5,8 +5,10 @@ import * as THREE from 'three';
 //   Sub    (SUB_W  × SUB_H ): drives the actual content (color + char).
 // "Split" base cells render their 4 sub-cells; "merged" cells render
 // a single big cell using the top-left sub-cell's content.
-export const GRID_W = 48;
-export const GRID_H = 24;
+// Big enough to back a 24px-cell grid on any reasonable viewport
+// (160 cells wide handles up to ~3840px, 32 tall handles up to ~768px).
+export const GRID_W = 160;
+export const GRID_H = 32;
 export const SUB_W = GRID_W * 2;
 export const SUB_H = GRID_H * 2;
 
@@ -47,8 +49,10 @@ const isTitleBase = (x: number, y: number) =>
 // Reveal sequence starts with just the title row + one ring around it.
 // Once BOBBY MEYER is fully revealed, the radius grows outward.
 const INITIAL_REVEAL_RADIUS = 1;
-const REVEAL_EXPAND_EVERY = 2;
-const REVEAL_EXPAND_DELAY = 4;
+const REVEAL_EXPAND_EVERY = 1;
+const REVEAL_EXPAND_STEP  = 2;
+const REVEAL_EXPAND_DELAY = 3;
+const REVEAL_RADIUS_MAX   = 90;
 
 export class GridLife {
   // Base GoL (48 × 24) — alive bit means "split".
@@ -207,16 +211,19 @@ export class GridLife {
   }
 
   private expandRadius(): void {
-    if (this.revealRadius >= 60) return;
-    this.revealRadius++;
-    // Sprinkle life along the new ring so GoL has something to chew on.
+    if (this.revealRadius >= REVEAL_RADIUS_MAX) return;
+    const prev = this.revealRadius;
+    this.revealRadius = Math.min(prev + REVEAL_EXPAND_STEP, REVEAL_RADIUS_MAX);
+    // Sprinkle life across every newly-included ring so GoL has something
+    // to chew on as the active region grows.
     for (let y = 0; y < SUB_H; y++) {
       for (let x = 0; x < SUB_W; x++) {
         if (!this.isSubActive(x, y)) continue;
         const bx = x >> 1, by = y >> 1;
         const vDist = Math.abs(by - TITLE_ROW);
         const hDist = Math.max(0, bx - TITLE_X_MAX, TITLE_X_MIN - bx);
-        if (Math.max(vDist, hDist) === this.revealRadius && Math.random() < 0.22) {
+        const dist = Math.max(vDist, hDist);
+        if (dist > prev && dist <= this.revealRadius && Math.random() < 0.22) {
           this.subAlive[idxSub(x, y)] = 1;
         }
       }

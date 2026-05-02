@@ -21,7 +21,10 @@ uniform vec2 uSubSize;
 #define S(d,b) smoothstep(antialiasing(1.0),b,d)
 #define B(p,s) max(abs(p).x-s.x,abs(p).y-s.y)
 
-#define DENSITY 20.0
+// Cell size in pixels — drives the responsive grid. The shader fits as
+// many whole CELL_PX-sized cells as the panel allows and pads the
+// leftover with paper.
+#define CELL_PX 24.0
 #define ATLAS_COLS 6.0
 #define ATLAS_ROWS 6.0
 
@@ -207,10 +210,22 @@ int titleAt(vec2 id) {
 // ---- main ---------------------------------------------------------------
 
 void main() {
-    vec2 p = (gl_FragCoord.xy - 0.5 * uResolution.xy) / uResolution.y;
-    p *= DENSITY;
-    vec2 id = floor(p);
-    vec2 grd = fract(p) - 0.5;
+    // Fit as many whole CELL_PX cells as the panel can hold, centered.
+    // Anything outside that window is silent paper margin.
+    vec2 cellCount = floor(uResolution / CELL_PX);
+    vec2 cellHalf  = floor(cellCount * 0.5);
+    vec2 pad       = (uResolution - cellCount * CELL_PX) * 0.5;
+
+    vec2 fc = gl_FragCoord.xy;
+    if (fc.x < pad.x || fc.x >= uResolution.x - pad.x
+        || fc.y < pad.y || fc.y >= uResolution.y - pad.y) {
+        gl_FragColor = vec4(PAPER, 1.0);
+        return;
+    }
+
+    vec2 cellPos = (fc - pad) / CELL_PX;        // 0..cellCount
+    vec2 id  = floor(cellPos) - cellHalf;       // centered around 0
+    vec2 grd = fract(cellPos) - 0.5;            // local cell coord
 
     // Immutable masthead margin — pinned paper regardless of GoL.
     if (isMastheadMargin(id)) {
