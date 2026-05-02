@@ -7,7 +7,7 @@ export default {
         grotesk: ['"Space Grotesk"', 'system-ui', 'sans-serif'],
       },
       colors: {
-        paper: '#f1eee6',
+        paper: '#ffffff',
         ink: '#121214',
         // Swiss-poster accents
         signal: '#d4321f', // vermilion

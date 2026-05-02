@@ -28,7 +28,7 @@ uniform vec2 uSubSize;
 #define ATLAS_COLS 6.0
 #define ATLAS_ROWS 6.0
 
-const vec3 PAPER   = vec3(0.945, 0.935, 0.905);
+const vec3 PAPER   = vec3(1.0, 1.0, 1.0);
 const vec3 KEY     = vec3(0.137, 0.122, 0.125);
 const vec3 CYAN    = vec3(0.000, 0.682, 0.937);
 const vec3 MAGENTA = vec3(0.925, 0.000, 0.549);
