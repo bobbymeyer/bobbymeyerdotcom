@@ -195,12 +195,13 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
         el.style.transform = '';
       } else {
         // Tippable: a dynamic body pinned at its center of mass.
-        // Multi-line text becomes a compound body of per-line rects so
-        // cells can fall into the empty space alongside a short final
-        // line; everything else collapses to a single rect (the
-        // bounding box).
-        const lineRects = lineRectsOf(el);
-        const useCompound = lineRects.length > 1;
+        // - inputs / textarea → a thin strip at the visual underline so
+        //   cells settle on the line rather than the input's full box
+        // - multi-line text → compound body of per-line rects so cells
+        //   can fall into the empty space alongside a short final line
+        // - everything else → single rect bounding box
+        const isLineField = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA';
+        const LINE_STRIP_PX = 6;
 
         const partOpts: Matter.IChamferableBodyDefinition = {
           friction: 0.5,
@@ -208,25 +209,29 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
           render: { visible: false },
         };
 
-        const subRects = useCompound
-          ? lineRects
-          : [el.getBoundingClientRect()];
-        const parts = subRects.map((rr) => {
-          const cx = rr.left - cRect.left + rr.width / 2;
-          const cy = rr.top - cRect.top + rr.height / 2;
-          return Matter.Bodies.rectangle(cx, cy, rr.width, rr.height, partOpts);
-        });
-
-        const body = useCompound
-          ? Matter.Body.create({ parts, ...tippableOpts })
-          : parts[0];
-        if (!useCompound) {
-          // Single-rect case still needs the tippableOpts applied —
-          // Bodies.rectangle was created with partOpts. Override here.
-          Matter.Body.set(body, 'isStatic', tippableOpts.isStatic);
-          Matter.Body.set(body, 'density', tippableOpts.density);
-          Matter.Body.set(body, 'frictionAir', tippableOpts.frictionAir);
+        let body: Matter.Body;
+        if (isLineField) {
+          // Thin horizontal bar at the input's bottom border. Cells
+          // landing on it rest with their bottom edge on the underline.
+          const cx = baseX + r.width / 2;
+          const cy = baseY + r.height - LINE_STRIP_PX / 2;
+          body = Matter.Bodies.rectangle(cx, cy, r.width, LINE_STRIP_PX, partOpts);
+        } else {
+          const lineRects = lineRectsOf(el);
+          const useCompound = lineRects.length > 1;
+          const subRects = useCompound ? lineRects : [el.getBoundingClientRect()];
+          const parts = subRects.map((rr) => {
+            const cx = rr.left - cRect.left + rr.width / 2;
+            const cy = rr.top - cRect.top + rr.height / 2;
+            return Matter.Bodies.rectangle(cx, cy, rr.width, rr.height, partOpts);
+          });
+          body = useCompound ? Matter.Body.create({ parts, ...tippableOpts }) : parts[0];
         }
+
+        // Apply tippableOpts (Bodies.rectangle was created with partOpts).
+        Matter.Body.set(body, 'isStatic', tippableOpts.isStatic);
+        Matter.Body.set(body, 'density', tippableOpts.density);
+        Matter.Body.set(body, 'frictionAir', tippableOpts.frictionAir);
 
         // Soft pin: low stiffness lets cells push the element down
         // under sustained load; high damping eats single-hit oscillation.
