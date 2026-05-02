@@ -4,6 +4,9 @@ precision highp int;
 uniform float uTime;
 uniform vec2 uResolution;
 uniform sampler2D uAtlas;
+// Fraction of cells that carry content. 0 = all paper, 1 = all populated.
+// Wired to mouse X by the JS host (left = 0.01, right = 0.99).
+uniform float uObjectDensity;
 
 #define iTime uTime
 #define iResolution uResolution
@@ -154,8 +157,8 @@ vec3 fieldFG(int idx) {
 // Render the four cell-content types at any size — caller supplies a
 // local [-0.5,0.5] coord and an id for randomness.
 vec3 cellColor(vec2 grd, vec2 id) {
-    // Half the cells are intentionally blank — pure paper.
-    if (rand2(id, 0.13) < 0.5) return PAPER;
+    // object_density: fraction of cells that carry content. The rest are paper.
+    if (rand2(id, 0.13) > uObjectDensity) return PAPER;
 
     float n = random(id);
 

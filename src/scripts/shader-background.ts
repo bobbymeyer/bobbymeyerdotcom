@@ -43,6 +43,7 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   const uniforms: Record<string, { value: unknown }> = {
     uTime: { value: 0 },
     uResolution: { value: new THREE.Vector2() },
+    uObjectDensity: { value: 0.5 },
   };
 
   let atlasTexture: THREE.CanvasTexture | null = null;
@@ -51,6 +52,15 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
     atlasTexture = makeFontAtlas();
     uniforms.uAtlas = { value: atlasTexture };
   }
+
+  // Mouse X drives object_density on a 1..99 integer scale (mapped to 0.01..0.99).
+  let densityTarget = 0.5;
+  const onMouseMove = (e: MouseEvent) => {
+    const xNorm = Math.min(1, Math.max(0, e.clientX / window.innerWidth));
+    const scale = Math.round(1 + xNorm * 98); // 1..99
+    densityTarget = scale / 100; // 0.01..0.99
+  };
+  window.addEventListener('mousemove', onMouseMove, { passive: true });
 
   const material = new THREE.ShaderMaterial({
     uniforms,
@@ -74,6 +84,9 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   let raf = 0;
   const tick = () => {
     uniforms.uTime.value = (performance.now() - start) / 1000;
+    // Lerp the density toward the mouse target so it eases instead of snapping.
+    const cur = uniforms.uObjectDensity.value as number;
+    uniforms.uObjectDensity.value = cur + (densityTarget - cur) * 0.12;
     renderer.render(scene, camera);
     raf = requestAnimationFrame(tick);
   };
@@ -82,6 +95,7 @@ export async function mountShaderBackground(canvas: HTMLCanvasElement, shaderKey
   return () => {
     cancelAnimationFrame(raf);
     ro.disconnect();
+    window.removeEventListener('mousemove', onMouseMove);
     renderer.dispose();
     geometry.dispose();
     material.dispose();
