@@ -13,6 +13,10 @@ const MAX_CELLS = 60;
 const VOX_COLS = 36;
 const VOX_ROWS = 60;
 const VOX_LUM_THRESHOLD = 28;
+// Each voxel rect inflates by this many px so the silhouette has a soft
+// halo of collision area around it instead of cells landing right on
+// the photo's outline.
+const VOX_PAD_PX = 8;
 const voxelCache = new Map<string, boolean[]>();
 
 async function loadVoxels(url: string): Promise<boolean[]> {
@@ -154,8 +158,8 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
               Matter.Bodies.rectangle(
                 baseX + xx * cellW + cellW / 2,
                 baseY + yy * cellH + cellH / 2,
-                cellW + 0.5,
-                cellH + 0.5,
+                cellW + VOX_PAD_PX,
+                cellH + VOX_PAD_PX,
                 staticOpts,
               ),
             );
