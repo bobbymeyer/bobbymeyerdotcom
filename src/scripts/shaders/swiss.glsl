@@ -37,7 +37,7 @@ float drawFont(vec2 p, int charId) {
     float fc = float(charId);
     float col = mod(fc, ATLAS_COLS);
     float row = floor(fc / ATLAS_COLS);
-    vec2 cellUv = vec2(p.x + 0.5, 0.5 - p.y);
+    vec2 cellUv = vec2(p.x + 0.5, p.y + 0.5);
     vec2 inner = clamp(cellUv, 0.002, 0.998);
     vec2 uv = (vec2(col, row) + inner) / vec2(ATLAS_COLS, ATLAS_ROWS);
     float a = texture2D(uAtlas, uv).r;
@@ -118,11 +118,32 @@ vec3 cellColor(vec2 grd, vec2 id) {
 }
 
 // Pick this coarse-cell's macro size. Bigger cells are rarer.
+// Title row stays as 1×1 fillers so nothing overruns the BOBBY MEYER cells.
 float macroSizeAt(vec2 coarseId) {
+    if (coarseId.y > -0.5 && coarseId.y < 0.5) return 1.0;
     float h = rand2(coarseId, 41.0);
     if (h > 0.78) return 3.0;  // 3×3 — ~22%
     if (h > 0.45) return 2.0;  // 2×2 — ~33%
     return 1.0;                // 1×1 — ~45%
+}
+
+// Atlas index for the title letter at this fine cell, or -1 otherwise.
+// Layout: B O B B Y _ M E Y E R  on row id.y == 0, id.x ∈ [-5, +5].
+int titleAt(vec2 id) {
+    if (id.y < -0.5 || id.y > 0.5) return -1;
+    float ix = id.x;
+    if (ix < -5.5 || ix > 5.5) return -1;
+    if (abs(ix - (-5.0)) < 0.5) return 11; // B
+    if (abs(ix - (-4.0)) < 0.5) return 24; // O
+    if (abs(ix - (-3.0)) < 0.5) return 11; // B
+    if (abs(ix - (-2.0)) < 0.5) return 11; // B
+    if (abs(ix - (-1.0)) < 0.5) return 34; // Y
+    if (abs(ix -   1.0 ) < 0.5) return 22; // M
+    if (abs(ix -   2.0 ) < 0.5) return 14; // E
+    if (abs(ix -   3.0 ) < 0.5) return 34; // Y
+    if (abs(ix -   4.0 ) < 0.5) return 14; // E
+    if (abs(ix -   5.0 ) < 0.5) return 27; // R
+    return -1; // gap
 }
 
 // Anchor offset within the coarse cell, so macros aren't all in the same corner.
@@ -138,6 +159,14 @@ void main() {
     p *= DENSITY;
     vec2 id = floor(p);
     vec2 grd = fract(p) - 0.5;
+
+    // BOBBY MEYER title cells override everything else.
+    int tch = titleAt(id);
+    if (tch >= 0) {
+        float d = drawFont(grd, tch);
+        gl_FragColor = vec4(mix(SIGNAL, PAPER, S(d, 0.0)), 1.0);
+        return;
+    }
 
     // Find which coarse super-cell we're in, and whether we sit inside its macro.
     vec2 coarseId = floor(id / COARSE);
