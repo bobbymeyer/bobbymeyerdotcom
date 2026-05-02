@@ -17,16 +17,19 @@ uniform float uObjectDensity;
 #define B(p,s) max(abs(p).x-s.x,abs(p).y-s.y)
 
 // Tight Swiss grid.
-#define DENSITY 16.0
+#define DENSITY 20.0
 // Each COARSE×COARSE block of fine cells has at most one macro cell
-// anchored at its corner; the rest are 1×1 fillers (sometimes
-// subdivided further into half-size mini cells, and those mini cells
-// can subdivide once more into quarter-size cells).
-#define COARSE 5.0
+// anchored at its corner; the rest are 1×1 fillers, which may
+// subdivide up to three levels (½, ¼, ⅛ size).
+#define COARSE 6.0
 // Probability a 1×1 filler subdivides into 2×2 half-size cells.
 #define SUBDIVIDE_P 0.30
-// Probability a half-size mini cell subdivides again into 2×2 quarter cells.
+// Probability a half-size cell subdivides again into 2×2 quarter cells.
 #define SUBSUB_P 0.32
+// Probability a quarter-size cell subdivides once more into eighth cells.
+#define SUBSUBSUB_P 0.28
+// Each tick, one random coarse cell expands (becomes 6×6) or subdivides.
+#define TICK_DURATION 1.0
 
 #define ATLAS_COLS 6.0
 #define ATLAS_ROWS 6.0
@@ -201,11 +204,12 @@ vec3 cellColor(vec2 grd, vec2 id) {
 float macroSizeAt(vec2 coarseId) {
     if (coarseId.y > -0.5 && coarseId.y < 0.5) return 1.0;
     float h = rand2(coarseId, 41.0);
-    if (h > 0.96) return 5.0;  // 5×5 — ~4%  (fills entire coarse cell)
-    if (h > 0.86) return 4.0;  // 4×4 — ~10%
-    if (h > 0.70) return 3.0;  // 3×3 — ~16%
-    if (h > 0.42) return 2.0;  // 2×2 — ~28%
-    return 1.0;                // 1×1 — ~42%
+    if (h > 0.97) return 6.0;  // 6×6 — ~3%  (fills entire coarse cell)
+    if (h > 0.90) return 5.0;  // 5×5 — ~7%
+    if (h > 0.78) return 4.0;  // 4×4 — ~12%
+    if (h > 0.62) return 3.0;  // 3×3 — ~16%
+    if (h > 0.36) return 2.0;  // 2×2 — ~26%
+    return 1.0;                // 1×1 — ~36%
 }
 
 // Atlas index for the title letter at this fine cell, or -1 otherwise.
@@ -249,33 +253,64 @@ void main() {
         return;
     }
 
-    // Find which coarse super-cell we're in, and whether we sit inside its macro.
+    // Find which coarse super-cell we're in.
     vec2 coarseId = floor(id / COARSE);
     vec2 coarseAnchor = coarseId * COARSE;
     float macroSize = macroSizeAt(coarseId);
     vec2 macroAnchor = coarseAnchor + macroAnchorOffsetAt(coarseId, macroSize);
-    vec2 offset = id - macroAnchor;
 
+    // Tick mechanism: each TICK_DURATION seconds one random coarse cell
+    // either fully expands (becomes a 6×6 mega cell) or fully subdivides
+    // (every fine cell in it becomes deeply divided sub-cells).
+    float tickIdx = floor(iTime / TICK_DURATION);
+    vec2 tickRand = vec2(tickIdx, 0.0);
+    float ax = floor(rand2(tickRand, 17.3) * 6.0) - 3.0; // -3..2 (likely visible)
+    float ay = floor(rand2(tickRand, 19.7) * 4.0) - 2.0; // -2..1
+    if (ay > -0.5 && ay < 0.5) ay = 1.0;                 // never override the title row
+    bool tickActive = abs(coarseId.x - ax) < 0.5 && abs(coarseId.y - ay) < 0.5;
+    int tickAction = int(rand2(tickRand, 23.1) * 2.0);   // 0 = expand, 1 = subdivide
+    bool tickExpand    = tickActive && tickAction == 0;
+    bool tickSubdivide = tickActive && tickAction == 1;
+
+    if (tickExpand) {
+        macroSize = COARSE;
+        macroAnchor = coarseAnchor;
+    } else if (tickSubdivide) {
+        macroSize = 0.0;
+    }
+
+    vec2 offset = id - macroAnchor;
     vec3 col;
-    if (offset.x >= 0.0 && offset.y >= 0.0 && offset.x < macroSize && offset.y < macroSize) {
-        // inside macro: remap fine fragment to local [-0.5, 0.5] across the merged region
+    if (macroSize > 0.0 && offset.x >= 0.0 && offset.y >= 0.0
+        && offset.x < macroSize && offset.y < macroSize) {
         vec2 macroGrd = (offset + grd + vec2(0.5)) / macroSize - vec2(0.5);
-        // shift id so macro content is independent of any 1×1 cell that happens to share an id
         col = cellColor(macroGrd, coarseId + vec2(1000.0));
-    } else if (rand2(id, 71.0) < SUBDIVIDE_P) {
-        // subdivide this 1×1 filler into 2×2 half-size cells
-        vec2 sub = (grd + vec2(0.5)) * 2.0;
-        vec2 subId = floor(sub);
-        vec2 subGrd = fract(sub) - 0.5;
-        vec2 subFullId = id * 2.0 + subId + vec2(7777.0);
-        // ...and one of those mini cells may subdivide once more into quarters
-        if (rand2(subFullId, 113.0) < SUBSUB_P) {
-            vec2 sub2 = (subGrd + vec2(0.5)) * 2.0;
-            vec2 sub2Id = floor(sub2);
-            vec2 sub2Grd = fract(sub2) - 0.5;
-            col = cellColor(sub2Grd, subFullId * 2.0 + sub2Id + vec2(31337.0));
+    } else if (tickSubdivide || rand2(id, 71.0) < SUBDIVIDE_P) {
+        // ½-size cells
+        vec2 sub1 = (grd + vec2(0.5)) * 2.0;
+        vec2 subId1 = floor(sub1);
+        vec2 subGrd1 = fract(sub1) - 0.5;
+        vec2 fullId1 = id * 2.0 + subId1 + vec2(7777.0);
+
+        if (tickSubdivide || rand2(fullId1, 113.0) < SUBSUB_P) {
+            // ¼-size cells
+            vec2 sub2 = (subGrd1 + vec2(0.5)) * 2.0;
+            vec2 subId2 = floor(sub2);
+            vec2 subGrd2 = fract(sub2) - 0.5;
+            vec2 fullId2 = fullId1 * 2.0 + subId2 + vec2(31337.0);
+
+            if (tickSubdivide || rand2(fullId2, 167.0) < SUBSUBSUB_P) {
+                // ⅛-size cells
+                vec2 sub3 = (subGrd2 + vec2(0.5)) * 2.0;
+                vec2 subId3 = floor(sub3);
+                vec2 subGrd3 = fract(sub3) - 0.5;
+                vec2 fullId3 = fullId2 * 2.0 + subId3 + vec2(91011.0);
+                col = cellColor(subGrd3, fullId3);
+            } else {
+                col = cellColor(subGrd2, fullId2);
+            }
         } else {
-            col = cellColor(subGrd, subFullId);
+            col = cellColor(subGrd1, fullId1);
         }
     } else {
         col = cellColor(grd, id);
