@@ -36,7 +36,8 @@ float rand2(vec2 p, float salt) { return random(p + salt); }
 float drawFont(vec2 p, int charId) {
     float fc = float(charId);
     float col = mod(fc, ATLAS_COLS);
-    float row = floor(fc / ATLAS_COLS);
+    // CanvasTexture defaults to flipY=true, so canvas row R lives at texture row (N-1-R).
+    float row = (ATLAS_ROWS - 1.0) - floor(fc / ATLAS_COLS);
     vec2 cellUv = vec2(p.x + 0.5, p.y + 0.5);
     vec2 inner = clamp(cellUv, 0.002, 0.998);
     vec2 uv = (vec2(col, row) + inner) / vec2(ATLAS_COLS, ATLAS_ROWS);
