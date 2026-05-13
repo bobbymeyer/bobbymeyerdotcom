@@ -372,6 +372,11 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     const existing = textBodies.get(input);
     if (existing) Matter.World.remove(engine.world, existing);
     textBodies.set(input, null);
+    // Wake every live cell — if a cell was sleeping while resting on
+    // the body we just removed, it would otherwise hang in mid-air.
+    live.forEach((c) => {
+      if (c.isSleeping) Matter.Sleeping.set(c, false);
+    });
     if (!measureCtx || input.value.length === 0) return;
 
     const cs = getComputedStyle(input);
