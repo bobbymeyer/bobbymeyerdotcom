@@ -297,6 +297,23 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     });
   });
 
+  // Hard clamp on rotation. Enough wobble to read as weight, never enough
+  // to look like the element is tipping over. ~7 degrees each way.
+  const MAX_ANGLE = 0.12;
+  Matter.Events.on(engine, 'afterUpdate', () => {
+    uniqueStates.forEach((state) => {
+      const body = state.body;
+      if (!body) return;
+      if (body.angle > MAX_ANGLE) {
+        Matter.Body.setAngle(body, MAX_ANGLE);
+        if (body.angularVelocity > 0) Matter.Body.setAngularVelocity(body, 0);
+      } else if (body.angle < -MAX_ANGLE) {
+        Matter.Body.setAngle(body, -MAX_ANGLE);
+        if (body.angularVelocity < 0) Matter.Body.setAngularVelocity(body, 0);
+      }
+    });
+  });
+
   // Mirror each tippable body's actual position + angle onto the DOM
   // element. Translation comes from the soft pin constraint giving way
   // under sustained collision force.
