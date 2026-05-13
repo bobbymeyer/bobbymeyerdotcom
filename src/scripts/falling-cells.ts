@@ -9,6 +9,12 @@ const SPAWN_MS = 4000;
 const FIRST_DROP_DELAY_MS = 8000;
 const MAX_CELLS = 60;
 
+// Collision categories. Cells collide with everything; the text-
+// occupancy body only collides with cells (so it doesn't perturb the
+// underline body it lives inside).
+const CAT_CELL = 0x0002;
+const CAT_TEXT = 0x0004;
+
 // data-collide-shape="<image url>" voxelises the image into a grid of
 // foreground pixels. Each foreground pixel becomes a small static rect
 // and cells bounce off the silhouette instead of the bounding box.
@@ -233,15 +239,14 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
         Matter.Body.set(body, 'density', tippableOpts.density);
         Matter.Body.set(body, 'frictionAir', tippableOpts.frictionAir);
 
-        // Soft pin: low stiffness lets cells push the element down
-        // under sustained load; high damping eats single-hit oscillation.
+        // Rigid pin — element doesn't translate at all, only rotates.
         const pin = Matter.Constraint.create({
           pointA: { x: body.position.x, y: body.position.y },
           bodyB: body,
           pointB: { x: 0, y: 0 },
           length: 0,
-          stiffness: 0.06,
-          damping: 0.7,
+          stiffness: 1,
+          damping: 1,
           render: { visible: false },
         });
         domBodies.push(body);
@@ -285,29 +290,20 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       .then(() => buildDomBodies());
   }
 
-  // Cancel gravity for tippable bodies so they only move under cell
-  // pressure — not under their own mass. Keeps the input from sagging
-  // just because there's text in it.
+  // Soft angular spring toward upright. Rigid pin handles position,
+  // so we only need to bring rotation back to zero.
   Matter.Events.on(engine, 'beforeUpdate', () => {
-    const gScale = engine.gravity.scale || 0.001;
     uniqueStates.forEach((state) => {
       const body = state.body;
-      if (!body || body.isStatic) return;
-      Matter.Body.applyForce(body, body.position, {
-        x: 0,
-        y: -body.mass * engine.gravity.y * gScale,
-      });
-      // Soft angular spring toward upright. Skip sleepers, deadzone
-      // around 0 so the spring doesn't twitch.
-      if (body.isSleeping) return;
-      if (Math.abs(body.angle) < 0.004) return;
-      Matter.Body.setAngularVelocity(body, body.angularVelocity - body.angle * 0.004);
+      if (!body || body.isSleeping) return;
+      if (Math.abs(body.angle) < 0.0015) return;
+      Matter.Body.setAngularVelocity(body, body.angularVelocity - body.angle * 0.012);
     });
   });
 
-  // Hard clamp on rotation. Enough wobble to read as weight, never enough
-  // to look like the element is tipping over. ~7 degrees each way.
-  const MAX_ANGLE = 0.12;
+  // Hard clamp on rotation. Subtle — just enough to read as weight,
+  // not enough to feel like the element is wobbling. ~2 degrees each way.
+  const MAX_ANGLE = 0.035;
   Matter.Events.on(engine, 'afterUpdate', () => {
     uniqueStates.forEach((state) => {
       const body = state.body;
@@ -322,30 +318,20 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
     });
   });
 
-  // Mirror each tippable body's actual position + angle onto the DOM
-  // element. Translation comes from the soft pin constraint giving way
-  // under sustained collision force.
+  // Mirror each tippable body's rotation onto the DOM element. Position
+  // is locked by the rigid pin — only the angle moves.
   const updateTransforms = () => {
     uniqueStates.forEach((state) => {
       const body = state.body;
-      if (!body || state.baseX === undefined || state.baseY === undefined) return;
-      const dx = body.position.x - state.baseX;
-      const dy = body.position.y - state.baseY;
-      const deg = body.angle * (180 / Math.PI);
+      if (!body) return;
       const isResting =
-        Math.abs(dx) < 0.3
-        && Math.abs(dy) < 0.3
-        && Math.abs(body.angle) < 0.0008
-        && Math.abs(body.angularVelocity) < 0.0008
-        && Math.hypot(body.velocity.x, body.velocity.y) < 0.05;
+        Math.abs(body.angle) < 0.0008
+        && Math.abs(body.angularVelocity) < 0.0008;
       if (isResting) {
-        // Don't clear the transform — keep the element on its existing
-        // compositor layer so antialiasing stays in the same mode it
-        // had during motion. Visually identical to no transform.
         state.el.style.transform = 'translateZ(0)';
       } else {
-        state.el.style.transform =
-          `translate3d(${dx.toFixed(1)}px, ${dy.toFixed(1)}px, 0) rotate(${deg.toFixed(2)}deg)`;
+        const deg = body.angle * (180 / Math.PI);
+        state.el.style.transform = `translateZ(0) rotate(${deg.toFixed(2)}deg)`;
       }
     });
     rafId = requestAnimationFrame(updateTransforms);
@@ -405,6 +391,9 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       isStatic: true,
       friction: 0.4,
       restitution: 0.2,
+      // Only collide with cells — never with the underline body it
+      // sits inside, so growing the text doesn't push the input.
+      collisionFilter: { category: CAT_TEXT, mask: CAT_CELL },
       render: { visible: false },
     });
     Matter.World.add(engine.world, body);
@@ -449,6 +438,7 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       frictionAir: 0.012,
       density: 0.0015,
       angle: (Math.random() - 0.5) * 0.1,
+      collisionFilter: { category: CAT_CELL, mask: 0xffffffff },
       render: { fillStyle: color },
     });
     Matter.World.add(engine.world, body);
