@@ -285,13 +285,21 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       .then(() => buildDomBodies());
   }
 
-  // Soft angular spring back to upright. Skip sleeping bodies so the
-  // engine can actually let them rest; a small deadzone around 0
-  // prevents perpetual nudges that would otherwise read as twitch.
+  // Cancel gravity for tippable bodies so they only move under cell
+  // pressure — not under their own mass. Keeps the input from sagging
+  // just because there's text in it.
   Matter.Events.on(engine, 'beforeUpdate', () => {
+    const gScale = engine.gravity.scale || 0.001;
     uniqueStates.forEach((state) => {
       const body = state.body;
-      if (!body || body.isSleeping) return;
+      if (!body || body.isStatic) return;
+      Matter.Body.applyForce(body, body.position, {
+        x: 0,
+        y: -body.mass * engine.gravity.y * gScale,
+      });
+      // Soft angular spring toward upright. Skip sleepers, deadzone
+      // around 0 so the spring doesn't twitch.
+      if (body.isSleeping) return;
       if (Math.abs(body.angle) < 0.004) return;
       Matter.Body.setAngularVelocity(body, body.angularVelocity - body.angle * 0.004);
     });
@@ -411,19 +419,11 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       .forEach((input) => {
         const collideEl = input.closest('[data-collide]') as HTMLElement | null;
         const fn = () => {
+          // Just grow / shrink the text body. The cells getting evicted
+          // by the new geometry is what reads as "typing pushes things";
+          // the input itself is gravity-cancelled now, so it doesn't sag
+          // when text fills it.
           updateTextBody(input);
-          // Also wake / kick the underline body so cells parked there
-          // skip out of the way of the growing text.
-          if (!collideEl) return;
-          let state: ElState | undefined;
-          uniqueStates.forEach((s) => { if (s.el === collideEl) state = s; });
-          if (!state?.body || state.body.isStatic) return;
-          if (state.body.isSleeping) Matter.Sleeping.set(state.body, false);
-          Matter.Body.applyForce(
-            state.body,
-            state.body.position,
-            { x: 0.0004, y: -0.0008 },
-          );
         };
         input.addEventListener('input', fn);
         inputListeners.push({ el: input, fn });
