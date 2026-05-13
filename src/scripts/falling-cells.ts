@@ -346,9 +346,12 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   findCollideEls().forEach((el) => elRo.observe(el));
 
   // Wire keystrokes on form inputs to nudge their parent collide body —
-  // each typed character pushes the field upward + jitters cells off it.
+  // each typed character applies an impulse at the right edge of the
+  // current text so cells get pushed along as the text grows.
   type InputListener = { el: HTMLElement; fn: () => void };
   const inputListeners: InputListener[] = [];
+  const measureCanvas = document.createElement('canvas');
+  const measureCtx = measureCanvas.getContext('2d');
   const wireInputNudges = () => {
     inputListeners.forEach(({ el, fn }) => el.removeEventListener('input', fn));
     inputListeners.length = 0;
@@ -361,13 +364,29 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
           let state: ElState | undefined;
           uniqueStates.forEach((s) => { if (s.el === collideEl) state = s; });
           if (!state?.body || state.body.isStatic) return;
-          // Wake the body so the impulse takes effect immediately.
           if (state.body.isSleeping) Matter.Sleeping.set(state.body, false);
-          Matter.Body.applyForce(
-            state.body,
-            state.body.position,
-            { x: (Math.random() - 0.5) * 0.0012, y: -0.0010 },
-          );
+
+          // Default: small upward/jitter force at body center (textarea).
+          let point = state.body.position;
+          let force = { x: (Math.random() - 0.5) * 0.0010, y: -0.0012 };
+
+          // Single-line inputs: apply force at the text's current right
+          // edge so cells get nudged along + up as the text fills the line.
+          if (input.tagName === 'INPUT' && measureCtx) {
+            const cs = getComputedStyle(input);
+            measureCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+            const textW = measureCtx.measureText(input.value).width;
+            const padLeft = parseFloat(cs.paddingLeft || '0');
+            const cRect = container.getBoundingClientRect();
+            const r = input.getBoundingClientRect();
+            point = {
+              x: r.left - cRect.left + padLeft + textW,
+              y: r.top - cRect.top + r.height - 3,
+            };
+            force = { x: 0.0010, y: -0.0020 };
+          }
+
+          Matter.Body.applyForce(state.body, point, force);
         };
         input.addEventListener('input', fn);
         inputListeners.push({ el: input, fn });
