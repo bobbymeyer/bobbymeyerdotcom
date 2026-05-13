@@ -345,13 +345,47 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
   const elRo = new ResizeObserver(() => buildDomBodies());
   findCollideEls().forEach((el) => elRo.observe(el));
 
-  // Wire keystrokes on form inputs to nudge their parent collide body —
-  // each typed character applies an impulse at the right edge of the
-  // current text so cells get pushed along as the text grows.
+  // Wire keystrokes on form inputs to:
+  //   1. Wake the underline body so any cells resting on it scatter, and
+  //   2. Update a STATIC "text occupancy" body sized to the currently
+  //      typed text. As the text grows, this body grows from the input's
+  //      left edge rightward, physically displacing any cells in its
+  //      path.
   type InputListener = { el: HTMLElement; fn: () => void };
   const inputListeners: InputListener[] = [];
+  const textBodies = new Map<HTMLElement, Matter.Body | null>();
   const measureCanvas = document.createElement('canvas');
   const measureCtx = measureCanvas.getContext('2d');
+
+  const updateTextBody = (input: HTMLInputElement | HTMLTextAreaElement) => {
+    const existing = textBodies.get(input);
+    if (existing) Matter.World.remove(engine.world, existing);
+    textBodies.set(input, null);
+    if (!measureCtx || input.value.length === 0) return;
+
+    const cs = getComputedStyle(input);
+    measureCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const textW = measureCtx.measureText(input.value).width;
+    if (textW < 2) return;
+
+    const padLeft = parseFloat(cs.paddingLeft || '0');
+    const cRect = container.getBoundingClientRect();
+    const r = input.getBoundingClientRect();
+    // Take up the actual text rect — left edge of the input + padding,
+    // extending right by the text width. Height matches the input so
+    // cells sitting on the line get evicted upward as text grows.
+    const x = r.left - cRect.left + padLeft + textW / 2;
+    const y = r.top - cRect.top + r.height / 2;
+    const body = Matter.Bodies.rectangle(x, y, textW, r.height, {
+      isStatic: true,
+      friction: 0.4,
+      restitution: 0.2,
+      render: { visible: false },
+    });
+    Matter.World.add(engine.world, body);
+    textBodies.set(input, body);
+  };
+
   const wireInputNudges = () => {
     inputListeners.forEach(({ el, fn }) => el.removeEventListener('input', fn));
     inputListeners.length = 0;
@@ -359,34 +393,20 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       .querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')
       .forEach((input) => {
         const collideEl = input.closest('[data-collide]') as HTMLElement | null;
-        if (!collideEl) return;
         const fn = () => {
+          updateTextBody(input);
+          // Also wake / kick the underline body so cells parked there
+          // skip out of the way of the growing text.
+          if (!collideEl) return;
           let state: ElState | undefined;
           uniqueStates.forEach((s) => { if (s.el === collideEl) state = s; });
           if (!state?.body || state.body.isStatic) return;
           if (state.body.isSleeping) Matter.Sleeping.set(state.body, false);
-
-          // Default: small upward/jitter force at body center (textarea).
-          let point = state.body.position;
-          let force = { x: (Math.random() - 0.5) * 0.0010, y: -0.0012 };
-
-          // Single-line inputs: apply force at the text's current right
-          // edge so cells get nudged along + up as the text fills the line.
-          if (input.tagName === 'INPUT' && measureCtx) {
-            const cs = getComputedStyle(input);
-            measureCtx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-            const textW = measureCtx.measureText(input.value).width;
-            const padLeft = parseFloat(cs.paddingLeft || '0');
-            const cRect = container.getBoundingClientRect();
-            const r = input.getBoundingClientRect();
-            point = {
-              x: r.left - cRect.left + padLeft + textW,
-              y: r.top - cRect.top + r.height - 3,
-            };
-            force = { x: 0.0010, y: -0.0020 };
-          }
-
-          Matter.Body.applyForce(state.body, point, force);
+          Matter.Body.applyForce(
+            state.body,
+            state.body.position,
+            { x: 0.0004, y: -0.0008 },
+          );
         };
         input.addEventListener('input', fn);
         inputListeners.push({ el: input, fn });
@@ -442,6 +462,10 @@ export function startFallingCells(canvas: HTMLCanvasElement, container: HTMLElem
       elRo.disconnect();
       inputListeners.forEach(({ el, fn }) => el.removeEventListener('input', fn));
       inputListeners.length = 0;
+      textBodies.forEach((body) => {
+        if (body) Matter.World.remove(engine.world, body);
+      });
+      textBodies.clear();
       uniqueStates.forEach((state) => {
         state.el.style.transform = '';
         state.el.style.transition = '';
