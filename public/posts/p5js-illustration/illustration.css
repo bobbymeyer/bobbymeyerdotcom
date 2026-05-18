@@ -1,0 +1,34 @@
+.p5-container {
+  display: grid;
+  grid-template-columns: 1;
+  grid-template-rows: 1;
+  margin: 0 auto;
+  background: white;
+}
+
+.stripes {
+  height: 100%;
+  display: grid;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.block-grid {
+  height: 100%;
+  width: 100%;
+  display: grid;
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.image-grid {
+  grid-column: 1;
+  grid-row: 1;
+  display: inline-grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 3;
+  grid-gap: 1rem;
+  align-items: center;
+  justify-items: center;
+  margin: 2rem;
+}

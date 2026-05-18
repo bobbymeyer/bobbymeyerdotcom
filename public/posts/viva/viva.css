@@ -1,0 +1,54 @@
+/* Container */
+.poster-container {
+  position: relative;
+  margin: 0 auto;
+  width: 100%;
+  background-color: #d2bfb1;
+  aspect-ratio: 8.5/11;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  font-family: Arial, Helvetica, sans-serif;
+  overflow: hidden;
+}
+
+/* Poster Grid */
+.poster-grid {
+  max-width: 900px; /* Maximum width */
+  transform: rotate(-45deg);
+  margin-top: -80px;
+}
+
+/* Responsive h1 size */
+.poster-grid h1 {
+  font-size: calc(4vw + 10px); /* Dynamically calculated based on viewport width */
+  line-height: 1.2; /* Improved line height for better readability */
+  font-weight: 900;
+  letter-spacing: -0.02em; /* Relative letter spacing */
+  margin: 0;
+}
+
+.poster-grid p {
+  font-size: 8px; /* This will remain fixed as per your requirements */
+  line-height: 8px;
+}
+
+/* Cap h1 size for larger screens */
+@media (min-width: 768px) {
+  .poster-grid h1 {
+    font-size: calc(3vw + 10px); /* Smaller font size on larger screens */
+  }
+  .poster-grid p {
+    font-size: 10px; /* This will remain fixed as per your requirements */
+    line-height: 10px;
+  }
+}
+
+
+
+/* Text Colors */
+.red { color: #af1f16; }
+.blue { color: #1f4caf; }
+.indigo { color: #1f1f8c; }
+.green { color: #1f4c1f; }
