@@ -1,7 +1,17 @@
 ---
 import Base from '@/layouts/Base.astro';
+
+const cells = Array.from({ length: 96 });
 ---
 
 <Base title="Bobby Meyer">
-  <main></main>
+  <main class="mx-auto max-w-6xl px-4 py-8">
+    <div
+      class="grid grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-4"
+    >
+      {cells.map(() => (
+        <div class="aspect-square border border-dashed border-black/30"></div>
+      ))}
+    </div>
+  </main>
 </Base>
