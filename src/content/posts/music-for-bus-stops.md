@@ -10,8 +10,8 @@ tags:
 custom_js: sound
 p5js: true
 thumbnail: cover.png
-width: 3
-height: 3
+width: 5
+height: 5
 ---
 Click the album art to start generating. Click again to (gracefully) stop.
 
