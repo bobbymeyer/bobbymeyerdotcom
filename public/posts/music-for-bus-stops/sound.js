@@ -32,8 +32,11 @@ function setup() {
 }
 
 function toggleMusic() {
+  // Browsers suspend the AudioContext until a user gesture; resume
+  // explicitly here so the first sample isn't silenced while we wait
+  // for the context to wake up.
+  userStartAudio();
   playing = !playing;
-  console.log(playing);
   if (playing == true) {
     playMusic();
   }
