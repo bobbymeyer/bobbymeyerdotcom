@@ -10,6 +10,10 @@ const posts = defineCollection({
     // Posts that bring their own CSS / JS (preserved from the Jekyll era).
     custom_css: z.string().optional(),
     custom_js: z.string().optional(),
+    // Grid footprint in unigrid cells. Posts default to a 2×2 square;
+    // override either dimension in frontmatter for wider / taller tiles.
+    width: z.number().int().min(1).default(2),
+    height: z.number().int().min(1).default(2),
   }),
 });
 
