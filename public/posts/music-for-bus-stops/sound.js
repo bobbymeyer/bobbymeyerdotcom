@@ -9,10 +9,10 @@ function preload() {
   soundFormats('mp3');
   i = 1;
   while (i <= 8) {
-    samples.push(loadSound('samples/p' + i + '.mp3'));
+    samples.push(loadSound('/posts/music-for-bus-stops/samples/p' + i + '.mp3'));
     i++;
   }
-  bg = loadImage('map.png');
+  bg = loadImage('/posts/music-for-bus-stops/map.png');
 }
 
 function setup() {
@@ -45,7 +45,7 @@ async function playMusic() {
     if (activeSounds.length < 4) {
       playSample();
     }
-    waitTime = random(2, 8) * 1000;
+    waitTime = random(1, 4) * 1000;
     await new Promise(r => setTimeout(r, waitTime));
   }
 }

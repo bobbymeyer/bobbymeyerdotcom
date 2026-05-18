@@ -19,7 +19,7 @@ tags:
     <i>Resize your browser window for the full effect.</i>
   </div>
   <div class='flex flex-col items-center md:items-end py-4'>
-    <img src='viva.jpg'>
+    <img src='/posts/viva/viva.jpg'>
     <small>The Müller-Brockmann Original</small>
   </div>
 </div>

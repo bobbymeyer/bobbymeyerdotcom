@@ -25,4 +25,3 @@ Click the album art to start generating. Click again to (gracefully) stop.
 </div>
 
 
-<script src='sound.js'></script>

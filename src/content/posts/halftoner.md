@@ -25,4 +25,3 @@ You also have the flexibility to adjust the density of the halftone pattern usin
 </div>
 
 
-<script src='halftoner.js'></script>

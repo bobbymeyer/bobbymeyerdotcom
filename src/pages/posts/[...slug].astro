@@ -23,21 +23,15 @@ const jsSrc = post.data.custom_js
 ---
 
 <Base title={post.data.title}>
-  {cssHref && <link slot="head" rel="stylesheet" href={cssHref} />}
-  {post.data.p5js && (
-    <>
-      <script
-        slot="head"
-        is:inline
-        src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"
-      ></script>
-      <script
-        slot="head"
-        is:inline
-        src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/addons/p5.sound.min.js"
-      ></script>
-    </>
-  )}
+  <Fragment slot="head">
+    {cssHref && <link rel="stylesheet" href={cssHref} />}
+    {post.data.p5js && (
+      <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"></script>
+    )}
+    {post.data.p5js && (
+      <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/addons/p5.sound.min.js"></script>
+    )}
+  </Fragment>
 
   <main class="mx-auto max-w-3xl px-4 py-8 md:py-12">
     <a href="/" class="text-[10px] uppercase tracking-[0.3em] text-black/50 hover:text-black">
@@ -59,7 +53,7 @@ const jsSrc = post.data.custom_js
     </article>
   </main>
 
-  {jsSrc && <script slot="end" is:inline src={jsSrc}></script>}
+  {jsSrc && <script is:inline src={jsSrc}></script>}
 </Base>
 
 <style>

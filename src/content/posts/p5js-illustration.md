@@ -30,5 +30,3 @@ I stumbled upon this illustration by [Christiana Couceiro](https://cristianacouc
   <div id="p5js" class=''></div>
 </div>
 
-<script src="/posts/p5js-illustration/illustration.js" >
-

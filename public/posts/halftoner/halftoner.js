@@ -3,7 +3,7 @@ let halftoneGraphics;
 let cellSizeDropdown;
 
 function preload() {
-  img = loadImage('inoki.jpg');  // Load 'inoki.jpg' by default
+  img = loadImage('/posts/halftoner/inoki.jpg');  // Load 'inoki.jpg' by default
 }
 
 function setup() {

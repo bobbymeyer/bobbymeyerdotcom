@@ -72,4 +72,3 @@ Click on a node and press `/` to halve size.
 
 
 
-<script src='imgraph.js'></script>

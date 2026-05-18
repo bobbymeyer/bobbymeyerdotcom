@@ -10,6 +10,6 @@ tags:
 - graphic-design
 ---
 <div class='illustration-container'>
-  <img class='foreground' src='foreground.png'>
-  <img class='sunmoon' src='sunmoon.png'>
+  <img class='foreground' src='/posts/pink-moment/foreground.png'>
+  <img class='sunmoon' src='/posts/pink-moment/sunmoon.png'>
 </div>
