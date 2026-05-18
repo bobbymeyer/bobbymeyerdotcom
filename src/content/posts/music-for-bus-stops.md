@@ -9,6 +9,9 @@ tags:
 - procedural generation
 custom_js: sound
 p5js: true
+thumbnail: cover.png
+width: 3
+height: 3
 ---
 Click the album art to start generating. Click again to (gracefully) stop.
 

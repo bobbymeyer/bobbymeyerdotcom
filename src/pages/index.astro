@@ -25,16 +25,36 @@ const fillerCells = Array.from({ length: 96 });
       {posts.map((post) => {
         const w = post.data.width ?? 2;
         const h = post.data.height ?? 2;
+        const thumb = post.data.thumbnail
+          ? `/posts/${post.slug}/${post.data.thumbnail}`
+          : null;
+        const styleParts = [
+          `grid-column: span ${w} / span ${w}`,
+          `grid-row: span ${h} / span ${h}`,
+        ];
+        if (thumb) {
+          styleParts.push(`background-image: url('${thumb}')`);
+          styleParts.push('background-size: cover');
+          styleParts.push('background-position: center');
+        }
+        const tileClass = thumb
+          ? 'relative overflow-hidden flex flex-col justify-between p-3 text-white hover:opacity-90 transition-opacity'
+          : 'flex flex-col justify-between border border-dashed border-black/40 p-3 hover:border-black hover:bg-black/5 transition-colors';
         return (
           <a
             href={`/posts/${post.slug}/`}
-            style={`grid-column: span ${w} / span ${w}; grid-row: span ${h} / span ${h};`}
-            class="flex flex-col justify-between border border-dashed border-black/40 p-3 hover:border-black hover:bg-black/5 transition-colors"
+            style={styleParts.join('; ') + ';'}
+            class={tileClass}
           >
-            <span class="text-[10px] uppercase tracking-[0.25em] text-black/60">
+            {thumb && (
+              <span
+                class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none"
+              ></span>
+            )}
+            <span class={`relative text-[10px] uppercase tracking-[0.25em] ${thumb ? 'text-white/90' : 'text-black/60'}`}>
               {post.data.date.toISOString().slice(0, 10)}
             </span>
-            <span class="font-bold text-base leading-tight">
+            <span class={`relative font-bold text-base leading-tight ${thumb ? 'text-white' : 'text-black'}`}>
               {post.data.title}
             </span>
           </a>
