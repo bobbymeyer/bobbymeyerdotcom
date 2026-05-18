@@ -8,6 +8,8 @@ tags:
 - graphic-design
 - procedural-generation
 - p5js
+custom_js: illustration
+p5js: true
 ---
 I stumbled upon this illustration by [Christiana Couceiro](https://cristianacouceiro.com/), and I quite liked it. I also noticed it had a modularity to it that I thought could make a good model for a piece of procedural generation.
 

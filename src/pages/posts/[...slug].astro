@@ -1,0 +1,118 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '@/layouts/Base.astro';
+
+export async function getStaticPaths() {
+  const posts = await getCollection('posts');
+  return posts.map((post) => ({
+    params: { slug: post.slug },
+    props: { post },
+  }));
+}
+
+type Post = Awaited<ReturnType<typeof getCollection<'posts'>>>[number];
+const { post } = Astro.props as { post: Post };
+const { Content } = await post.render();
+
+const cssHref = post.data.custom_css
+  ? `/posts/${post.slug}/${post.data.custom_css}.css`
+  : null;
+const jsSrc = post.data.custom_js
+  ? `/posts/${post.slug}/${post.data.custom_js}.js`
+  : null;
+---
+
+<Base title={post.data.title}>
+  {cssHref && <link slot="head" rel="stylesheet" href={cssHref} />}
+  {post.data.p5js && (
+    <>
+      <script
+        slot="head"
+        is:inline
+        src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"
+      ></script>
+      <script
+        slot="head"
+        is:inline
+        src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/addons/p5.sound.min.js"
+      ></script>
+    </>
+  )}
+
+  <main class="mx-auto max-w-3xl px-4 py-8 md:py-12">
+    <a href="/" class="text-[10px] uppercase tracking-[0.3em] text-black/50 hover:text-black">
+      ← back
+    </a>
+    <header class="mt-8 mb-10">
+      <p class="text-[10px] uppercase tracking-[0.3em] text-black/60 mb-3">
+        {post.data.date.toISOString().slice(0, 10)}
+      </p>
+      <h1 class="text-3xl md:text-5xl font-bold tracking-tight leading-tight">
+        {post.data.title}
+      </h1>
+      {post.data.summary && (
+        <p class="mt-4 text-black/70 leading-relaxed">{post.data.summary}</p>
+      )}
+    </header>
+    <article class="prose-content">
+      <Content />
+    </article>
+  </main>
+
+  {jsSrc && <script slot="end" is:inline src={jsSrc}></script>}
+</Base>
+
+<style>
+  .prose-content :global(h1),
+  .prose-content :global(h2),
+  .prose-content :global(h3) {
+    font-weight: 700;
+    margin-top: 2rem;
+    margin-bottom: 0.75rem;
+    line-height: 1.2;
+  }
+  .prose-content :global(h2) { font-size: 1.5rem; }
+  .prose-content :global(h3) { font-size: 1.25rem; }
+  .prose-content :global(p),
+  .prose-content :global(ul),
+  .prose-content :global(ol) {
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+  .prose-content :global(a) {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .prose-content :global(img) {
+    max-width: 100%;
+    height: auto;
+    margin: 1.5rem 0;
+  }
+  .prose-content :global(code) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 0.1em 0.35em;
+    border-radius: 3px;
+  }
+  .prose-content :global(pre) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 0.9em;
+    line-height: 1.5;
+    margin: 1rem 0;
+  }
+  .prose-content :global(pre code) {
+    background: none;
+    padding: 0;
+  }
+  .prose-content :global(blockquote) {
+    border-left: 3px solid currentColor;
+    padding-left: 1rem;
+    opacity: 0.8;
+    margin: 1rem 0;
+  }
+</style>

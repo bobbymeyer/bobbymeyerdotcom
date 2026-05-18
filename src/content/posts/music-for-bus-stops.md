@@ -7,6 +7,8 @@ tags:
 - javascript
 - music
 - procedural generation
+custom_js: sound
+p5js: true
 ---
 Click the album art to start generating. Click again to (gracefully) stop.
 

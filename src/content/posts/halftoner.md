@@ -9,6 +9,8 @@ tags:
 - javascript
 - p5js
 - graphic-design
+custom_js: halftoner
+p5js: true
 ---
 Welcome to my digital halftone generator, inspired by the charm of vintage newspapers! This interactive tool allows you to transform images into a halftone pattern, a technique traditionally used in print media to represent images using dots of varying sizes.
 

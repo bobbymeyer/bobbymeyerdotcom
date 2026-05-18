@@ -9,6 +9,8 @@ tags:
 - javascript
 - p5js
 - graphic-design
+custom_js: imgraph
+p5js: true
 ---
 imgraph is a tool I created to rapidly create illustrations within the node and span design guidelines. A photograph is used as the base, and a graph consisting of nodes and spans is constructed over the photo, highlighting connections within the photo.
 

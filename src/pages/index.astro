@@ -22,20 +22,24 @@ const fillerCells = Array.from({ length: 96 });
       </div>
 
       <!-- One tile per post, sized from frontmatter (defaults 2x2). -->
-      {posts.map((post) => (
-        <a
-          href={`/posts/${post.slug}/`}
-          style={`grid-column: span ${post.data.width}; grid-row: span ${post.data.height};`}
-          class="flex flex-col justify-between border border-dashed border-black/40 p-3 hover:border-black hover:bg-black/5 transition-colors"
-        >
-          <span class="text-[10px] uppercase tracking-[0.25em] text-black/60">
-            {post.data.date.toISOString().slice(0, 10)}
-          </span>
-          <span class="font-bold text-base leading-tight">
-            {post.data.title}
-          </span>
-        </a>
-      ))}
+      {posts.map((post) => {
+        const w = post.data.width ?? 2;
+        const h = post.data.height ?? 2;
+        return (
+          <a
+            href={`/posts/${post.slug}/`}
+            style={`grid-column: span ${w} / span ${w}; grid-row: span ${h} / span ${h};`}
+            class="flex flex-col justify-between border border-dashed border-black/40 p-3 hover:border-black hover:bg-black/5 transition-colors"
+          >
+            <span class="text-[10px] uppercase tracking-[0.25em] text-black/60">
+              {post.data.date.toISOString().slice(0, 10)}
+            </span>
+            <span class="font-bold text-base leading-tight">
+              {post.data.title}
+            </span>
+          </a>
+        );
+      })}
 
       <!-- Filler cells set the row track height (aspect-square) so post
            tiles spanning multiple rows come out square too. -->
