@@ -4,7 +4,7 @@
   position: relative;
   left: 50%;
   transform: translateX(-50%);
-  width: min(1300px, calc(100vw - 32px));
+  width: min(1100px, calc(100vw - 32px));
   background-color: #d2bfb1;
   aspect-ratio: 8.5/11;
   display: flex;
@@ -43,10 +43,10 @@
      capped at 88 so 'pixels' (6 chars at -0.07em) fits its 3-col
      band of (1000 / 4) = 250px. Tight line-height stacks rows
      without baseline gaps. */
-  font-size: clamp(40px, 7cqi, 88px);
-  line-height: 0.95;
+  font-size: clamp(44px, 9cqi, 100px);
+  line-height: 0.9;
   font-weight: 900;
-  letter-spacing: -0.07em;
+  letter-spacing: -0.1em;
   margin: 0;
   overflow: hidden;
   text-overflow: clip;
@@ -54,8 +54,8 @@
 }
 
 .poster-grid p {
-  font-size: clamp(11px, 1.4cqi, 18px);
-  line-height: 1.05;
+  font-size: clamp(12px, 1.7cqi, 22px);
+  line-height: 1;
   margin: 0;
   overflow: hidden;
   text-overflow: clip;
