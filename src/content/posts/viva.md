@@ -25,20 +25,33 @@ tags:
 </div>
 <div class='poster-container'>
   <div class='poster-stage'>
-    <div class='h' style='left:330px;top:240px'>design viva</div>
-    <div class='p' style='left:210px;top:470px'>a recreation of a poster work by Josef Müller-Brockmann on behalf of musica viva</div>
-    <div class='p' style='left:490px;top:380px'>creating a responsive version of this design</div>
-    <div class='h red' style='left:290px;top:560px'>bobby</div>
-    <div class='h red' style='left:510px;top:590px'>meyer</div>
-    <div class='p' style='left:390px;top:740px'>requires careful attention to detail</div>
-    <div class='p' style='left:640px;top:660px'>the task involves leveraging CSS grids</div>
-    <div class='h blue' style='left:580px;top:740px'>designer</div>
-    <div class='p' style='left:450px;top:900px'>and flexbox to preserve the spatial arrangement</div>
-    <div class='p' style='left:760px;top:820px'>ensuring the layout maintains its integrity on different screens</div>
-    <div class='h indigo' style='left:710px;top:920px'>developer</div>
-    <div class='p' style='left:570px;top:1070px'>this means that as the viewport changes size, text elements must reposition smoothly</div>
-    <div class='p' style='left:880px;top:1000px'>keeping their deliberate stagger and angle without losing the interactive dance between elements</div>
-    <div class='h green' style='left:780px;top:1100px;font-size:84px'>⌘ pixels &amp; bits</div>
-    <div class='p' style='left:790px;top:1200px'>the goal is to maintain legibility and visual impact — <strong>striking a balance between the fluidity of responsive design and staying true to the original artistic intent</strong></div>
+    <!-- Headline / caption registers alternate, stepping down the
+         diagonal. Within a register, items lie along the text
+         reading axis (rotated -45deg). -->
+    <!-- R0 H -->
+    <div class='h' style='left:250px;top:280px'>design viva</div>
+    <!-- R1 C -->
+    <div class='p' style='left:260px;top:430px'>a recreation of a poster work by Josef Müller-Brockmann on behalf of musica viva</div>
+    <div class='p' style='left:360px;top:330px'>creating a responsive version of this design</div>
+    <!-- R2 H -->
+    <div class='h red' style='left:320px;top:520px'>bobby</div>
+    <div class='h red' style='left:440px;top:400px'>meyer</div>
+    <!-- R3 C -->
+    <div class='p' style='left:390px;top:610px'>requires careful attention to detail</div>
+    <div class='p' style='left:490px;top:510px'>the task involves leveraging CSS grids</div>
+    <!-- R4 H -->
+    <div class='h blue' style='left:510px;top:660px'>designer</div>
+    <!-- R5 C -->
+    <div class='p' style='left:520px;top:810px'>and flexbox to preserve the spatial arrangement</div>
+    <div class='p' style='left:620px;top:710px'>ensuring the layout maintains its integrity on different screens</div>
+    <!-- R6 H -->
+    <div class='h indigo' style='left:640px;top:860px'>developer</div>
+    <!-- R7 C -->
+    <div class='p' style='left:650px;top:1010px'>this means that as the viewport changes size, text elements must reposition smoothly</div>
+    <div class='p' style='left:750px;top:910px'>keeping their deliberate stagger and angle without losing the interactive dance between elements</div>
+    <!-- R8 H -->
+    <div class='h green' style='left:770px;top:1060px;font-size:84px'>⌘ pixels &amp; bits</div>
+    <!-- R9 C -->
+    <div class='p' style='left:840px;top:1170px'>the goal is to maintain legibility and visual impact — <strong>striking a balance between the fluidity of responsive design and staying true to the original artistic intent</strong></div>
   </div>
 </div>
