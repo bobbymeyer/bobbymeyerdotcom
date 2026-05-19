@@ -42,10 +42,15 @@ function toggleMusic() {
   }
 }
 
+// A voice is "fresh" for the first 75% of its run — after that we
+// assume it's tailing off (silent reverb decay) and stop counting it
+// toward the active layer count, while still letting it finish.
+const FRESH_FRACTION = 0.75;
+const isFresh = v => (Date.now() - v.startedAt) / 1000 < v.duration * FRESH_FRACTION;
+
 async function playMusic() {
   while (playing == true) {
-    activeSounds = activeSounds.filter(sample => sample.isPlaying());
-    // Always keep ≥1 voice going, cap at 3.
+    activeSounds = activeSounds.filter(isFresh);
     if (activeSounds.length < 3) {
       playSample();
     }
@@ -53,21 +58,21 @@ async function playMusic() {
     const startedAt = Date.now();
     while (playing && Date.now() - startedAt < waitMs) {
       await new Promise(r => setTimeout(r, 50));
-      activeSounds = activeSounds.filter(sample => sample.isPlaying());
-      // Trigger the next sample BEFORE silence: kick in when only one
-      // voice remains so a fresh one starts before the tail ends.
+      activeSounds = activeSounds.filter(isFresh);
       if (activeSounds.length <= 1) break;
     }
   }
 }
 
 function playSample() {
-  sampleIndex = Math.floor(random(0, samples.length - 1));
-  console.log(sampleIndex);
-  let sample = samples[sampleIndex];
-
-  sample.play(0, 0.5, 0.05, 0, sample.duration());  // Volume set to 0.25, which is 25%
-  activeSounds.push(sample);  // Add the new sound to the activeSounds array
+  const sampleIndex = Math.floor(random(0, samples.length));
+  const sample = samples[sampleIndex];
+  sample.play(0, 0.5, 0.05, 0, sample.duration());
+  activeSounds.push({
+    sample,
+    startedAt: Date.now(),
+    duration: sample.duration(),
+  });
 }
 
 
