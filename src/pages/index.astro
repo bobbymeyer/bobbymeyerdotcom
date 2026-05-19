@@ -14,12 +14,18 @@ const fillerCells = Array.from({ length: 96 });
     <div
       class="grid grid-flow-dense grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-4"
     >
-      <!-- Badge: top-right, 3x2 cells -->
+      <!-- Badge: top-right, 3x3 cells -->
       <div
-        class="relative [grid-column:span_3/-1] [grid-row:1/span_2] [aspect-ratio:3/2] flex items-end justify-start bg-yellow-400 font-sans font-bold text-2xl md:text-3xl tracking-tight leading-tight text-left p-3"
+        class="relative overflow-hidden [grid-column:span_3/-1] [grid-row:1/span_3] [aspect-ratio:1/1] flex items-end justify-start bg-yellow-400 font-sans font-bold text-2xl md:text-3xl tracking-tight leading-tight text-left p-3"
       >
+        <img
+          src="/bobby.png"
+          alt=""
+          class="absolute inset-0 w-full h-full object-cover pointer-events-none"
+          style="filter: grayscale(1); mix-blend-mode: multiply;"
+        />
         <img src="/BM-LogoType-SM.png" alt="" class="absolute top-3 right-3 h-1/6 w-auto" />
-        bobby meyer
+        <span class="relative">bobby meyer</span>
       </div>
 
       <!-- One tile per post, sized from frontmatter (defaults 2x2). -->
