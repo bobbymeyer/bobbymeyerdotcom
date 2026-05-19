@@ -24,7 +24,6 @@ tags:
   </div>
 </div>
 <div class='poster-container'>
-<div class='scale-75 sm:scale-90 md:scale-100 xl:scale-90'>
   <div class='poster-grid grid grid-cols-12 gap-1'>
     <!-- row 1 -->
     <div class='col-span-6'></div>

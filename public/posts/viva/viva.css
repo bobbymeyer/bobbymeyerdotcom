@@ -1,5 +1,5 @@
 /* Container — breaks out of the post's max-w-3xl rail so the rotated
-   poster has room to breathe and the type can scale up. */
+   poster has room. Aspect ratio matches the printed poster. */
 .poster-container {
   position: relative;
   left: 50%;
@@ -16,40 +16,23 @@
   container-type: inline-size;
 }
 
-/* Poster Grid: rotated -45° inside the container. For any W × H
-   content, the axis-aligned bounding box after a 45° rotation is a
-   square of side (W + H) / √2. To guarantee the rotated content fits
-   the container, we let the grid take its natural size and then
-   multiply by 1/√2 (≈ 0.707) via the scale() factor in the same
-   transform. The factor cancels the diagonal stretch the rotation
-   would otherwise add. */
-/* Grid is densified: bigger fonts, zero gap so rows touch, line-height
-   tight. With the breakout container now ≤ 1300px, a 1000px grid
-   leaves room for the rotated diagonal at scale 1. */
+/* Grid renders at a fixed natural size (1000px wide). We then scale
+   the whole rotated thing with the container's inline width so the
+   layout never reflows — only zooms. The divisor below is the
+   conservative diagonal estimate of the unrotated grid (W ≈ 1000,
+   H ≈ 1400), giving (W + H) ≈ 2400. Scale = cqw / 2400px keeps the
+   rotated diamond fully inside the container at any width. */
 .poster-grid {
-  width: 100%;
-  max-width: 1000px;
+  width: 1000px;
+  max-width: none;
   gap: 0;
-  transform: rotate(-45deg) scale(0.55);
+  transform: rotate(-45deg) scale(calc(100cqw / 2400px));
   transform-origin: center center;
+  flex: 0 0 auto;
 }
 
-@container (min-width: 640px) {
-  .poster-grid {
-    transform: rotate(-45deg) scale(0.7);
-  }
-}
-
-/* Responsive h1 size. Constrained so each word fits inside its
-   col-span-N band — the grid is capped at max-width 900px and scaled
-   to 0.707, so we can't use raw vw for font size. Use container
-   query units (cqi = 1% of container inline size) instead. */
 .poster-grid h1 {
-  /* Container is the breakout poster (≤ 1300). 7cqi tops out near 90,
-     capped at 88 so 'pixels' (6 chars at -0.07em) fits its 3-col
-     band of (1000 / 4) = 250px. Tight line-height stacks rows
-     without baseline gaps. */
-  font-size: clamp(18px, 9cqi, 100px);
+  font-size: 90px;
   line-height: 0.9;
   font-weight: 900;
   letter-spacing: -0.1em;
@@ -60,13 +43,11 @@
 }
 
 .poster-grid p {
-  font-size: clamp(7px, 1.7cqi, 22px);
+  font-size: 18px;
   line-height: 0.95;
   margin: 0;
   text-align: left;
 }
-
-
 
 /* Text Colors */
 .red { color: #af1f16; }
