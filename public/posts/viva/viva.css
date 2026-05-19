@@ -1,5 +1,3 @@
-/* Breakout poster container. Aspect locked to 8.5x11 like the
-   original print. */
 .poster-container {
   position: relative;
   left: 50%;
@@ -13,10 +11,8 @@
   color: #111;
 }
 
-/* The poster is authored on a fixed 1000x1294 design canvas. Every
-   word is absolutely positioned in that canvas. The canvas itself is
-   scaled as a single unit so the whole composition zooms together —
-   nothing reflows, nothing clips. */
+/* Fixed 1000x1294 design canvas, scaled as a unit with container
+   width. The poster grid sits centered inside, rotated -45deg. */
 .poster-stage {
   position: absolute;
   left: 50%;
@@ -26,25 +22,35 @@
   transform: translate(-50%, -50%) scale(calc(100cqw / 1000px));
 }
 
-.poster-stage .h,
-.poster-stage .p {
+/* 3-column grid in 3 : 1 : 5 proportion. Each row is a "register"
+   (alternating headline / caption). Rotation happens here so every
+   cell rotates with the grid as one unit. */
+.poster-grid {
   position: absolute;
-  margin: 0;
+  left: 50%;
+  top: 50%;
+  width: 620px;
+  display: grid;
+  grid-template-columns: 3fr 1fr 5fr;
+  column-gap: 16px;
+  row-gap: 6px;
   transform: translate(-50%, -50%) rotate(-45deg);
+  transform-origin: center center;
 }
 
-.poster-stage .h {
-  font-size: 100px;
+.poster-grid h1 {
+  font-size: 72px;
   line-height: 0.9;
   letter-spacing: -0.1em;
   font-weight: 900;
+  margin: 0;
   white-space: nowrap;
 }
 
-.poster-stage .p {
-  width: 170px;
-  font-size: 18px;
-  line-height: 1.1;
+.poster-grid p {
+  font-size: 16px;
+  line-height: 1.15;
+  margin: 0;
   text-align: left;
 }
 
