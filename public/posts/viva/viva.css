@@ -27,29 +27,32 @@
   transform-origin: center center;
 }
 
-/* Responsive h1 size */
+/* Responsive h1 size. Constrained so each word fits inside its
+   col-span-N band — the grid is capped at max-width 900px and scaled
+   to 0.707, so we can't use raw vw for font size. Use container
+   query units (cqi = 1% of container inline size) instead. */
 .poster-grid h1 {
-  font-size: calc(4vw + 10px); /* Dynamically calculated based on viewport width */
-  line-height: 1.2; /* Improved line height for better readability */
+  font-size: clamp(14px, 4cqi, 56px);
+  line-height: 1;
   font-weight: 900;
-  letter-spacing: -0.02em; /* Relative letter spacing */
+  letter-spacing: -0.03em;
   margin: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .poster-grid p {
-  font-size: 8px; /* This will remain fixed as per your requirements */
-  line-height: 8px;
+  font-size: clamp(6px, 0.9cqi, 11px);
+  line-height: 1.1;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
-/* Cap h1 size for larger screens */
-@media (min-width: 768px) {
-  .poster-grid h1 {
-    font-size: calc(3vw + 10px); /* Smaller font size on larger screens */
-  }
-  .poster-grid p {
-    font-size: 10px; /* This will remain fixed as per your requirements */
-    line-height: 10px;
-  }
+.poster-container {
+  container-type: inline-size;
 }
 
 
