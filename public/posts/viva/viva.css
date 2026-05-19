@@ -57,9 +57,6 @@
   font-size: clamp(12px, 1.7cqi, 22px);
   line-height: 1;
   margin: 0;
-  overflow: hidden;
-  text-overflow: clip;
-  white-space: nowrap;
 }
 
 
