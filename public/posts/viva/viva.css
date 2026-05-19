@@ -1,5 +1,5 @@
-/* Container — breaks out of the post's max-w-3xl rail so the rotated
-   poster has room. Aspect ratio matches the printed poster. */
+/* Breakout poster container. Aspect locked to 8.5x11 like the
+   original print. */
 .poster-container {
   position: relative;
   left: 50%;
@@ -7,50 +7,48 @@
   width: min(1100px, calc(100vw - 32px));
   background-color: #d2bfb1;
   aspect-ratio: 8.5/11;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  font-family: Arial, Helvetica, sans-serif;
   overflow: hidden;
   container-type: inline-size;
+  font-family: Arial, Helvetica, sans-serif;
+  color: #111;
 }
 
-/* Grid renders at a fixed natural size (1000px wide). We then scale
-   the whole rotated thing with the container's inline width so the
-   layout never reflows — only zooms. The divisor below is the
-   conservative diagonal estimate of the unrotated grid (W ≈ 1000,
-   H ≈ 1400), giving (W + H) ≈ 2400. Scale = cqw / 2400px keeps the
-   rotated diamond fully inside the container at any width. */
-.poster-grid {
+/* The poster is authored on a fixed 1000x1294 design canvas. Every
+   word is absolutely positioned in that canvas. The canvas itself is
+   scaled as a single unit so the whole composition zooms together —
+   nothing reflows, nothing clips. */
+.poster-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
   width: 1000px;
-  max-width: none;
-  gap: 0;
-  transform: rotate(-45deg) scale(calc(100cqw / 1300px));
-  transform-origin: center center;
-  flex: 0 0 auto;
+  height: 1294px;
+  transform: translate(-50%, -50%) scale(calc(100cqw / 1000px));
 }
 
-.poster-grid h1 {
-  font-size: 90px;
-  line-height: 0.9;
-  font-weight: 900;
-  letter-spacing: -0.1em;
+.poster-stage .h,
+.poster-stage .p {
+  position: absolute;
   margin: 0;
-  overflow: hidden;
-  text-overflow: clip;
+  transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.poster-stage .h {
+  font-size: 100px;
+  line-height: 0.9;
+  letter-spacing: -0.1em;
+  font-weight: 900;
   white-space: nowrap;
 }
 
-.poster-grid p {
-  font-size: 18px;
-  line-height: 0.95;
-  margin: 0;
+.poster-stage .p {
+  width: 220px;
+  font-size: 19px;
+  line-height: 1.1;
   text-align: left;
 }
 
-/* Text Colors */
-.red { color: #af1f16; }
-.blue { color: #1f4caf; }
+.red    { color: #af1f16; }
+.blue   { color: #1f4caf; }
 .indigo { color: #1f1f8c; }
-.green { color: #1f4c1f; }
+.green  { color: #1f4c1f; }

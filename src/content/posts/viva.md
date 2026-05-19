@@ -24,62 +24,21 @@ tags:
   </div>
 </div>
 <div class='poster-container'>
-  <div class='poster-grid grid grid-cols-12 gap-1'>
-    <!-- row 1 -->
-    <div class='col-span-6'></div>
-    <p class='col-span-3'>a recreation of a poster work by Josef Müller-Brockmann on behalf of musica viva</p>
-    <div class='col-span-3'></div>
-    <!-- row 2 -->
-    <div class='col-span-6'></div>
-    <h1 class='col-span-6'>design viva</h1>
-    <!-- row 3 -->
-    <div class='col-span-6'></div>
-    <p class='col-span-3'>creating a responsive version of this design</p>
-    <div class='col-span-3'></div>
-    <!-- row 4 -->
-    <div class='col-span-2'></div>
-    <h1 class='col-span-4 red'>bobby</h1>
-    <h1 class='col-span-6 red'>meyer</h1>
-    <!-- row 5 -->
-    <div class='col-span-5'></div>
-    <p class='col-span-2'>requires careful attention to detail</p>
-    <p class='col-span-2'>the task involves leveraging CSS grids</p>
-    <div class='col-span-3'></div>
-    <!-- row 5 -->
-    <h1 class='col-span-6'></h1>
-    <h1 class='col-span-6 blue'>designer</h1>
-    <!-- row 6 -->
-    <p class='col-span-2'>and flexbox to preserve the spatial arrangement</p>
-    <p class='col-span-2'>ensuring that the layout</p>
-    <p class='col-span-2'>maintains its integrity</p>
-    <p class='col-span-2'>on different screens</p>
-    <div class='col-span-4'></div>
-    <!-- row 6 -->
-    <div class='col-span-2'></div>
-    <h1 class='col-span-4 indigo'></h1>
-    <h1 class='col-span-6 indigo'>developer</h1>
-    <!-- row 6 -->
-    <div class='col-span-5'></div>
-    <p class='col-span-2'>this means that as the viewport changes size</p>
-    <p class='col-span-2'>the text elements must reposition smoothly</p>
-    <div class='col-span-3'></div>
-    <!-- row 7 -->
-    <h1 class='col-span-1 green'></h1>
-    <h1 class='col-span-1 green'>⌘</h1>
-    <h1 class='col-span-3 green'>pixels</h1>
-    <h1 class='col-span-1 green'>&</h1>
-    <h1 class='col-span-6 green'>bits</h1>
-    <!-- row 8 -->
-    <div class='col-span-5'></div>
-    <p class='col-span-2'>keeping their deliberate stagger and angle</p>
-    <p class='col-span-2'>without losing the interactive dance between the elements</p>
-    <div class='col-span-3'></div>
-    <!-- row 9 -->
-    <div class='col-span-12 h-8'></div>
-    <p class='col-span-2'>the goal is to maintain legibility and visual impact</p>
-    <p class='col-span-3'>scaling elements proportionately ensuring that the design's essence is communicated effectively</p>
-    <p class='col-span-2'>no matter the device</p>
-    <p class='col-span-3 font-bold'>striking a balance between the fluidity of responsive design and staying true to the original artistic intent</p>
-    <div class='col-span-2'></div>
-</div>
+  <div class='poster-stage'>
+    <div class='h' style='left:320px;top:230px'>design viva</div>
+    <div class='p' style='left:180px;top:380px'>a recreation of a poster work by Josef Müller-Brockmann on behalf of musica viva</div>
+    <div class='p' style='left:450px;top:360px'>creating a responsive version of this design</div>
+    <div class='h red' style='left:240px;top:490px'>bobby</div>
+    <div class='h red' style='left:470px;top:520px'>meyer</div>
+    <div class='p' style='left:340px;top:620px'>requires careful attention to detail</div>
+    <div class='p' style='left:580px;top:600px'>the task involves leveraging CSS grids</div>
+    <div class='h blue' style='left:580px;top:680px'>designer</div>
+    <div class='p' style='left:410px;top:790px'>and flexbox to preserve the spatial arrangement</div>
+    <div class='p' style='left:660px;top:790px'>ensuring the layout maintains its integrity on different screens</div>
+    <div class='h indigo' style='left:710px;top:850px'>developer</div>
+    <div class='p' style='left:540px;top:960px'>this means that as the viewport changes size, text elements must reposition smoothly</div>
+    <div class='p' style='left:830px;top:940px'>keeping their deliberate stagger and angle without losing the interactive dance between elements</div>
+    <div class='h green' style='left:660px;top:1040px;font-size:84px'>⌘ pixels &amp; bits</div>
+    <div class='p' style='left:760px;top:1170px'>the goal is to maintain legibility and visual impact, scaling elements proportionately so the design's essence is communicated effectively no matter the device — <strong>striking a balance between the fluidity of responsive design and staying true to the original artistic intent</strong></div>
+  </div>
 </div>

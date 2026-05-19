@@ -44,23 +44,19 @@ function toggleMusic() {
 
 async function playMusic() {
   while (playing == true) {
-    activeSounds = activeSounds.filter(sample => sample.isPlaying());  // Remove any sounds that have finished playing
-    // Cap concurrent samples at 3 — if three are already going, wait
-    // for one to end before adding another.
+    activeSounds = activeSounds.filter(sample => sample.isPlaying());
+    // Always keep ≥1 voice going, cap at 3.
     if (activeSounds.length < 3) {
       playSample();
     }
-    let waitMs = random(1, 4) * 1000;
-    // Poll during the wait. Break out early when:
-    //   - everything's stopped → fill the silence immediately
-    //   - a slot freed at the 3-cap → eligible to add another sample
+    const waitMs = random(500, 2500);
     const startedAt = Date.now();
     while (playing && Date.now() - startedAt < waitMs) {
-      await new Promise(r => setTimeout(r, 100));
-      const before = activeSounds.length;
+      await new Promise(r => setTimeout(r, 50));
       activeSounds = activeSounds.filter(sample => sample.isPlaying());
-      if (activeSounds.length === 0) break;
-      if (before >= 3 && activeSounds.length < 3) break;
+      // Trigger the next sample BEFORE silence: kick in when only one
+      // voice remains so a fresh one starts before the tail ends.
+      if (activeSounds.length <= 1) break;
     }
   }
 }
