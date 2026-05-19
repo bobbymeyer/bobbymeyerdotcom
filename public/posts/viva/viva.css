@@ -43,7 +43,7 @@
      capped at 88 so 'pixels' (6 chars at -0.07em) fits its 3-col
      band of (1000 / 4) = 250px. Tight line-height stacks rows
      without baseline gaps. */
-  font-size: clamp(44px, 9cqi, 100px);
+  font-size: clamp(18px, 9cqi, 100px);
   line-height: 0.9;
   font-weight: 900;
   letter-spacing: -0.1em;
@@ -54,7 +54,7 @@
 }
 
 .poster-grid p {
-  font-size: clamp(12px, 1.7cqi, 22px);
+  font-size: clamp(7px, 1.7cqi, 22px);
   line-height: 0.95;
   margin: 0;
   text-align: left;
