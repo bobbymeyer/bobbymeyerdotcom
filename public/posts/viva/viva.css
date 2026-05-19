@@ -55,7 +55,7 @@
 
 .poster-grid p {
   font-size: clamp(12px, 1.7cqi, 22px);
-  line-height: 1;
+  line-height: 0.95;
   margin: 0;
 }
 
