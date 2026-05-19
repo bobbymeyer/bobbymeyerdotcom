@@ -24,12 +24,5 @@ I stumbled upon this illustration by [Christiana Couceiro](https://cristianacouc
 </a>
 </div>
 
-<div class='grid md:grid-cols-2 gap-4'>
-  <div markdown=1>
-  ![](/posts/p5js-illustration/cristiana-couceiro.jpg)
-  {: .w-full}
-  **Original Illustration** by [Cristiana Couceiro](https://cristianacouceiro.com/)
-  </div>
   <div id="p5js" class=''></div>
-</div>
 
