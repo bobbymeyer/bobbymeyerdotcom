@@ -14,7 +14,7 @@ tags:
 custom_js: illustration
 p5js: true
 ---
-I stumbled upon this illustration by [Christiana Couceiro](https://cristianacouceiro.com/), and I quite liked it. I also noticed it had a modularity to it that I thought could make a good model for a piece of procedural generation.
+I stumbled upon [this illustration](/public/posts/p5js-illustration/cristiana-couceiro.jpg) by [Christiana Couceiro](https://cristianacouceiro.com/). Her work is very good, and I noticed it had a modularity to it that lends itself to procedural generation.
 
 <div class='my-8 flex flex-row-reverse'>
 <a href='#.button' onclick="window.location.reload(true);">
