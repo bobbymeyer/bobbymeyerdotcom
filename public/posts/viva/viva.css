@@ -24,9 +24,11 @@
    rotated diamond fully inside the container at any width. */
 .poster-grid {
   width: 1000px;
+  height: 1000px;
   max-width: none;
   gap: 0;
-  transform: rotate(-45deg) scale(calc(100cqw / 2400px));
+  grid-auto-rows: 1fr;
+  transform: rotate(-45deg) scale(calc(100cqw / 1414px));
   transform-origin: center center;
   flex: 0 0 auto;
 }
