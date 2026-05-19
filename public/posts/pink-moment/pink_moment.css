@@ -11,6 +11,13 @@
   overflow: hidden;
 }
 
+/* The prose layout applies a default margin: 1.5rem 0 to every <img>;
+   override it for both illustrations so bottom: 0 actually sits on the
+   bottom edge of the circle. */
+.illustration-container img {
+  margin: 0;
+}
+
 @keyframes gradient {
 	0% {
 		background-position: 0% 0%;

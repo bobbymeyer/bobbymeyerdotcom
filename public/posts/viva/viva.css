@@ -13,14 +13,18 @@
   overflow: hidden;
 }
 
-/* Poster Grid: rotated -45° inside the container. Side length is
-   capped at ~70% of the container so the diagonal of the rotated
-   bounding box always fits inside the poster, no matter the viewport
-   (since 1 / √2 ≈ 0.707). */
+/* Poster Grid: rotated -45° inside the container. For any W × H
+   content, the axis-aligned bounding box after a 45° rotation is a
+   square of side (W + H) / √2. To guarantee the rotated content fits
+   the container, we let the grid take its natural size and then
+   multiply by 1/√2 (≈ 0.707) via the scale() factor in the same
+   transform. The factor cancels the diagonal stretch the rotation
+   would otherwise add. */
 .poster-grid {
   width: 100%;
-  max-width: min(900px, 70%);
-  transform: rotate(-45deg);
+  max-width: 900px;
+  transform: rotate(-45deg) scale(0.707);
+  transform-origin: center center;
 }
 
 /* Responsive h1 size */
