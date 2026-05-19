@@ -32,10 +32,14 @@
    to 0.707, so we can't use raw vw for font size. Use container
    query units (cqi = 1% of container inline size) instead. */
 .poster-grid h1 {
-  font-size: clamp(14px, 4cqi, 56px);
+  /* Tuned so the longest word in any col-span-N band ('pixels' in
+     col-span-3, 'developer' in col-span-6) still fits without
+     bleeding into its neighbours. Container is the poster, which is
+     usually ~700px wide, so 9cqi ≈ 63px at the cap. */
+  font-size: clamp(22px, 9cqi, 64px);
   line-height: 1;
   font-weight: 900;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.05em;
   margin: 0;
   overflow: hidden;
   text-overflow: clip;
@@ -43,7 +47,7 @@
 }
 
 .poster-grid p {
-  font-size: clamp(6px, 0.9cqi, 11px);
+  font-size: clamp(9px, 1.5cqi, 14px);
   line-height: 1.1;
   margin: 0;
   overflow: hidden;
