@@ -3,6 +3,9 @@ title:  "Procedurally Illustrating with p5.js"
 date:   2022-12-15 10:31:00 -0800
 summary: Illustrating procedurally in the DOM
 custom_css: illustration
+thumbnail: cover.jpg
+width: 2
+height: 3
 tags:
 - art
 - graphic-design
