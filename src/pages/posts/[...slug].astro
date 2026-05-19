@@ -80,6 +80,8 @@ const jsSrc = post.data.custom_js
   .prose-content :global(img) {
     max-width: 100%;
     height: auto;
+  }
+  .prose-content :global(:where(p, ul, ol) img) {
     margin: 1.5rem 0;
   }
   .prose-content :global(code) {
