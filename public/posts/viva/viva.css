@@ -1,8 +1,10 @@
-/* Container */
+/* Container — breaks out of the post's max-w-3xl rail so the rotated
+   poster has room to breathe and the type can scale up. */
 .poster-container {
   position: relative;
-  margin: 0 auto;
-  width: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(1100px, calc(100vw - 32px));
   background-color: #d2bfb1;
   aspect-ratio: 8.5/11;
   display: flex;
@@ -11,6 +13,7 @@
   align-items: center;
   font-family: Arial, Helvetica, sans-serif;
   overflow: hidden;
+  container-type: inline-size;
 }
 
 /* Poster Grid: rotated -45° inside the container. For any W × H
@@ -22,8 +25,8 @@
    would otherwise add. */
 .poster-grid {
   width: 100%;
-  max-width: 900px;
-  transform: rotate(-45deg) scale(0.707);
+  max-width: 1100px;
+  transform: rotate(-45deg) scale(0.78);
   transform-origin: center center;
 }
 
@@ -32,14 +35,14 @@
    to 0.707, so we can't use raw vw for font size. Use container
    query units (cqi = 1% of container inline size) instead. */
 .poster-grid h1 {
-  /* Tuned so the longest word in any col-span-N band ('pixels' in
-     col-span-3, 'developer' in col-span-6) still fits without
-     bleeding into its neighbours. Container is the poster, which is
-     usually ~700px wide, so 9cqi ≈ 63px at the cap. */
-  font-size: clamp(22px, 9cqi, 64px);
+  /* Container is the breakout poster (≤ 1100px). cqi is relative to
+     that, so 8cqi tops out around 88px before the 0.78 grid scale —
+     ~68px visible. Tight letter-spacing keeps 'pixels' inside its
+     3-col band and 'developer' inside its 6-col band. */
+  font-size: clamp(32px, 8cqi, 88px);
   line-height: 1;
   font-weight: 900;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.06em;
   margin: 0;
   overflow: hidden;
   text-overflow: clip;
@@ -47,16 +50,12 @@
 }
 
 .poster-grid p {
-  font-size: clamp(9px, 1.5cqi, 14px);
+  font-size: clamp(10px, 1.4cqi, 16px);
   line-height: 1.1;
   margin: 0;
   overflow: hidden;
   text-overflow: clip;
   white-space: nowrap;
-}
-
-.poster-container {
-  container-type: inline-size;
 }
 
 
