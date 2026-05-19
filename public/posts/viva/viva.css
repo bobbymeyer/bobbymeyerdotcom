@@ -23,10 +23,14 @@
    multiply by 1/√2 (≈ 0.707) via the scale() factor in the same
    transform. The factor cancels the diagonal stretch the rotation
    would otherwise add. */
+/* Grid is sized so its rotated diagonal fills more of the poster,
+   not just a small island in the middle. With container at 1100,
+   √2·W = 1100 → W ≈ 778, so we cap the grid near there. A small
+   sub-1 scale gives the rotated bounding box headroom. */
 .poster-grid {
   width: 100%;
-  max-width: 1100px;
-  transform: rotate(-45deg) scale(0.78);
+  max-width: 820px;
+  transform: rotate(-45deg) scale(0.92);
   transform-origin: center center;
 }
 
@@ -35,14 +39,14 @@
    to 0.707, so we can't use raw vw for font size. Use container
    query units (cqi = 1% of container inline size) instead. */
 .poster-grid h1 {
-  /* Container is the breakout poster (≤ 1100px). cqi is relative to
-     that, so 8cqi tops out around 88px before the 0.78 grid scale —
-     ~68px visible. Tight letter-spacing keeps 'pixels' inside its
-     3-col band and 'developer' inside its 6-col band. */
-  font-size: clamp(32px, 8cqi, 88px);
+  /* Cqi is the poster width (≤ 1100). Grid is now 820 wide, so each
+     col-span-1 is ~64px. 'pixels' in col-span-3 needs each char to
+     fit in ~32px — with -0.07em letter-spacing, that lands at
+     about 72px font. */
+  font-size: clamp(32px, 6.5cqi, 72px);
   line-height: 1;
   font-weight: 900;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.07em;
   margin: 0;
   overflow: hidden;
   text-overflow: clip;
