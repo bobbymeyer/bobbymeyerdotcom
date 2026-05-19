@@ -30,7 +30,7 @@
   width: 100%;
   max-width: 1000px;
   gap: 0;
-  transform: rotate(-45deg);
+  transform: rotate(-45deg) scale(0.7);
   transform-origin: center center;
 }
 
