@@ -30,8 +30,14 @@
   width: 100%;
   max-width: 1000px;
   gap: 0;
-  transform: rotate(-45deg) scale(0.7);
+  transform: rotate(-45deg) scale(0.55);
   transform-origin: center center;
+}
+
+@container (min-width: 640px) {
+  .poster-grid {
+    transform: rotate(-45deg) scale(0.7);
+  }
 }
 
 /* Responsive h1 size. Constrained so each word fits inside its
