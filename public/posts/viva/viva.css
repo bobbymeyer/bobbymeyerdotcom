@@ -13,11 +13,14 @@
   overflow: hidden;
 }
 
-/* Poster Grid */
+/* Poster Grid: rotated -45° inside the container. Side length is
+   capped at ~70% of the container so the diagonal of the rotated
+   bounding box always fits inside the poster, no matter the viewport
+   (since 1 / √2 ≈ 0.707). */
 .poster-grid {
-  max-width: 900px; /* Maximum width */
+  width: 100%;
+  max-width: min(900px, 70%);
   transform: rotate(-45deg);
-  margin-top: -80px;
 }
 
 /* Responsive h1 size */
