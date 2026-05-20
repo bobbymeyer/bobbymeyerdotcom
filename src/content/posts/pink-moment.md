@@ -4,8 +4,8 @@ date:   2023-07-21 10:31:00 -0800
 summary: "CSS Gradients, All Day"
 custom_css: pink_moment
 thumbnail: cover.jpg
-width: 2
-height: 2
+width: 3
+height: 3
 tags:
 - html
 - css
