@@ -20,6 +20,8 @@ const posts = defineCollection({
     // override either dimension in frontmatter for wider / taller tiles.
     width: z.number().int().min(1).default(2),
     height: z.number().int().min(1).default(2),
+    // Drafts render in dev but are excluded from production builds.
+    draft: z.boolean().default(false),
   }),
 });
 

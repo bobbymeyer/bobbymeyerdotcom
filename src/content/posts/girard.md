@@ -7,6 +7,7 @@ custom_js: girard
 thumbnail: cover.png
 width: 6
 height: 4
+draft: true
 tags:
 - tool
 - generative
