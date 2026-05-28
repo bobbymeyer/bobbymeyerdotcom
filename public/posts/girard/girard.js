@@ -131,17 +131,32 @@ function hexagonPath(w) {
 }
 
 // ---------- Tile content ----------
+const BLEND_MODES = [
+  'normal', 'multiply', 'screen', 'overlay',
+  'darken', 'lighten', 'color-dodge', 'color-burn',
+  'hard-light', 'soft-light', 'difference', 'exclusion',
+];
+
 function buildTileGroup(pattern) {
   const N = pattern.tileSize;
   const root = el('g');
 
   pattern.layers.forEach((layer, li) => {
     const rng = makeRng(pattern.seed + li * 9973);
+    // Each layer renders into its own <g> so blend mode and opacity
+    // apply to the layer as a unit. Blend mode is a CSS property
+    // (mix-blend-mode), so it goes on the style attribute.
+    const layerGroup = el('g');
+    const blend = layer.blendMode && layer.blendMode !== 'normal' ? `mix-blend-mode: ${layer.blendMode};` : '';
+    const op = layer.opacity != null && layer.opacity < 1 ? `opacity: ${layer.opacity};` : '';
+    if (blend || op) layerGroup.setAttribute('style', blend + op);
+
     switch (layer.type) {
-      case 'solid':      renderSolid(root, layer, N); break;
-      case 'regular':    renderRegular(root, layer, N, rng, pattern.palette); break;
-      case 'randomized': renderRandomized(root, layer, N, rng, pattern.palette); break;
+      case 'solid':      renderSolid(layerGroup, layer, N); break;
+      case 'regular':    renderRegular(layerGroup, layer, N, rng, pattern.palette); break;
+      case 'randomized': renderRandomized(layerGroup, layer, N, rng, pattern.palette); break;
     }
+    root.appendChild(layerGroup);
   });
 
   return root;
@@ -433,6 +448,12 @@ function buildConfigForm(host, layer, onChange) {
     host.appendChild(wrap);
     return input;
   };
+
+  // Universal layer controls (blend + opacity) come first.
+  const blend = addCtrl('blend', 'select', layer.blendMode || 'normal', { options: BLEND_MODES });
+  const op = addCtrl('opacity', 'range', layer.opacity ?? 1, { min: 0, max: 1, step: 0.05 });
+  blend.addEventListener('change', () => { layer.blendMode = blend.value; onChange(); });
+  op.addEventListener('input',  () => { layer.opacity = Number(op.value); onChange(); });
 
   switch (layer.type) {
     case 'solid': {
