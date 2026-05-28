@@ -59,9 +59,6 @@ const fillerCells = Array.from({ length: 96 });
                 class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none"
               ></span>
             )}
-            <span class={`relative text-[10px] uppercase tracking-[0.25em] ${thumb ? 'text-white/90' : 'text-black/60'}`}>
-              {post.data.date.toISOString().slice(0, 10)}
-            </span>
             <span class={`relative font-bold text-base leading-tight ${thumb ? 'text-white' : 'text-black'}`}>
               {post.data.title}
             </span>
