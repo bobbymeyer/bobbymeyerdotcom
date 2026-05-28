@@ -143,14 +143,11 @@ function drawRepeat(p, tile, mode) {
       let ox = 0, oy = 0;
       if (mode === 'half-drop' && ((col % 2) + 2) % 2 === 1) oy = size / 2;
       if (mode === 'half-brick' && ((row % 2) + 2) % 2 === 1) ox = size / 2;
-      if (mode === 'hex') {
-        // staggered rows by 1/2 width, vertical step of size * √3/2
-        const hexStep = size * Math.sqrt(3) / 2;
-        const x = col * size + (((row % 2) + 2) % 2 === 1 ? size / 2 : 0);
-        const y = row * hexStep;
-        p.image(tile, x, y, size, size);
-        continue;
-      }
+      // True hex tiling needs a hexagonal alpha mask on the tile so
+      // adjacent units interlock without overdraw. Until that lands,
+      // approximate as a half-brick at full vertical step so nothing
+      // gets clipped.
+      if (mode === 'hex' && ((row % 2) + 2) % 2 === 1) ox = size / 2;
       p.image(tile, col * size + ox, row * size + oy, size, size);
     }
   }
