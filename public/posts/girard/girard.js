@@ -26,6 +26,7 @@ const defaultPattern = () => ({
   background: '#f5e9d0',
   layers: [
     {
+      kind: 'shape',
       shape: { kind: 'circle', r: 22 },
       grid: { cols: 6, rows: 6 },
       modifiers: {
@@ -36,6 +37,7 @@ const defaultPattern = () => ({
       },
     },
     {
+      kind: 'shape',
       shape: { kind: 'square', size: 14 },
       grid: { cols: 6, rows: 6, originOffset: 0.5 },
       modifiers: {
@@ -46,6 +48,16 @@ const defaultPattern = () => ({
       },
     },
   ],
+});
+
+// Stripes layer template, inserted at the bottom of the layer stack
+// when the user turns stripes on.
+const stripesLayer = (orientation) => ({
+  kind: 'stripes',
+  orientation,                                       // horizontal | vertical
+  count: 8,
+  widthJitter: 0.6,                                  // 0 uniform, 1 max variation
+  colorMode: 'palette-cycle',                        // palette-cycle | palette-random
 });
 
 // ---------- Modifier evaluation ----------
@@ -99,48 +111,87 @@ function shapeNode(shape, fill) {
 }
 
 // ---------- Tile content ----------
-// Builds a <g> containing every shape in the tile. Shapes that fall
-// near the edge are also drawn at the 8 wrapped neighbor offsets so
-// the tile reads continuously across its bounds.
+// Builds a <g> containing every layer in the tile. Each layer dispatches
+// to its own renderer keyed off layer.kind.
 function buildTileGroup(pattern) {
   const N = pattern.tileSize;
   const root = el('g');
 
   pattern.layers.forEach((layer, li) => {
     const rng = makeRng(pattern.seed + li * 9973);
-    const { cols, rows, originOffset = 0 } = layer.grid;
-    const cw = N / cols, rh = N / rows;
-    const off = originOffset * (cw + rh) / 2;
-
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        const cx = col * cw + cw / 2 + off;
-        const cy = row * rh + rh / 2 + off;
-        const m = layer.modifiers;
-        const s  = evalMod(m.scale,  rng, col, row, 1);
-        const r  = evalMod(m.rotate, rng, col, row, 0);
-        const jx = evalMod(m.jitter, rng, col, row, 0);
-        const jy = evalMod(m.jitter, rng, col, row, 0);
-        const color = pickColor(m.color, rng, pattern.palette);
-
-        // 3x3 edge-wrap: place an identical copy at each of the 9
-        // tile positions so any shape that crosses an edge appears
-        // on the opposite side.
-        for (let dy = -N; dy <= N; dy += N) {
-          for (let dx = -N; dx <= N; dx += N) {
-            const node = shapeNode(layer.shape, color);
-            node.setAttribute(
-              'transform',
-              `translate(${cx + jx + dx} ${cy + jy + dy}) rotate(${r}) scale(${s})`,
-            );
-            root.appendChild(node);
-          }
-        }
-      }
+    if (layer.kind === 'stripes') {
+      renderStripes(root, layer, N, rng, pattern.palette);
+    } else {
+      renderShapeGrid(root, layer, N, rng, pattern.palette);
     }
   });
 
   return root;
+}
+
+// Stripes layer: parallel rows or columns of solid color, widths
+// summing exactly to N so the stripes themselves tile seamlessly.
+function renderStripes(parent, layer, N, rng, palette) {
+  const count = Math.max(1, layer.count | 0);
+  const jitter = Math.max(0, Math.min(1, layer.widthJitter ?? 0));
+
+  // Generate per-stripe weights with jitter, then normalise so the
+  // widths sum to exactly N regardless of jitter.
+  const weights = [];
+  let sum = 0;
+  for (let i = 0; i < count; i++) {
+    const w = 1 + jitter * (rng() * 2 - 1);
+    const clamped = Math.max(0.1, w);
+    weights.push(clamped);
+    sum += clamped;
+  }
+  const widths = weights.map(w => (w / sum) * N);
+
+  let pos = 0;
+  for (let i = 0; i < count; i++) {
+    const w = widths[i];
+    const color = layer.colorMode === 'palette-random'
+      ? palette[Math.floor(rng() * palette.length)]
+      : palette[i % palette.length];
+    const attrs = layer.orientation === 'vertical'
+      ? { x: pos, y: 0, width: w, height: N, fill: color }
+      : { x: 0, y: pos, width: N, height: w, fill: color };
+    parent.appendChild(el('rect', attrs));
+    pos += w;
+  }
+}
+
+// Shape-on-grid layer: places one shape per grid cell with optional
+// per-cell scale / rotate / jitter / colour modifiers, drawn at 9
+// wrapped positions so shapes that cross the tile edge appear on the
+// opposite side.
+function renderShapeGrid(parent, layer, N, rng, palette) {
+  const { cols, rows, originOffset = 0 } = layer.grid;
+  const cw = N / cols, rh = N / rows;
+  const off = originOffset * (cw + rh) / 2;
+
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const cx = col * cw + cw / 2 + off;
+      const cy = row * rh + rh / 2 + off;
+      const m = layer.modifiers;
+      const s  = evalMod(m.scale,  rng, col, row, 1);
+      const r  = evalMod(m.rotate, rng, col, row, 0);
+      const jx = evalMod(m.jitter, rng, col, row, 0);
+      const jy = evalMod(m.jitter, rng, col, row, 0);
+      const color = pickColor(m.color, rng, palette);
+      for (let dy = -N; dy <= N; dy += N) {
+        for (let dx = -N; dx <= N; dx += N) {
+          const node = shapeNode(layer.shape, color);
+          node.setAttribute(
+            'transform',
+            `translate(${cx + jx + dx} ${cy + jy + dy}) rotate(${r}) scale(${s})`,
+          );
+          parent.appendChild(node);
+        }
+      }
+    }
+  }
 }
 
 // Pointy-top hexagon path centered on the origin, flat-to-flat = w.
@@ -269,10 +320,15 @@ function mount() {
 
   rerender();
 
-  const seed    = document.getElementById('girard-seed');
-  const roll    = document.getElementById('girard-roll');
-  const repeat  = document.getElementById('girard-repeat');
-  const density = document.getElementById('girard-density');
+  const seed       = document.getElementById('girard-seed');
+  const roll       = document.getElementById('girard-roll');
+  const repeat     = document.getElementById('girard-repeat');
+  const density    = document.getElementById('girard-density');
+  const stripeSel  = document.getElementById('girard-stripes');
+  const stripeNum  = document.getElementById('girard-stripe-count');
+  const stripeJit  = document.getElementById('girard-stripe-jitter');
+
+  const findStripes = () => pattern.layers.find(l => l.kind === 'stripes');
 
   seed.addEventListener('input', () => {
     pattern.seed = Number(seed.value) | 0;
@@ -293,8 +349,34 @@ function mount() {
 
   density.addEventListener('input', () => {
     const d = Number(density.value) | 0;
-    pattern.layers.forEach(l => { l.grid.cols = d; l.grid.rows = d; });
+    pattern.layers
+      .filter(l => l.kind !== 'stripes')
+      .forEach(l => { l.grid.cols = d; l.grid.rows = d; });
     rerender();
+  });
+
+  stripeSel.addEventListener('change', () => {
+    const existing = findStripes();
+    if (stripeSel.value === 'off') {
+      if (existing) pattern.layers = pattern.layers.filter(l => l !== existing);
+    } else {
+      const next = existing || stripesLayer(stripeSel.value);
+      next.orientation = stripeSel.value;
+      next.count = Number(stripeNum.value) | 0;
+      next.widthJitter = Number(stripeJit.value);
+      if (!existing) pattern.layers.unshift(next);
+    }
+    rerender();
+  });
+
+  stripeNum.addEventListener('input', () => {
+    const s = findStripes();
+    if (s) { s.count = Number(stripeNum.value) | 0; rerender(); }
+  });
+
+  stripeJit.addEventListener('input', () => {
+    const s = findStripes();
+    if (s) { s.widthJitter = Number(stripeJit.value); rerender(); }
   });
 }
 

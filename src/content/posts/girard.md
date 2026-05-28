@@ -38,5 +38,21 @@ tags:
       <span>density</span>
       <input id='girard-density' type='range' min='2' max='12' step='1' value='6' />
     </label>
+    <label class='ctrl'>
+      <span>stripes</span>
+      <select id='girard-stripes'>
+        <option value='off'>off</option>
+        <option value='horizontal'>horizontal</option>
+        <option value='vertical'>vertical</option>
+      </select>
+    </label>
+    <label class='ctrl'>
+      <span>stripe count</span>
+      <input id='girard-stripe-count' type='range' min='2' max='24' step='1' value='8' />
+    </label>
+    <label class='ctrl'>
+      <span>stripe jitter</span>
+      <input id='girard-stripe-jitter' type='range' min='0' max='1' step='0.05' value='0.6' />
+    </label>
   </aside>
 </div>
