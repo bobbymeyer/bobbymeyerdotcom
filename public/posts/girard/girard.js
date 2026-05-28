@@ -1,7 +1,15 @@
-// girard — textile pattern tool, v0.1 (SVG-native).
-// All geometry lives in SVG: shapes are <circle>/<rect>/<polygon>,
-// repeat is an SVG <pattern>, hex tiling uses a clipPath alpha mask.
-// No canvas, no raster — export to SVG is just serializing the DOM.
+// girard — textile pattern tool, v0.2 (SVG-native).
+//
+// Layer taxonomy
+//   solid       one colour (or transparent)
+//   regular     deterministic tessellations: striped | checkered |
+//                triangular | hex
+//   randomized  shape-on-grid with per-cell modifiers
+//
+// Every layer is dispatched on layer.type; regular layers branch
+// further on layer.subtype. Pattern repeat (square / half-drop /
+// half-brick / hex) is orthogonal to layer types and lives at the
+// pattern root.
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -18,18 +26,15 @@ function makeRng(seed) {
 }
 
 // ---------- Default pattern ----------
-// Background is always layer 0. Solid fills the tile with one
-// colour; transparent draws nothing so the page (or downstream
-// composite) shows through.
 const defaultPattern = () => ({
   seed: 1,
   tileSize: 480,
   repeat: 'square',                                  // square | half-drop | half-brick | hex
   palette: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'],
   layers: [
-    { kind: 'background', mode: 'solid', color: '#f5e9d0' },
+    { type: 'solid', color: '#f5e9d0' },
     {
-      kind: 'shape',
+      type: 'randomized',
       shape: { kind: 'circle', r: 22 },
       grid: { cols: 6, rows: 6 },
       modifiers: {
@@ -40,7 +45,7 @@ const defaultPattern = () => ({
       },
     },
     {
-      kind: 'shape',
+      type: 'randomized',
       shape: { kind: 'square', size: 14 },
       grid: { cols: 6, rows: 6, originOffset: 0.5 },
       modifiers: {
@@ -53,14 +58,14 @@ const defaultPattern = () => ({
   ],
 });
 
-// Stripes layer template, inserted at the bottom of the layer stack
-// when the user turns stripes on.
+// Layer templates.
 const stripesLayer = (orientation) => ({
-  kind: 'stripes',
-  orientation,                                       // horizontal | vertical
+  type: 'regular',
+  subtype: 'striped',
+  orientation,
   count: 8,
-  widthJitter: 0.6,                                  // 0 uniform, 1 max variation
-  colorMode: 'palette-cycle',                        // palette-cycle | palette-random
+  widthJitter: 0.6,
+  colorMode: 'palette-cycle',
 });
 
 // ---------- Modifier evaluation ----------
@@ -113,47 +118,60 @@ function shapeNode(shape, fill) {
   }
 }
 
+// Pointy-top hex polygon points (string) centred at (cx, cy) with
+// flat-to-flat width w.
+function hexPolygonPoints(cx, cy, w) {
+  const s = w / Math.sqrt(3);
+  return `${cx},${cy - s} ${cx + w / 2},${cy - s / 2} ${cx + w / 2},${cy + s / 2} ${cx},${cy + s} ${cx - w / 2},${cy + s / 2} ${cx - w / 2},${cy - s / 2}`;
+}
+
+// Pointy-top hex *path* (for clip masks) centred on origin.
+function hexagonPath(w) {
+  const s = w / Math.sqrt(3);
+  return `M0,${-s} ${w / 2},${-s / 2} ${w / 2},${s / 2} 0,${s} ${-w / 2},${s / 2} ${-w / 2},${-s / 2}Z`;
+}
+
 // ---------- Tile content ----------
-// Builds a <g> containing every layer in the tile. Each layer dispatches
-// to its own renderer keyed off layer.kind.
 function buildTileGroup(pattern) {
   const N = pattern.tileSize;
   const root = el('g');
 
   pattern.layers.forEach((layer, li) => {
     const rng = makeRng(pattern.seed + li * 9973);
-    switch (layer.kind) {
-      case 'background': renderBackground(root, layer, N); break;
-      case 'stripes':    renderStripes(root, layer, N, rng, pattern.palette); break;
-      default:           renderShapeGrid(root, layer, N, rng, pattern.palette);
+    switch (layer.type) {
+      case 'solid':      renderSolid(root, layer, N); break;
+      case 'regular':    renderRegular(root, layer, N, rng, pattern.palette); break;
+      case 'randomized': renderRandomized(root, layer, N, rng, pattern.palette); break;
     }
   });
 
   return root;
 }
 
-function renderBackground(parent, layer, N) {
-  if (layer.mode === 'transparent') return;
-  parent.appendChild(el('rect', {
-    x: 0, y: 0, width: N, height: N, fill: layer.color || '#fff',
-  }));
+function renderSolid(parent, layer, N) {
+  if (!layer.color || layer.mode === 'transparent') return;
+  parent.appendChild(el('rect', { x: 0, y: 0, width: N, height: N, fill: layer.color }));
 }
 
-// Stripes layer: parallel rows or columns of solid color, widths
-// summing exactly to N so the stripes themselves tile seamlessly.
-function renderStripes(parent, layer, N, rng, palette) {
+function renderRegular(parent, layer, N, rng, palette) {
+  switch (layer.subtype) {
+    case 'striped':    return renderStriped(parent, layer, N, rng, palette);
+    case 'checkered':  return renderCheckered(parent, layer, N, palette);
+    case 'triangular': return renderTriangular(parent, layer, N, palette);
+    case 'hex':        return renderHex(parent, layer, N, palette);
+  }
+}
+
+// Parallel rows or columns. Widths jittered then normalised to sum
+// exactly to N so the stripes tile seamlessly.
+function renderStriped(parent, layer, N, rng, palette) {
   const count = Math.max(1, layer.count | 0);
   const jitter = Math.max(0, Math.min(1, layer.widthJitter ?? 0));
-
-  // Generate per-stripe weights with jitter, then normalise so the
-  // widths sum to exactly N regardless of jitter.
   const weights = [];
   let sum = 0;
   for (let i = 0; i < count; i++) {
-    const w = 1 + jitter * (rng() * 2 - 1);
-    const clamped = Math.max(0.1, w);
-    weights.push(clamped);
-    sum += clamped;
+    const w = Math.max(0.1, 1 + jitter * (rng() * 2 - 1));
+    weights.push(w); sum += w;
   }
   const widths = weights.map(w => (w / sum) * N);
 
@@ -171,15 +189,79 @@ function renderStripes(parent, layer, N, rng, palette) {
   }
 }
 
-// Shape-on-grid layer: places one shape per grid cell with optional
-// per-cell scale / rotate / jitter / colour modifiers, drawn at 9
-// wrapped positions so shapes that cross the tile edge appear on the
-// opposite side.
-function renderShapeGrid(parent, layer, N, rng, palette) {
+// Square checkerboard. cols x rows cells, colours cycle the palette
+// along (row + col).
+function renderCheckered(parent, layer, N, palette) {
+  const cols = Math.max(1, layer.cols | 0 || 8);
+  const rows = Math.max(1, layer.rows | 0 || 8);
+  const cw = N / cols, rh = N / rows;
+  const colors = layer.colors || palette.slice(0, 2);
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const color = colors[(row + col) % colors.length];
+      parent.appendChild(el('rect', {
+        x: col * cw, y: row * rh, width: cw, height: rh, fill: color,
+      }));
+    }
+  }
+}
+
+// Equilateral triangle tessellation. cols full-width triangles per
+// row; row height = side * √3/2. Colours cycle the palette.
+function renderTriangular(parent, layer, N, palette) {
+  const cols = Math.max(1, layer.cols | 0 || 8);
+  const s = N / cols;
+  const h = s * Math.sqrt(3) / 2;
+  const rows = Math.ceil(N / h) + 1;
+  let idx = 0;
+  for (let r = 0; r < rows; r++) {
+    const y0 = r * h;
+    // Each strip contains 2*cols triangles alternating up/down.
+    // Adjacent strips offset by half so triangles share full edges.
+    const stripFlip = r % 2 === 1;
+    for (let i = -1; i <= cols * 2; i++) {
+      const xMid = i * s / 2;
+      const up = (i % 2 === 0) !== stripFlip;
+      const points = up
+        ? `${xMid - s / 2},${y0 + h} ${xMid + s / 2},${y0 + h} ${xMid},${y0}`
+        : `${xMid - s / 2},${y0} ${xMid + s / 2},${y0} ${xMid},${y0 + h}`;
+      parent.appendChild(el('polygon', {
+        points,
+        fill: palette[idx++ % palette.length],
+      }));
+    }
+  }
+}
+
+// Pointy-top hexagon tessellation across the tile rect. cols sets
+// the horizontal hex count. Colours cycle the palette by row × col.
+function renderHex(parent, layer, N, palette) {
+  const cols = Math.max(1, layer.cols | 0 || 6);
+  const w = N / cols;                       // hex flat-to-flat
+  const side = w / Math.sqrt(3);
+  const rowStep = 1.5 * side;
+  const rows = Math.ceil(N / rowStep) + 2;
+  let idx = 0;
+  for (let r = -1; r < rows; r++) {
+    const offX = ((r % 2) + 2) % 2 === 1 ? w / 2 : 0;
+    for (let c = -1; c < cols + 1; c++) {
+      const cx = c * w + offX + w / 2;
+      const cy = r * rowStep + side;
+      parent.appendChild(el('polygon', {
+        points: hexPolygonPoints(cx, cy, w),
+        fill: palette[idx++ % palette.length],
+      }));
+    }
+  }
+}
+
+// Randomized: shape per grid cell with per-cell modifiers. Drawn at
+// 9 wrapped offsets so shapes crossing the tile edge appear on the
+// opposite side too.
+function renderRandomized(parent, layer, N, rng, palette) {
   const { cols, rows, originOffset = 0 } = layer.grid;
   const cw = N / cols, rh = N / rows;
   const off = originOffset * (cw + rh) / 2;
-
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       const cx = col * cw + cw / 2 + off;
@@ -204,20 +286,11 @@ function renderShapeGrid(parent, layer, N, rng, palette) {
   }
 }
 
-// Pointy-top hexagon path centered on the origin, flat-to-flat = w.
-function hexagonPath(w) {
-  const s = w / Math.sqrt(3); // side length
-  return `M0,${-s} ${w / 2},${-s / 2} ${w / 2},${s / 2} 0,${s} ${-w / 2},${s / 2} ${-w / 2},${-s / 2}Z`;
-}
-
-// ---------- Repeat unit (SVG <pattern> body) ----------
-// Returns { width, height, content[] } describing the geometry of
-// one SVG <pattern> tile in user space.
+// ---------- Repeat unit ----------
 function buildRepeatUnit(pattern, tileGroup) {
   const N = pattern.tileSize;
   switch (pattern.repeat) {
     case 'half-drop': {
-      // Two-column unit: even col at y=0, odd col at y=N/2.
       const g1 = tileGroup.cloneNode(true);
       const g2 = tileGroup.cloneNode(true);
       g2.setAttribute('transform', `translate(${N} ${N / 2})`);
@@ -230,18 +303,12 @@ function buildRepeatUnit(pattern, tileGroup) {
       return { width: N, height: N * 2, content: [g1, g2] };
     }
     case 'hex': {
-      // Pointy-top hex tiling. Hex width (flat-to-flat) = N. Two
-      // hex cells per rectangular unit; the second wraps to both
-      // edges of the unit so it tiles seamlessly.
       const w = N;
       const side = N / Math.sqrt(3);
-      const rowStep = 1.5 * side;       // vertical centre-to-centre
-      const unitH = 2 * rowStep;        // unit covers two row steps
+      const rowStep = 1.5 * side;
+      const unitH = 2 * rowStep;
       const clipId = 'girard-hex-clip';
-
-      const clipPath = el('clipPath', { id: clipId },
-        [el('path', { d: hexagonPath(w) })]);
-
+      const clipPath = el('clipPath', { id: clipId }, [el('path', { d: hexagonPath(w) })]);
       const place = (cx, cy) => {
         const wrap = el('g', {
           transform: `translate(${cx} ${cy})`,
@@ -252,18 +319,18 @@ function buildRepeatUnit(pattern, tileGroup) {
         wrap.appendChild(inner);
         return wrap;
       };
-
-      const content = [
-        clipPath,
-        place(w / 2, rowStep / 2),       // upper hex, centered in unit
-        place(0,     rowStep / 2 + rowStep), // lower hex, wrapping left
-        place(w,     rowStep / 2 + rowStep), // lower hex, wrapping right
-      ];
-      return { width: w, height: unitH, content };
+      return {
+        width: w, height: unitH,
+        content: [
+          clipPath,
+          place(w / 2, rowStep / 2),
+          place(0,     rowStep / 2 + rowStep),
+          place(w,     rowStep / 2 + rowStep),
+        ],
+      };
     }
-    default: {
+    default:
       return { width: N, height: N, content: [tileGroup] };
-    }
   }
 }
 
@@ -287,15 +354,8 @@ function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
     patternUnits: 'userSpaceOnUse',
   });
   unit.content.forEach(n => tilePattern.appendChild(n));
+  root.appendChild(el('defs', {}, [tilePattern]));
 
-  const defs = el('defs', {}, [tilePattern]);
-  root.appendChild(defs);
-
-  // 3x3 visualization: pattern fills the whole viewport, but the
-  // outer ring of cells is rendered at lower opacity so the centre
-  // cell reads as the "live" tile. Each rect references the same
-  // <pattern>, which uses userSpaceOnUse — the tile keeps registering
-  // across rect boundaries.
   const cell = viewSize / 3;
   for (let row = 0; row < 3; row++) {
     for (let col = 0; col < 3; col++) {
@@ -335,8 +395,9 @@ function mount() {
   const bgMode     = document.getElementById('girard-bg-mode');
   const bgColor    = document.getElementById('girard-bg-color');
 
-  const findStripes = () => pattern.layers.find(l => l.kind === 'stripes');
-  const findBg = () => pattern.layers.find(l => l.kind === 'background');
+  const findStripes = () => pattern.layers.find(l =>
+    l.type === 'regular' && l.subtype === 'striped');
+  const findBg = () => pattern.layers.find(l => l.type === 'solid');
 
   seed.addEventListener('input', () => {
     pattern.seed = Number(seed.value) | 0;
@@ -358,7 +419,7 @@ function mount() {
   density.addEventListener('input', () => {
     const d = Number(density.value) | 0;
     pattern.layers
-      .filter(l => l.kind !== 'stripes')
+      .filter(l => l.type === 'randomized')
       .forEach(l => { l.grid.cols = d; l.grid.rows = d; });
     rerender();
   });
@@ -372,7 +433,7 @@ function mount() {
       next.orientation = stripeSel.value;
       next.count = Number(stripeNum.value) | 0;
       next.widthJitter = Number(stripeJit.value);
-      if (!existing) pattern.layers.unshift(next);
+      if (!existing) pattern.layers.splice(1, 0, next); // above the bg
     }
     rerender();
   });
