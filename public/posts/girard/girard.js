@@ -18,13 +18,16 @@ function makeRng(seed) {
 }
 
 // ---------- Default pattern ----------
+// Background is always layer 0. Solid fills the tile with one
+// colour; transparent draws nothing so the page (or downstream
+// composite) shows through.
 const defaultPattern = () => ({
   seed: 1,
   tileSize: 480,
   repeat: 'square',                                  // square | half-drop | half-brick | hex
   palette: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'],
-  background: '#f5e9d0',
   layers: [
+    { kind: 'background', mode: 'solid', color: '#f5e9d0' },
     {
       kind: 'shape',
       shape: { kind: 'circle', r: 22 },
@@ -119,14 +122,21 @@ function buildTileGroup(pattern) {
 
   pattern.layers.forEach((layer, li) => {
     const rng = makeRng(pattern.seed + li * 9973);
-    if (layer.kind === 'stripes') {
-      renderStripes(root, layer, N, rng, pattern.palette);
-    } else {
-      renderShapeGrid(root, layer, N, rng, pattern.palette);
+    switch (layer.kind) {
+      case 'background': renderBackground(root, layer, N); break;
+      case 'stripes':    renderStripes(root, layer, N, rng, pattern.palette); break;
+      default:           renderShapeGrid(root, layer, N, rng, pattern.palette);
     }
   });
 
   return root;
+}
+
+function renderBackground(parent, layer, N) {
+  if (layer.mode === 'transparent') return;
+  parent.appendChild(el('rect', {
+    x: 0, y: 0, width: N, height: N, fill: layer.color || '#fff',
+  }));
 }
 
 // Stripes layer: parallel rows or columns of solid color, widths
@@ -281,11 +291,6 @@ function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
   const defs = el('defs', {}, [tilePattern]);
   root.appendChild(defs);
 
-  // Background.
-  root.appendChild(el('rect', {
-    width: viewSize, height: viewSize, fill: pattern.background,
-  }));
-
   // 3x3 visualization: pattern fills the whole viewport, but the
   // outer ring of cells is rendered at lower opacity so the centre
   // cell reads as the "live" tile. Each rect references the same
@@ -327,8 +332,11 @@ function mount() {
   const stripeSel  = document.getElementById('girard-stripes');
   const stripeNum  = document.getElementById('girard-stripe-count');
   const stripeJit  = document.getElementById('girard-stripe-jitter');
+  const bgMode     = document.getElementById('girard-bg-mode');
+  const bgColor    = document.getElementById('girard-bg-color');
 
   const findStripes = () => pattern.layers.find(l => l.kind === 'stripes');
+  const findBg = () => pattern.layers.find(l => l.kind === 'background');
 
   seed.addEventListener('input', () => {
     pattern.seed = Number(seed.value) | 0;
@@ -377,6 +385,16 @@ function mount() {
   stripeJit.addEventListener('input', () => {
     const s = findStripes();
     if (s) { s.widthJitter = Number(stripeJit.value); rerender(); }
+  });
+
+  bgMode.addEventListener('change', () => {
+    const bg = findBg();
+    if (bg) { bg.mode = bgMode.value; rerender(); }
+  });
+
+  bgColor.addEventListener('input', () => {
+    const bg = findBg();
+    if (bg) { bg.color = bgColor.value; rerender(); }
   });
 }
 

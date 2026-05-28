@@ -24,6 +24,17 @@ tags:
       <span>seed</span>
       <input id='girard-seed' type='number' value='1' min='0' max='99999' />
     </label>
+    <label class='ctrl'>
+      <span>background</span>
+      <select id='girard-bg-mode'>
+        <option value='solid'>solid</option>
+        <option value='transparent'>transparent</option>
+      </select>
+    </label>
+    <label class='ctrl'>
+      <span>bg color</span>
+      <input id='girard-bg-color' type='color' value='#f5e9d0' />
+    </label>
     <button id='girard-roll' class='ctrl'>roll a new seed</button>
     <label class='ctrl'>
       <span>repeat</span>
