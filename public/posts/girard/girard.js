@@ -221,57 +221,69 @@ function renderCheckered(parent, layer, N, palette) {
 }
 
 // Equilateral triangle tessellation that tiles cleanly in both
-// directions. Adjacent strips offset horizontally by s/2 so triangles
-// share full edges. Strip count is rounded to an even number and
-// strip height is derived from N so the vertical period hits exactly
-// at the tile edge. Triangles that cross the horizontal seam are
-// drawn at both edges with a shared colour.
+// directions AND keeps colours continuous across the seams.
+//
+// Geometry: adjacent strips offset by s/2 so triangles share full
+// edges. Strip count rounded to an even integer so the offset
+// alternation completes a vertical period at N.
+//
+// Colour scheme: each triangle's colour is keyed off its "rhombus
+// identity" — the (strip, column) of the up triangle that pairs
+// with it across a shared edge. Indices wrap modulo (strips, cols),
+// so a triangle in tile A whose rhombus continues into tile B
+// computes the same colour either way the wrap is approached.
 function renderTriangular(parent, layer, N, palette) {
   const cols = Math.max(1, layer.cols | 0 || 6);
   const s = N / cols;
-  // Ideal strip height for equilateral = s*√3/2. We round the strip
-  // count to the nearest even integer so the tile divides cleanly
-  // AND the offset alternation completes a full period.
   const stripsIdeal = N / (s * Math.sqrt(3) / 2);
   const strips = Math.max(2, Math.round(stripsIdeal / 2) * 2);
   const h = N / strips;
-  const colorAt = (i) => palette[((i % palette.length) + palette.length) % palette.length];
+
+  const mod = (a, n) => ((a % n) + n) % n;
+  const hash = (r, c) =>
+    palette[mod(mod(r, strips) * cols + mod(c, cols), palette.length)];
+
+  // Up at strip r, column c -> rhombus is (r, c).
+  const colorUp = (r, c) => hash(r, c);
+  // Down at strip r, column c: its rhombus partner sits in strip
+  // r-1. The horizontal alignment of that partner depends on the
+  // parity of r-1 (which determines whether the previous strip's
+  // ups are at integer or half-integer columns).
+  const colorDown = (r, c) => {
+    const prevR = r - 1;
+    const prevEven = mod(prevR, 2) === 0;
+    return hash(prevR, prevEven ? c + 1 : c);
+  };
 
   for (let r = 0; r < strips; r++) {
     const y0 = r * h;
     const y1 = y0 + h;
     const odd = r % 2 === 1;
     const off = odd ? s / 2 : 0;
-    const rowBase = r * 2 * cols;
 
-    // Up triangles. Even strip: ups at c*s for c=0..cols, with c=0
-    // and c=cols sharing colour (they're the same triangle wrapping
-    // the horizontal seam). Odd strip: ups at c*s + s/2 for c=0..cols-1,
-    // all fully inside the tile.
+    // Ups. Even strip: cols+1 (the c=cols wrap shares c-mod-cols=0's
+    // colour automatically). Odd strip: cols, all interior.
     const upCount = odd ? cols : cols + 1;
     for (let c = 0; c < upCount; c++) {
       const cx = c * s + off;
-      const colorKey = odd ? c : (c === cols ? 0 : c);
       parent.appendChild(el('polygon', {
         points: `${cx - s / 2},${y1} ${cx + s / 2},${y1} ${cx},${y0}`,
-        fill: colorAt(rowBase + colorKey),
+        fill: colorUp(r, c),
       }));
     }
 
-    // Down triangles. Even strip: downs at xL=c*s for c=0..cols-1,
-    // all inside. Odd strip: downs at xL=c*s + s/2 for c=0..cols-1
-    // with the last one (c=cols-1) crossing the seam; we draw the
-    // wrap partial at xL=-s/2 with the same colour.
-    const downBase = rowBase + cols;
+    // Downs. Even strip: cols interior. Odd strip: cols-1 interior
+    // plus a wrap pair at xL=(cols-1)*s+s/2 and xL=-s/2 sharing the
+    // c=cols-1 colour.
     if (odd) {
       for (let c = 0; c < cols - 1; c++) {
         const xL = c * s + s / 2;
         parent.appendChild(el('polygon', {
           points: `${xL},${y0} ${xL + s},${y0} ${xL + s / 2},${y1}`,
-          fill: colorAt(downBase + c),
+          fill: colorDown(r, c),
         }));
       }
-      const wrapColor = colorAt(downBase + (cols - 1));
+      const wrapColor = colorDown(r, cols - 1);
       for (const xL of [(cols - 1) * s + s / 2, -s / 2]) {
         parent.appendChild(el('polygon', {
           points: `${xL},${y0} ${xL + s},${y0} ${xL + s / 2},${y1}`,
@@ -283,7 +295,7 @@ function renderTriangular(parent, layer, N, palette) {
         const xL = c * s;
         parent.appendChild(el('polygon', {
           points: `${xL},${y0} ${xL + s},${y0} ${xL + s / 2},${y1}`,
-          fill: colorAt(downBase + c),
+          fill: colorDown(r, c),
         }));
       }
     }
