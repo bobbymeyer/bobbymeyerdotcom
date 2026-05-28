@@ -32,41 +32,40 @@ const defaultPattern = () => ({
   repeat: 'square',                                  // square | half-drop | half-brick | hex
   palette: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'],
   layers: [
-    { type: 'solid', color: '#f5e9d0' },
-    {
-      type: 'randomized',
-      shape: { kind: 'circle', r: 22 },
-      grid: { cols: 6, rows: 6 },
-      modifiers: {
-        scale:  { type: 'random', min: 0.55, max: 1.2 },
-        rotate: { type: 'random', min: 0, max: 360 },
-        jitter: { type: 'random', min: -10, max: 10 },
-        color:  { type: 'palette' },
-      },
-    },
-    {
-      type: 'randomized',
-      shape: { kind: 'square', size: 14 },
-      grid: { cols: 6, rows: 6, originOffset: 0.5 },
-      modifiers: {
-        scale:  { type: 'random', min: 0.4, max: 1.1 },
-        rotate: { type: 'random', min: 0, max: 45 },
-        jitter: { type: 'random', min: -6, max: 6 },
-        color:  { type: 'palette' },
-      },
-    },
+    { type: 'solid', color: '#8a8a8a' },
   ],
 });
 
-// Layer templates.
-const stripesLayer = (orientation) => ({
-  type: 'regular',
-  subtype: 'striped',
-  orientation,
-  count: 8,
-  widthJitter: 0.6,
-  colorMode: 'palette-cycle',
-});
+// Factory: spec is 'solid' | 'regular:<subtype>' | 'randomized'.
+function makeLayer(spec) {
+  const [type, subtype] = spec.split(':');
+  if (type === 'solid') return { type: 'solid', color: '#8a8a8a' };
+  if (type === 'regular') {
+    switch (subtype) {
+      case 'striped':    return { type: 'regular', subtype: 'striped', orientation: 'horizontal', count: 8, widthJitter: 0.6, colorMode: 'palette-cycle' };
+      case 'checkered':  return { type: 'regular', subtype: 'checkered', cols: 6, rows: 6 };
+      case 'triangular': return { type: 'regular', subtype: 'triangular', cols: 6 };
+      case 'hex':        return { type: 'regular', subtype: 'hex', cols: 6 };
+    }
+  }
+  return {
+    type: 'randomized',
+    shape: { kind: 'circle', r: 22 },
+    grid: { cols: 6, rows: 6 },
+    modifiers: {
+      scale:  { type: 'random', min: 0.55, max: 1.2 },
+      rotate: { type: 'random', min: 0, max: 360 },
+      jitter: { type: 'random', min: -10, max: 10 },
+      color:  { type: 'palette' },
+    },
+  };
+}
+
+function layerLabel(layer) {
+  if (layer.type === 'solid') return 'solid';
+  if (layer.type === 'regular') return layer.subtype;
+  return 'randomized';
+}
 
 // ---------- Modifier evaluation ----------
 function evalMod(mod, rng, col, row, base) {
@@ -372,32 +371,161 @@ function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
   return root;
 }
 
+// ---------- Layer list rendering ----------
+function renderLayerList(listEl, pattern, selected, handlers) {
+  const items = pattern.layers.map((layer, i) => {
+    const li = document.createElement('li');
+    li.className = 'layer-item' + (i === selected ? ' selected' : '');
+
+    const label = document.createElement('span');
+    label.className = 'layer-label';
+    label.textContent = `${i + 1}. ${layerLabel(layer)}`;
+    label.addEventListener('click', () => handlers.select(i));
+    li.appendChild(label);
+
+    const actions = document.createElement('span');
+    actions.className = 'layer-actions';
+    const btn = (text, title, fn) => {
+      const b = document.createElement('button');
+      b.textContent = text;
+      b.title = title;
+      b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
+      return b;
+    };
+    actions.appendChild(btn('↑', 'move up',   () => handlers.move(i, -1)));
+    actions.appendChild(btn('↓', 'move down', () => handlers.move(i, +1)));
+    actions.appendChild(btn('×', 'delete',    () => handlers.remove(i)));
+    li.appendChild(actions);
+    return li;
+  });
+  listEl.replaceChildren(...items);
+}
+
+// ---------- Per-layer config form ----------
+function buildConfigForm(host, layer, onChange) {
+  host.replaceChildren();
+  if (!layer) return;
+
+  const addCtrl = (label, kind, value, opts = {}) => {
+    const wrap = document.createElement('label');
+    wrap.className = 'ctrl';
+    const span = document.createElement('span');
+    span.textContent = label;
+    wrap.appendChild(span);
+    let input;
+    if (kind === 'select') {
+      input = document.createElement('select');
+      opts.options.forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o; opt.textContent = o;
+        if (o === value) opt.selected = true;
+        input.appendChild(opt);
+      });
+    } else {
+      input = document.createElement('input');
+      input.type = kind;
+      input.value = value;
+      if (opts.min !== undefined) input.min = opts.min;
+      if (opts.max !== undefined) input.max = opts.max;
+      if (opts.step !== undefined) input.step = opts.step;
+    }
+    wrap.appendChild(input);
+    host.appendChild(wrap);
+    return input;
+  };
+
+  switch (layer.type) {
+    case 'solid': {
+      const c = addCtrl('color', 'color', layer.color || '#8a8a8a');
+      c.addEventListener('input', () => { layer.color = c.value; onChange(); });
+      break;
+    }
+    case 'regular':
+      switch (layer.subtype) {
+        case 'striped': {
+          const o = addCtrl('orientation', 'select', layer.orientation || 'horizontal', { options: ['horizontal', 'vertical'] });
+          const n = addCtrl('count', 'number', layer.count ?? 8, { min: 2, max: 24, step: 1 });
+          const j = addCtrl('jitter', 'range', layer.widthJitter ?? 0.6, { min: 0, max: 1, step: 0.05 });
+          o.addEventListener('change', () => { layer.orientation = o.value; onChange(); });
+          n.addEventListener('input',  () => { layer.count = Number(n.value) | 0; onChange(); });
+          j.addEventListener('input',  () => { layer.widthJitter = Number(j.value); onChange(); });
+          break;
+        }
+        case 'checkered': {
+          const c = addCtrl('cols', 'number', layer.cols ?? 6, { min: 1, max: 24, step: 1 });
+          const r = addCtrl('rows', 'number', layer.rows ?? 6, { min: 1, max: 24, step: 1 });
+          c.addEventListener('input', () => { layer.cols = Number(c.value) | 0; onChange(); });
+          r.addEventListener('input', () => { layer.rows = Number(r.value) | 0; onChange(); });
+          break;
+        }
+        case 'triangular':
+        case 'hex': {
+          const c = addCtrl('cols', 'number', layer.cols ?? 6, { min: 2, max: 24, step: 1 });
+          c.addEventListener('input', () => { layer.cols = Number(c.value) | 0; onChange(); });
+          break;
+        }
+      }
+      break;
+    case 'randomized': {
+      const shape = addCtrl('shape', 'select', layer.shape?.kind || 'circle', { options: ['circle', 'square', 'triangle'] });
+      const grid  = addCtrl('grid', 'number', layer.grid?.cols ?? 6, { min: 1, max: 24, step: 1 });
+      shape.addEventListener('change', () => {
+        layer.shape = shape.value === 'circle' ? { kind: 'circle', r: 22 } : { kind: shape.value, size: 30 };
+        onChange();
+      });
+      grid.addEventListener('input', () => {
+        const v = Number(grid.value) | 0;
+        layer.grid = { ...(layer.grid || {}), cols: v, rows: v };
+        onChange();
+      });
+      break;
+    }
+  }
+}
+
 // ---------- Mount ----------
 function mount() {
-  const stage = document.getElementById('girard-stage');
+  const stage     = document.getElementById('girard-stage');
+  const listEl    = document.getElementById('girard-layer-list');
+  const configEl  = document.getElementById('girard-layer-config');
+  const addSelect = document.getElementById('girard-add-layer');
+  const seed      = document.getElementById('girard-seed');
+  const roll      = document.getElementById('girard-roll');
+  const repeat    = document.getElementById('girard-repeat');
   if (!stage) return;
 
   let pattern = defaultPattern();
+  let selected = 0;
 
   const rerender = () => {
     stage.replaceChildren(buildSvg(pattern));
+    renderLayerList(listEl, pattern, selected, {
+      select: (i) => { selected = i; rerender(); },
+      move: (i, dir) => {
+        const j = i + dir;
+        if (j < 0 || j >= pattern.layers.length) return;
+        [pattern.layers[i], pattern.layers[j]] = [pattern.layers[j], pattern.layers[i]];
+        if (selected === i) selected = j;
+        else if (selected === j) selected = i;
+        rerender();
+      },
+      remove: (i) => {
+        pattern.layers.splice(i, 1);
+        if (selected >= pattern.layers.length) selected = pattern.layers.length - 1;
+        if (selected < 0) selected = 0;
+        rerender();
+      },
+    });
+    buildConfigForm(configEl, pattern.layers[selected], rerender);
   };
 
-  rerender();
-
-  const seed       = document.getElementById('girard-seed');
-  const roll       = document.getElementById('girard-roll');
-  const repeat     = document.getElementById('girard-repeat');
-  const density    = document.getElementById('girard-density');
-  const stripeSel  = document.getElementById('girard-stripes');
-  const stripeNum  = document.getElementById('girard-stripe-count');
-  const stripeJit  = document.getElementById('girard-stripe-jitter');
-  const bgMode     = document.getElementById('girard-bg-mode');
-  const bgColor    = document.getElementById('girard-bg-color');
-
-  const findStripes = () => pattern.layers.find(l =>
-    l.type === 'regular' && l.subtype === 'striped');
-  const findBg = () => pattern.layers.find(l => l.type === 'solid');
+  addSelect.addEventListener('change', () => {
+    if (!addSelect.value) return;
+    pattern.layers.push(makeLayer(addSelect.value));
+    selected = pattern.layers.length - 1;
+    addSelect.value = '';
+    rerender();
+  });
 
   seed.addEventListener('input', () => {
     pattern.seed = Number(seed.value) | 0;
@@ -416,47 +544,7 @@ function mount() {
     rerender();
   });
 
-  density.addEventListener('input', () => {
-    const d = Number(density.value) | 0;
-    pattern.layers
-      .filter(l => l.type === 'randomized')
-      .forEach(l => { l.grid.cols = d; l.grid.rows = d; });
-    rerender();
-  });
-
-  stripeSel.addEventListener('change', () => {
-    const existing = findStripes();
-    if (stripeSel.value === 'off') {
-      if (existing) pattern.layers = pattern.layers.filter(l => l !== existing);
-    } else {
-      const next = existing || stripesLayer(stripeSel.value);
-      next.orientation = stripeSel.value;
-      next.count = Number(stripeNum.value) | 0;
-      next.widthJitter = Number(stripeJit.value);
-      if (!existing) pattern.layers.splice(1, 0, next); // above the bg
-    }
-    rerender();
-  });
-
-  stripeNum.addEventListener('input', () => {
-    const s = findStripes();
-    if (s) { s.count = Number(stripeNum.value) | 0; rerender(); }
-  });
-
-  stripeJit.addEventListener('input', () => {
-    const s = findStripes();
-    if (s) { s.widthJitter = Number(stripeJit.value); rerender(); }
-  });
-
-  bgMode.addEventListener('change', () => {
-    const bg = findBg();
-    if (bg) { bg.mode = bgMode.value; rerender(); }
-  });
-
-  bgColor.addEventListener('input', () => {
-    const bg = findBg();
-    if (bg) { bg.color = bgColor.value; rerender(); }
-  });
+  rerender();
 }
 
 if (document.readyState === 'loading') {
