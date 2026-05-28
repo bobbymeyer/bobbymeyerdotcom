@@ -207,16 +207,16 @@ function renderStriped(parent, layer, N, rng, palette) {
   }
 }
 
-// Square checkerboard. cols x rows cells, colours cycle the palette
-// along (row + col).
+// Checkerboard. cols x rows cells; colours cycle the palette
+// along (row + col), so 2 colours give a classic checker, 3+ give
+// diagonal bands.
 function renderCheckered(parent, layer, N, palette) {
   const cols = Math.max(1, layer.cols | 0 || 8);
   const rows = Math.max(1, layer.rows | 0 || 8);
   const cw = N / cols, rh = N / rows;
-  const colors = layer.colors || palette.slice(0, 2);
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      const color = colors[(row + col) % colors.length];
+      const color = palette[(row + col) % palette.length];
       parent.appendChild(el('rect', {
         x: col * cw, y: row * rh, width: cw, height: rh, fill: color,
       }));
