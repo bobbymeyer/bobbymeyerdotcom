@@ -1,24 +1,27 @@
 ---
-import { getCollection } from 'astro:content';
+import { getCollection, render } from 'astro:content';
 import Base from '@/layouts/Base.astro';
+
+const slugOf = (id: string) => id.replace(/\.md$/, '');
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts');
   return posts.map((post) => ({
-    params: { slug: post.slug },
+    params: { slug: post.id.replace(/\.md$/, '') },
     props: { post },
   }));
 }
 
 type Post = Awaited<ReturnType<typeof getCollection<'posts'>>>[number];
 const { post } = Astro.props as { post: Post };
-const { Content } = await post.render();
+const { Content } = await render(post);
+const slug = slugOf(post.id);
 
 const cssHref = post.data.custom_css
-  ? `/posts/${post.slug}/${post.data.custom_css}.css`
+  ? `/posts/${slug}/${post.data.custom_css}.css`
   : null;
 const jsSrc = post.data.custom_js
-  ? `/posts/${post.slug}/${post.data.custom_js}.js`
+  ? `/posts/${slug}/${post.data.custom_js}.js`
   : null;
 ---
 

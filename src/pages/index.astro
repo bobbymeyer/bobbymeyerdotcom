@@ -30,14 +30,15 @@ const fillerCells = Array.from({ length: 96 });
 
       <!-- One tile per post, sized from frontmatter (defaults 2x2). -->
       {posts.map((post) => {
+        const slug = post.id.replace(/\.md$/, '');
         const w = post.data.width ?? 2;
         const h = post.data.height ?? 2;
         const thumb = post.data.thumbnail
-          ? `/posts/${post.slug}/${post.data.thumbnail}`
+          ? `/posts/${slug}/${post.data.thumbnail}`
           : null;
         // Per-slug deterministic gradient for thumbnail-less tiles.
         let hash = 0;
-        for (const ch of post.slug) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+        for (const ch of slug) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
         const hue = Math.abs(hash) % 360;
         const gradient = `linear-gradient(135deg, hsl(${hue},70%,55%), hsl(${(hue + 40) % 360},65%,45%))`;
         const styleParts = [
@@ -55,7 +56,7 @@ const fillerCells = Array.from({ length: 96 });
         const tileClass = 'relative overflow-hidden flex flex-col justify-between p-3 text-white hover:opacity-90 transition-opacity';
         return (
           <a
-            href={`/posts/${post.slug}/`}
+            href={`/posts/${slug}/`}
             style={styleParts.join('; ') + ';'}
             class={tileClass}
           >
