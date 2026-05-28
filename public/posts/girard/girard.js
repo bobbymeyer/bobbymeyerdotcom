@@ -31,6 +31,7 @@ const defaultPattern = () => ({
   tileSize: 480,
   repeat: 'square',                                  // square | half-drop | half-brick | hex
   palette: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'],
+  surroundVeil: 0.5,                                 // opacity of white overlay on the outer 8 cells of the 3x3 preview
   layers: [
     { type: 'solid', color: '#8a8a8a' },
   ],
@@ -425,16 +426,25 @@ function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
   unit.content.forEach(n => tilePattern.appendChild(n));
   root.appendChild(el('defs', {}, [tilePattern]));
 
+  // 3x3 preview. All cells render the pattern at full opacity; a
+  // white veil layered over the outer ring fades them to taste.
   const cell = viewSize / 3;
-  for (let row = 0; row < 3; row++) {
-    for (let col = 0; col < 3; col++) {
-      const isCenter = row === 1 && col === 1;
-      root.appendChild(el('rect', {
-        x: col * cell, y: row * cell,
-        width: cell, height: cell,
-        fill: `url(#${patternId})`,
-        opacity: isCenter ? 1 : 0.35,
-      }));
+  root.appendChild(el('rect', {
+    width: viewSize, height: viewSize,
+    fill: `url(#${patternId})`,
+  }));
+  const veil = Math.max(0, Math.min(1, pattern.surroundVeil ?? 0.5));
+  if (veil > 0) {
+    for (let row = 0; row < 3; row++) {
+      for (let col = 0; col < 3; col++) {
+        if (row === 1 && col === 1) continue;
+        root.appendChild(el('rect', {
+          x: col * cell, y: row * cell,
+          width: cell, height: cell,
+          fill: '#ffffff',
+          opacity: veil,
+        }));
+      }
     }
   }
 
@@ -568,6 +578,7 @@ function mount() {
   const seed      = document.getElementById('girard-seed');
   const roll      = document.getElementById('girard-roll');
   const repeat    = document.getElementById('girard-repeat');
+  const veil      = document.getElementById('girard-veil');
   if (!stage) return;
 
   let pattern = defaultPattern();
@@ -617,6 +628,11 @@ function mount() {
 
   repeat.addEventListener('change', () => {
     pattern.repeat = repeat.value;
+    rerender();
+  });
+
+  veil.addEventListener('input', () => {
+    pattern.surroundVeil = Number(veil.value);
     rerender();
   });
 

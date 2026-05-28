@@ -34,6 +34,10 @@ tags:
           <option value='hex'>hex</option>
         </select>
       </label>
+      <label class='ctrl'>
+        <span>surround veil</span>
+        <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.5' />
+      </label>
     </div>
     <div id='girard-layer-panel'>
       <div class='layer-panel-header'>
