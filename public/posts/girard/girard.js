@@ -207,7 +207,7 @@ function buildRepeatUnit(pattern, tileGroup) {
 }
 
 // ---------- Top-level SVG ----------
-function buildSvg(pattern, viewSize = 720) {
+function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
   const root = el('svg', {
     xmlns: SVG_NS,
     viewBox: `0 0 ${viewSize} ${viewSize}`,
@@ -230,13 +230,28 @@ function buildSvg(pattern, viewSize = 720) {
   const defs = el('defs', {}, [tilePattern]);
   root.appendChild(defs);
 
-  // Background, then the tiled pattern fill.
+  // Background.
   root.appendChild(el('rect', {
     width: viewSize, height: viewSize, fill: pattern.background,
   }));
-  root.appendChild(el('rect', {
-    width: viewSize, height: viewSize, fill: `url(#${patternId})`,
-  }));
+
+  // 3x3 visualization: pattern fills the whole viewport, but the
+  // outer ring of cells is rendered at lower opacity so the centre
+  // cell reads as the "live" tile. Each rect references the same
+  // <pattern>, which uses userSpaceOnUse — the tile keeps registering
+  // across rect boundaries.
+  const cell = viewSize / 3;
+  for (let row = 0; row < 3; row++) {
+    for (let col = 0; col < 3; col++) {
+      const isCenter = row === 1 && col === 1;
+      root.appendChild(el('rect', {
+        x: col * cell, y: row * cell,
+        width: cell, height: cell,
+        fill: `url(#${patternId})`,
+        opacity: isCenter ? 1 : 0.75,
+      }));
+    }
+  }
 
   return root;
 }
