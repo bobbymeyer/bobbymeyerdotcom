@@ -1,0 +1,76 @@
+---
+import { getCollection } from 'astro:content';
+import Base from '@/layouts/Base.astro';
+
+const posts = (await getCollection('posts')).sort(
+  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
+);
+
+const fillerCells = Array.from({ length: 96 });
+---
+
+<Base title="Bobby Meyer">
+  <main class="mx-auto max-w-6xl px-4 py-8">
+    <div
+      class="grid grid-flow-dense grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-4"
+    >
+      <!-- Badge: top-right, 3x2 cells -->
+      <div
+        class="relative overflow-hidden [grid-column:span_3/-1] [grid-row:1/span_2] [aspect-ratio:3/2] bg-yellow-400 font-sans font-bold text-2xl md:text-4xl tracking-tight leading-none p-3 whitespace-nowrap"
+      >
+        <img
+          src="/bobby.png"
+          alt=""
+          class="absolute bottom-0 right-0 h-3/4 w-auto pointer-events-none"
+          style="filter: grayscale(1); mix-blend-mode: multiply; opacity: 0.75;"
+        />
+        <img src="/BM-LogoType-SM.png" alt="" class="absolute top-3 left-3 h-1/6 w-auto" />
+        <span class="absolute top-1/2 left-3 -translate-y-1/2 text-black">bobbymeyer</span>
+      </div>
+
+      <!-- One tile per post, sized from frontmatter (defaults 2x2). -->
+      {posts.map((post) => {
+        const w = post.data.width ?? 2;
+        const h = post.data.height ?? 2;
+        const thumb = post.data.thumbnail
+          ? `/posts/${post.slug}/${post.data.thumbnail}`
+          : null;
+        const styleParts = [
+          `grid-column: span ${w} / span ${w}`,
+          `grid-row: span ${h} / span ${h}`,
+          `aspect-ratio: ${w} / ${h}`,
+        ];
+        if (thumb) {
+          styleParts.push(`background-image: url('${thumb}')`);
+          styleParts.push('background-size: cover');
+          styleParts.push('background-position: center');
+        }
+        const tileClass = thumb
+          ? 'relative overflow-hidden flex flex-col justify-between p-3 text-white hover:opacity-90 transition-opacity'
+          : 'flex flex-col justify-between border border-dashed border-black/40 p-3 hover:border-black hover:bg-black/5 transition-colors';
+        return (
+          <a
+            href={`/posts/${post.slug}/`}
+            style={styleParts.join('; ') + ';'}
+            class={tileClass}
+          >
+            {thumb && (
+              <span
+                class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none"
+              ></span>
+            )}
+            <span class={`relative font-bold text-base leading-tight ${thumb ? 'text-white' : 'text-black'}`}>
+              {post.data.title}
+            </span>
+          </a>
+        );
+      })}
+
+      <!-- Filler cells set the row track height (aspect-square) so post
+           tiles spanning multiple rows come out square too. -->
+      {fillerCells.map(() => (
+        <div class="aspect-square border border-dashed border-black/30"></div>
+      ))}
+    </div>
+  </main>
+</Base>
