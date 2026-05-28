@@ -152,10 +152,13 @@ function buildTileGroup(pattern) {
     const op = layer.opacity != null && layer.opacity < 1 ? `opacity: ${layer.opacity};` : '';
     if (blend || op) layerGroup.setAttribute('style', blend + op);
 
+    // Per-layer palette override, falling back to the pattern palette.
+    const palette = layer.palette && layer.palette.length > 0 ? layer.palette : pattern.palette;
+
     switch (layer.type) {
       case 'solid':      renderSolid(layerGroup, layer, N); break;
-      case 'regular':    renderRegular(layerGroup, layer, N, rng, pattern.palette); break;
-      case 'randomized': renderRandomized(layerGroup, layer, N, rng, pattern.palette); break;
+      case 'regular':    renderRegular(layerGroup, layer, N, rng, palette); break;
+      case 'randomized': renderRandomized(layerGroup, layer, N, rng, palette); break;
     }
     root.appendChild(layerGroup);
   });
@@ -519,6 +522,62 @@ function buildConfigForm(host, layer, onChange) {
   const op = addCtrl('opacity', 'range', layer.opacity ?? 1, { min: 0, max: 1, step: 0.05 });
   blend.addEventListener('change', () => { layer.blendMode = blend.value; onChange(); });
   op.addEventListener('input',  () => { layer.opacity = Number(op.value); onChange(); });
+
+  // Solid layers use a single colour field; every other type pulls
+  // from a palette which can be set per-layer (falling back to the
+  // pattern palette when unset).
+  if (layer.type !== 'solid') {
+    const wrap = document.createElement('div');
+    wrap.className = 'ctrl palette-ctrl';
+    const span = document.createElement('span');
+    span.textContent = 'palette';
+    wrap.appendChild(span);
+    const swatches = document.createElement('div');
+    swatches.className = 'palette-swatches';
+    wrap.appendChild(swatches);
+    host.appendChild(wrap);
+
+    const renderSwatches = () => {
+      swatches.replaceChildren();
+      const list = layer.palette || [];
+      list.forEach((color, i) => {
+        const cell = document.createElement('div');
+        cell.className = 'swatch';
+        const input = document.createElement('input');
+        input.type = 'color';
+        input.value = color;
+        input.addEventListener('input', () => {
+          layer.palette = [...list];
+          layer.palette[i] = input.value;
+          onChange();
+        });
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.textContent = '×';
+        remove.title = 'remove colour';
+        remove.addEventListener('click', () => {
+          layer.palette = list.filter((_, j) => j !== i);
+          renderSwatches();
+          onChange();
+        });
+        cell.appendChild(input);
+        cell.appendChild(remove);
+        swatches.appendChild(cell);
+      });
+      const add = document.createElement('button');
+      add.type = 'button';
+      add.className = 'swatch-add';
+      add.textContent = '+';
+      add.title = 'add colour';
+      add.addEventListener('click', () => {
+        layer.palette = [...(layer.palette || []), '#888888'];
+        renderSwatches();
+        onChange();
+      });
+      swatches.appendChild(add);
+    };
+    renderSwatches();
+  }
 
   switch (layer.type) {
     case 'solid': {
