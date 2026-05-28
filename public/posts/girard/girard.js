@@ -248,7 +248,7 @@ function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
         x: col * cell, y: row * cell,
         width: cell, height: cell,
         fill: `url(#${patternId})`,
-        opacity: isCenter ? 1 : 0.75,
+        opacity: isCenter ? 1 : 0.35,
       }));
     }
   }
