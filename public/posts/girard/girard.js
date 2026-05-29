@@ -211,7 +211,15 @@ function cellOriginY(y, row, rh, offset, offsetMode, col) {
 function placeCell(parent, layer, x, y, col, row, cw, rh, offset, offsetMode, rng, palette) {
   const cx = cellOriginX(x, col, cw, offset, offsetMode, row);
   const cy = cellOriginY(y, row, rh, offset, offsetMode, col);
-  const { cols, rows } = layer.grid;
+  const { cols, rows, gutter = 0 } = layer.grid;
+  // Inset the cell by half the gutter on every side so adjacent
+  // cells share the gap symmetrically.
+  const gx = cw * gutter / 2;
+  const gy = rh * gutter / 2;
+  const ix = cx + gx;
+  const iy = cy + gy;
+  const iw = cw - 2 * gx;
+  const ih = rh - 2 * gy;
   // Wrap col/row for colour indexing so a wrap cell at col=-1 matches
   // the colour of col=cols-1.
   const ci = mod(col, cols), ri = mod(row, rows);
@@ -223,38 +231,35 @@ function placeCell(parent, layer, x, y, col, row, cw, rh, offset, offsetMode, rn
         ? palette[mod(ci + ri * cols, palette.length)]
         : (fill.color || '#888');
       parent.appendChild(el('rect', {
-        x: cx, y: cy, width: cw, height: rh, fill: color,
+        x: ix, y: iy, width: iw, height: ih, fill: color,
       }));
       break;
     }
     case 'shape': {
       const shape = fill.shape || { kind: 'circle', size: 0.6 };
-      // Vary: scale, rotate, jitter applied per cell; jitter is in
-      // fractions of cell size so it stays consistent across cell
-      // dimensions.
       let s = 1, rot = 0, jx = 0, jy = 0;
       if (layer.vary?.scale)  s   = evalMod(layer.vary.scale,  rng, col, row, 1);
       if (layer.vary?.rotate) rot = evalMod(layer.vary.rotate, rng, col, row, 0);
       if (layer.vary?.jitter) {
-        jx = evalMod(layer.vary.jitter, rng, col, row, 0) * cw;
-        jy = evalMod(layer.vary.jitter, rng, col, row, 0) * rh;
+        jx = evalMod(layer.vary.jitter, rng, col, row, 0) * iw;
+        jy = evalMod(layer.vary.jitter, rng, col, row, 0) * ih;
       }
       const color = fill.mode === 'palette-cycle'
         ? palette[mod(ci + ri * cols, palette.length)]
         : (layer.vary?.color?.type === 'palette'
             ? palette[Math.floor(rng() * palette.length)]
             : (fill.color || palette[0]));
-      const node = shapeNode(shape, cw, rh, color);
+      const node = shapeNode(shape, iw, ih, color);
       node.setAttribute(
         'transform',
-        `translate(${cx + cw / 2 + jx} ${cy + rh / 2 + jy}) rotate(${rot}) scale(${s})`,
+        `translate(${ix + iw / 2 + jx} ${iy + ih / 2 + jy}) rotate(${rot}) scale(${s})`,
       );
       parent.appendChild(node);
       break;
     }
     case 'layer': {
       if (fill.layer) {
-        renderLayer(parent, fill.layer, cx, cy, cw, rh, palette,
+        renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
           (rng() * 0xffffffff) | 0);
       }
       break;
@@ -469,6 +474,11 @@ function buildConfigForm(host, layer, onChange) {
   });
   offY.addEventListener('input', () => {
     layer.grid.offset = { ...(layer.grid.offset || {}), y: Number(offY.value) };
+    onChange();
+  });
+  const gutter = addCtrl('gutter (× cell)', 'range', layer.grid.gutter ?? 0, { min: 0, max: 0.9, step: 0.02 });
+  gutter.addEventListener('input', () => {
+    layer.grid.gutter = Number(gutter.value);
     onChange();
   });
 
