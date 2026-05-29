@@ -368,6 +368,9 @@ function renderLayerList(listEl, pattern, selected, handlers) {
 function buildConfigForm(host, layer, onChange) {
   host.replaceChildren();
   if (!layer) return;
+  // Self-rebuild for controls that change which fields are visible
+  // (fill kind, vary on/off, solid colour mode).
+  const rebuild = () => buildConfigForm(host, layer, onChange);
 
   const addCtrl = (label, kind, value, opts = {}) => {
     const wrap = document.createElement('label');
@@ -505,11 +508,12 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'shape', shape: layer.fill.shape || { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' };
     }
     onChange();
+    rebuild();
   });
 
   if (layer.fill.kind === 'solid') {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle'] });
-    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); });
+    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'fixed') === 'fixed') {
       const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
       c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
@@ -543,6 +547,7 @@ function buildConfigForm(host, layer, onChange) {
       delete layer.vary;
     }
     onChange();
+    rebuild();
   });
   if (layer.vary) {
     const sMax = addCtrl('scale max', 'number', layer.vary.scale?.max ?? 1.2, { min: 0.5, max: 2, step: 0.05 });
@@ -579,26 +584,37 @@ function mount() {
   let pattern = defaultPattern();
   let selected = 0;
 
-  const rerender = () => {
+  // Two separate re-render paths so editing a number input doesn't
+  // tear down the input being typed into.
+  //   rerenderSvg(): pattern → SVG. Cheap. Called on every parameter
+  //                  edit from inside the config form.
+  //   rerenderUI():  rebuilds the layer list and the config form
+  //                  itself. Called on add / remove / reorder /
+  //                  select, where the surrounding DOM has to change.
+  const rerenderSvg = () => {
     stage.replaceChildren(buildSvg(pattern));
-    renderLayerList(listEl, pattern, selected, {
-      select: (i) => { selected = i; rerender(); },
-      move: (i, dir) => {
-        const j = i + dir;
-        if (j < 0 || j >= pattern.layers.length) return;
-        [pattern.layers[i], pattern.layers[j]] = [pattern.layers[j], pattern.layers[i]];
-        if (selected === i) selected = j;
-        else if (selected === j) selected = i;
-        rerender();
-      },
-      remove: (i) => {
-        pattern.layers.splice(i, 1);
-        if (selected >= pattern.layers.length) selected = pattern.layers.length - 1;
-        if (selected < 0) selected = 0;
-        rerender();
-      },
-    });
-    buildConfigForm(configEl, pattern.layers[selected], rerender);
+  };
+  const layerHandlers = {
+    select: (i) => { selected = i; rerenderUI(); },
+    move: (i, dir) => {
+      const j = i + dir;
+      if (j < 0 || j >= pattern.layers.length) return;
+      [pattern.layers[i], pattern.layers[j]] = [pattern.layers[j], pattern.layers[i]];
+      if (selected === i) selected = j;
+      else if (selected === j) selected = i;
+      rerenderUI();
+    },
+    remove: (i) => {
+      pattern.layers.splice(i, 1);
+      if (selected >= pattern.layers.length) selected = pattern.layers.length - 1;
+      if (selected < 0) selected = 0;
+      rerenderUI();
+    },
+  };
+  const rerenderUI = () => {
+    rerenderSvg();
+    renderLayerList(listEl, pattern, selected, layerHandlers);
+    buildConfigForm(configEl, pattern.layers[selected], rerenderSvg);
   };
 
   addSelect.addEventListener('change', () => {
@@ -606,32 +622,32 @@ function mount() {
     pattern.layers.push(makeLayer(addSelect.value));
     selected = pattern.layers.length - 1;
     addSelect.value = '';
-    rerender();
+    rerenderUI();
   });
 
   seed.addEventListener('input', () => {
     pattern.seed = Number(seed.value) | 0;
-    rerender();
+    rerenderSvg();
   });
 
   roll.addEventListener('click', () => {
     const s = Math.floor(Math.random() * 99999);
     seed.value = s;
     pattern.seed = s;
-    rerender();
+    rerenderSvg();
   });
 
   repeat.addEventListener('change', () => {
     pattern.repeat = repeat.value;
-    rerender();
+    rerenderSvg();
   });
 
   veil.addEventListener('input', () => {
     pattern.surroundVeil = Number(veil.value);
-    rerender();
+    rerenderSvg();
   });
 
-  rerender();
+  rerenderUI();
 }
 
 if (document.readyState === 'loading') {
