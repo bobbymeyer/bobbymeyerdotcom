@@ -405,7 +405,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Blend + opacity (universal) ---
   const blend = addCtrl('blend', 'select', layer.blendMode || 'normal', { options: BLEND_MODES });
-  const op = addCtrl('opacity', 'range', layer.opacity ?? 1, { min: 0, max: 1, step: 0.05 });
+  const op = addCtrl('opacity', 'number', layer.opacity ?? 1, { min: 0, max: 1, step: 0.05 });
   blend.addEventListener('change', () => { layer.blendMode = blend.value; onChange(); });
   op.addEventListener('input',  () => { layer.opacity = Number(op.value); onChange(); });
 
@@ -468,8 +468,8 @@ function buildConfigForm(host, layer, onChange) {
   });
   offMode.addEventListener('change', () => { layer.grid.offsetMode = offMode.value; onChange(); });
 
-  const offX = addCtrl('offset x', 'range', layer.grid.offset?.x ?? 0, { min: 0, max: 1, step: 0.05 });
-  const offY = addCtrl('offset y', 'range', layer.grid.offset?.y ?? 0, { min: 0, max: 1, step: 0.05 });
+  const offX = addCtrl('offset x', 'number', layer.grid.offset?.x ?? 0, { min: 0, max: 1, step: 0.05 });
+  const offY = addCtrl('offset y', 'number', layer.grid.offset?.y ?? 0, { min: 0, max: 1, step: 0.05 });
   offX.addEventListener('input', () => {
     layer.grid.offset = { ...(layer.grid.offset || {}), x: Number(offX.value) };
     onChange();
@@ -478,7 +478,7 @@ function buildConfigForm(host, layer, onChange) {
     layer.grid.offset = { ...(layer.grid.offset || {}), y: Number(offY.value) };
     onChange();
   });
-  const gx = addCtrl('gutter x (× cell)', 'range',
+  const gx = addCtrl('gutter x (× cell)', 'number',
     layer.grid.gutterX ?? layer.grid.gutter ?? 0,
     { min: 0, max: 0.9, step: 0.02 });
   gx.addEventListener('input', () => {
@@ -486,7 +486,7 @@ function buildConfigForm(host, layer, onChange) {
     delete layer.grid.gutter;
     onChange();
   });
-  const gy = addCtrl('gutter y (× cell)', 'range',
+  const gy = addCtrl('gutter y (× cell)', 'number',
     layer.grid.gutterY ?? layer.grid.gutter ?? 0,
     { min: 0, max: 0.9, step: 0.02 });
   gy.addEventListener('input', () => {
@@ -522,7 +522,7 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
       onChange();
     });
-    const size = addCtrl('size (× cell)', 'range', layer.fill.shape?.size ?? 0.6, { min: 0.05, max: 1.5, step: 0.05 });
+    const size = addCtrl('size (× cell)', 'number', layer.fill.shape?.size ?? 0.6, { min: 0.05, max: 1.5, step: 0.05 });
     size.addEventListener('input', () => {
       layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), size: Number(size.value) };
       onChange();
@@ -545,17 +545,17 @@ function buildConfigForm(host, layer, onChange) {
     onChange();
   });
   if (layer.vary) {
-    const sMax = addCtrl('scale max', 'range', layer.vary.scale?.max ?? 1.2, { min: 0.5, max: 2, step: 0.05 });
+    const sMax = addCtrl('scale max', 'number', layer.vary.scale?.max ?? 1.2, { min: 0.5, max: 2, step: 0.05 });
     sMax.addEventListener('input', () => {
       layer.vary.scale = { type: 'random', min: layer.vary.scale?.min ?? 0.5, max: Number(sMax.value) };
       onChange();
     });
-    const rMax = addCtrl('rotate max°', 'range', layer.vary.rotate?.max ?? 360, { min: 0, max: 360, step: 5 });
+    const rMax = addCtrl('rotate max°', 'number', layer.vary.rotate?.max ?? 360, { min: 0, max: 360, step: 5 });
     rMax.addEventListener('input', () => {
       layer.vary.rotate = { type: 'random', min: 0, max: Number(rMax.value) };
       onChange();
     });
-    const jit = addCtrl('jitter (× cell)', 'range', layer.vary.jitter?.max ?? 0.2, { min: 0, max: 0.5, step: 0.02 });
+    const jit = addCtrl('jitter (× cell)', 'number', layer.vary.jitter?.max ?? 0.2, { min: 0, max: 0.5, step: 0.02 });
     jit.addEventListener('input', () => {
       const v = Number(jit.value);
       layer.vary.jitter = { type: 'random', min: -v, max: v };
