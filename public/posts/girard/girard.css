@@ -159,6 +159,17 @@
   display: none;
 }
 
+h4.config-section {
+  width: 100%;
+  font: 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: #555;
+  margin: 6px 0 2px;
+  padding-top: 6px;
+  border-top: 1px solid #ddd;
+}
+
 .ctrl {
   display: flex;
   flex-direction: column;

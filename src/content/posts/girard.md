@@ -32,7 +32,6 @@ tags:
           <option value='square'>square</option>
           <option value='half-drop'>half-drop</option>
           <option value='half-brick'>half-brick</option>
-          <option value='hex'>hex</option>
         </select>
       </label>
       <label class='ctrl'>
@@ -46,11 +45,12 @@ tags:
         <select id='girard-add-layer'>
           <option value=''>+ add layer…</option>
           <option value='solid'>solid</option>
-          <option value='regular:striped'>striped</option>
-          <option value='regular:checkered'>checkered</option>
-          <option value='regular:triangular'>triangular</option>
-          <option value='regular:hex'>hex</option>
-          <option value='randomized'>randomized</option>
+          <option value='h-stripes'>horizontal stripes</option>
+          <option value='v-stripes'>vertical stripes</option>
+          <option value='brick'>brick</option>
+          <option value='checker'>checker</option>
+          <option value='dots'>dots</option>
+          <option value='random'>random shapes</option>
         </select>
       </div>
       <ul id='girard-layer-list'></ul>

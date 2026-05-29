@@ -1,17 +1,26 @@
-// girard — textile pattern tool, v0.2 (SVG-native).
+// girard — textile pattern tool, v0.3 (SVG-native, grid-first).
 //
-// Layer taxonomy
-//   solid       one colour (or transparent)
-//   regular     deterministic tessellations: striped | checkered |
-//                triangular | hex
-//   randomized  shape-on-grid with per-cell modifiers
+// Every layer IS a grid. The grid defines cols × rows, an optional
+// per-row or per-col offset (brick / drop), and a fill that goes in
+// each cell. Fills can be solid colour, a shape, or another layer
+// (nested grids — the "stripes of dashes" Girard move).
 //
-// Every layer is dispatched on layer.type; regular layers branch
-// further on layer.subtype. Pattern repeat (square / half-drop /
-// half-brick / hex) is orthogonal to layer types and lives at the
-// pattern root.
+// What used to be stripes / checkered / random-shapes are all just
+// presets over this one model:
+//   horizontal stripes = cols 1 × rows N, solid (palette cycles)
+//   vertical stripes   = cols N × rows 1, solid
+//   half-brick stripes = cols N × rows M, offset.x 0.5, alternate-row
+//   checker            = cols N × rows N, solid (palette cycles)
+//   dots               = cols N × rows N, shape: circle
+//   random dots        = same + vary scale / rotate / jitter / colour
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+
+const BLEND_MODES = [
+  'normal', 'multiply', 'screen', 'overlay',
+  'darken', 'lighten', 'color-dodge', 'color-burn',
+  'hard-light', 'soft-light', 'difference', 'exclusion',
+];
 
 // ---------- Seeded PRNG (mulberry32) ----------
 function makeRng(seed) {
@@ -25,65 +34,87 @@ function makeRng(seed) {
   };
 }
 
+function mod(a, n) { return ((a % n) + n) % n; }
+
 // ---------- Default pattern ----------
 const defaultPattern = () => ({
   seed: 1,
   tileSize: 480,
-  repeat: 'square',                                  // square | half-drop | half-brick | hex
+  repeat: 'square',                                  // square | half-drop | half-brick
   palette: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'],
-  surroundVeil: 0.5,                                 // opacity of white overlay on the outer 8 cells of the 3x3 preview
+  surroundVeil: 0.5,
   layers: [
-    { type: 'solid', color: '#8a8a8a' },
+    makeLayer('solid'),
   ],
 });
 
-// Factory: spec is 'solid' | 'regular:<subtype>' | 'randomized'.
+// ---------- Layer factories ----------
 function makeLayer(spec) {
-  const [type, subtype] = spec.split(':');
-  if (type === 'solid') return { type: 'solid', color: '#8a8a8a' };
-  if (type === 'regular') {
-    switch (subtype) {
-      case 'striped':    return { type: 'regular', subtype: 'striped', orientation: 'horizontal', count: 8, widthJitter: 0.6, colorMode: 'palette-cycle' };
-      case 'checkered':  return { type: 'regular', subtype: 'checkered', cols: 6, rows: 6 };
-      case 'triangular': return { type: 'regular', subtype: 'triangular', cols: 6 };
-      case 'hex':        return { type: 'regular', subtype: 'hex', cols: 6 };
-    }
+  switch (spec) {
+    case 'solid':
+      return {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#8a8a8a', mode: 'fixed' },
+      };
+    case 'h-stripes':
+      return {
+        grid: { cols: 1, rows: 6, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+      };
+    case 'v-stripes':
+      return {
+        grid: { cols: 6, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+      };
+    case 'brick':
+      return {
+        grid: { cols: 6, rows: 8, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+      };
+    case 'checker':
+      return {
+        grid: { cols: 6, rows: 6, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+      };
+    case 'dots':
+      return {
+        grid: { cols: 6, rows: 6, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'shape', shape: { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' },
+      };
+    case 'random':
+      return {
+        grid: { cols: 6, rows: 6, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'shape', shape: { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' },
+        vary: {
+          scale:  { type: 'random', min: 0.5, max: 1.2 },
+          rotate: { type: 'random', min: 0, max: 360 },
+          jitter: { type: 'random', min: -0.2, max: 0.2 },
+        },
+      };
   }
-  return {
-    type: 'randomized',
-    shape: { kind: 'circle', r: 22 },
-    grid: { cols: 6, rows: 6 },
-    modifiers: {
-      scale:  { type: 'random', min: 0.55, max: 1.2 },
-      rotate: { type: 'random', min: 0, max: 360 },
-      jitter: { type: 'random', min: -10, max: 10 },
-      color:  { type: 'palette' },
-    },
-  };
 }
 
+// Human label derived from the layer's structure.
 function layerLabel(layer) {
-  if (layer.type === 'solid') return 'solid';
-  if (layer.type === 'regular') return layer.subtype;
-  return 'randomized';
+  const { cols, rows, offsetMode } = layer.grid;
+  let body;
+  if (layer.fill.kind === 'solid') body = (cols === 1 && rows === 1) ? 'solid' : 'tiles';
+  else if (layer.fill.kind === 'shape') body = (layer.fill.shape?.kind || 'shape') + 's';
+  else body = 'nested';
+  const off = offsetMode !== 'none' ? ' ↻' : '';
+  const v = layer.vary ? ' ★' : '';
+  return `${cols}×${rows} ${body}${off}${v}`;
 }
 
 // ---------- Modifier evaluation ----------
-function evalMod(mod, rng, col, row, base) {
-  if (!mod) return base;
-  switch (mod.type) {
-    case 'random': return mod.min + rng() * (mod.max - mod.min);
-    case 'sine':   return (mod.amp || 1) * Math.sin(col * (mod.fx || 0) + row * (mod.fy || 0)) + (mod.offset || 0);
-    case 'linear': return base + col * (mod.dx || 0) + row * (mod.dy || 0);
+function evalMod(modSpec, rng, col, row, base) {
+  if (!modSpec) return base;
+  switch (modSpec.type) {
+    case 'random': return modSpec.min + rng() * (modSpec.max - modSpec.min);
+    case 'sine':   return (modSpec.amp || 1) * Math.sin(col * (modSpec.fx || 0) + row * (modSpec.fy || 0)) + (modSpec.offset || 0);
+    case 'linear': return base + col * (modSpec.dx || 0) + row * (modSpec.dy || 0);
     default:       return base;
   }
-}
-
-function pickColor(mod, rng, palette) {
-  if (!mod || mod.type === 'palette') {
-    return palette[Math.floor(rng() * palette.length)];
-  }
-  return mod.value || '#000';
 }
 
 // ---------- SVG helpers ----------
@@ -97,19 +128,21 @@ function el(tag, attrs, children) {
   return node;
 }
 
-function shapeNode(shape, fill) {
+// Shape.size is a fraction (0..1) of the smaller cell dimension.
+// Lets shapes scale with the grid instead of needing absolute pixels.
+function shapeNode(shape, cw, rh, fill) {
+  const dim = Math.min(cw, rh) * (shape.size ?? 0.6);
   switch (shape.kind) {
     case 'circle':
-      return el('circle', { r: shape.r, fill });
+      return el('circle', { r: dim / 2, fill });
     case 'square':
       return el('rect', {
-        x: -shape.size / 2, y: -shape.size / 2,
-        width: shape.size, height: shape.size, fill,
+        x: -dim / 2, y: -dim / 2, width: dim, height: dim, fill,
       });
     case 'triangle': {
-      const s = shape.size || 20;
+      const r = dim / 2;
       return el('polygon', {
-        points: `0,${-s} ${s * 0.866},${s * 0.5} ${-s * 0.866},${s * 0.5}`,
+        points: `0,${-r} ${r * 0.866},${r * 0.5} ${-r * 0.866},${r * 0.5}`,
         fill,
       });
     }
@@ -118,248 +151,118 @@ function shapeNode(shape, fill) {
   }
 }
 
-// Pointy-top hex polygon points (string) centred at (cx, cy) with
-// flat-to-flat width w.
-function hexPolygonPoints(cx, cy, w) {
-  const s = w / Math.sqrt(3);
-  return `${cx},${cy - s} ${cx + w / 2},${cy - s / 2} ${cx + w / 2},${cy + s / 2} ${cx},${cy + s} ${cx - w / 2},${cy + s / 2} ${cx - w / 2},${cy - s / 2}`;
-}
-
-// Pointy-top hex *path* (for clip masks) centred on origin.
-function hexagonPath(w) {
-  const s = w / Math.sqrt(3);
-  return `M0,${-s} ${w / 2},${-s / 2} ${w / 2},${s / 2} 0,${s} ${-w / 2},${s / 2} ${-w / 2},${-s / 2}Z`;
-}
-
-// ---------- Tile content ----------
-const BLEND_MODES = [
-  'normal', 'multiply', 'screen', 'overlay',
-  'darken', 'lighten', 'color-dodge', 'color-burn',
-  'hard-light', 'soft-light', 'difference', 'exclusion',
-];
-
+// ---------- Layer rendering ----------
 function buildTileGroup(pattern) {
   const N = pattern.tileSize;
   const root = el('g');
-
   pattern.layers.forEach((layer, li) => {
-    const rng = makeRng(pattern.seed + li * 9973);
-    // Each layer renders into its own <g> so blend mode and opacity
-    // apply to the layer as a unit. Blend mode is a CSS property
-    // (mix-blend-mode), so it goes on the style attribute.
-    const layerGroup = el('g');
-    const blend = layer.blendMode && layer.blendMode !== 'normal' ? `mix-blend-mode: ${layer.blendMode};` : '';
-    const op = layer.opacity != null && layer.opacity < 1 ? `opacity: ${layer.opacity};` : '';
-    if (blend || op) layerGroup.setAttribute('style', blend + op);
-
-    // Per-layer palette override, falling back to the pattern palette.
-    const palette = layer.palette && layer.palette.length > 0 ? layer.palette : pattern.palette;
-
-    switch (layer.type) {
-      case 'solid':      renderSolid(layerGroup, layer, N); break;
-      case 'regular':    renderRegular(layerGroup, layer, N, rng, palette); break;
-      case 'randomized': renderRandomized(layerGroup, layer, N, rng, palette); break;
-    }
-    root.appendChild(layerGroup);
+    renderLayer(root, layer, 0, 0, N, N, pattern.palette, pattern.seed + li * 9973);
   });
-
   return root;
 }
 
-function renderSolid(parent, layer, N) {
-  if (!layer.color || layer.mode === 'transparent') return;
-  parent.appendChild(el('rect', { x: 0, y: 0, width: N, height: N, fill: layer.color }));
-}
+// Recursive layer renderer. (x, y, w, h) is the layer's canvas in
+// user-space units (the tile for top-level layers; the parent cell
+// for nested layers).
+function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
+  const group = el('g');
+  const blend = layer.blendMode && layer.blendMode !== 'normal' ? `mix-blend-mode: ${layer.blendMode};` : '';
+  const op = layer.opacity != null && layer.opacity < 1 ? `opacity: ${layer.opacity};` : '';
+  if (blend || op) group.setAttribute('style', blend + op);
+  parent.appendChild(group);
 
-function renderRegular(parent, layer, N, rng, palette) {
-  switch (layer.subtype) {
-    case 'striped':    return renderStriped(parent, layer, N, rng, palette);
-    case 'checkered':  return renderCheckered(parent, layer, N, palette);
-    case 'triangular': return renderTriangular(parent, layer, N, palette);
-    case 'hex':        return renderHex(parent, layer, N, palette);
-  }
-}
+  const palette = layer.palette && layer.palette.length ? layer.palette : parentPalette;
+  const rng = makeRng(rngSeed);
+  const { cols, rows, offset = { x: 0, y: 0 }, offsetMode = 'none' } = layer.grid;
+  const cw = w / cols, rh = h / rows;
 
-// Parallel rows or columns. Widths jittered then normalised to sum
-// exactly to N so the stripes tile seamlessly.
-function renderStriped(parent, layer, N, rng, palette) {
-  const count = Math.max(1, layer.count | 0);
-  const jitter = Math.max(0, Math.min(1, layer.widthJitter ?? 0));
-  const weights = [];
-  let sum = 0;
-  for (let i = 0; i < count; i++) {
-    const w = Math.max(0.1, 1 + jitter * (rng() * 2 - 1));
-    weights.push(w); sum += w;
-  }
-  const widths = weights.map(w => (w / sum) * N);
-
-  let pos = 0;
-  for (let i = 0; i < count; i++) {
-    const w = widths[i];
-    const color = layer.colorMode === 'palette-random'
-      ? palette[Math.floor(rng() * palette.length)]
-      : palette[i % palette.length];
-    const attrs = layer.orientation === 'vertical'
-      ? { x: pos, y: 0, width: w, height: N, fill: color }
-      : { x: 0, y: pos, width: N, height: w, fill: color };
-    parent.appendChild(el('rect', attrs));
-    pos += w;
-  }
-}
-
-// Checkerboard. cols x rows cells; colours cycle the palette
-// along (row + col), so 2 colours give a classic checker, 3+ give
-// diagonal bands.
-function renderCheckered(parent, layer, N, palette) {
-  const cols = Math.max(1, layer.cols | 0 || 8);
-  const rows = Math.max(1, layer.rows | 0 || 8);
-  const cw = N / cols, rh = N / rows;
+  // For each cell in [0..cols) × [0..rows), plus wrap-around cells at
+  // col=-1 or row=-1 when an offset extends the grid past the tile
+  // edge, so the layer tiles seamlessly.
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      const color = palette[(row + col) % palette.length];
+      placeCell(group, layer, x, y, col, row, cw, rh, offset, offsetMode, rng, palette);
+    }
+    if (offsetMode === 'alternate-row' && row % 2 === 1 && offset.x !== 0) {
+      placeCell(group, layer, x, y, -1, row, cw, rh, offset, offsetMode, rng, palette);
+    }
+  }
+  if (offsetMode === 'alternate-col') {
+    for (let col = 0; col < cols; col++) {
+      if (col % 2 === 1 && offset.y !== 0) {
+        placeCell(group, layer, x, y, col, -1, cw, rh, offset, offsetMode, rng, palette);
+      }
+    }
+  }
+}
+
+function cellOriginX(x, col, cw, offset, offsetMode, row) {
+  let dx = 0;
+  if (offsetMode === 'alternate-row' && mod(row, 2) === 1) dx = offset.x * cw;
+  return x + col * cw + dx;
+}
+
+function cellOriginY(y, row, rh, offset, offsetMode, col) {
+  let dy = 0;
+  if (offsetMode === 'alternate-col' && mod(col, 2) === 1) dy = offset.y * rh;
+  return y + row * rh + dy;
+}
+
+function placeCell(parent, layer, x, y, col, row, cw, rh, offset, offsetMode, rng, palette) {
+  const cx = cellOriginX(x, col, cw, offset, offsetMode, row);
+  const cy = cellOriginY(y, row, rh, offset, offsetMode, col);
+  const { cols, rows } = layer.grid;
+  // Wrap col/row for colour indexing so a wrap cell at col=-1 matches
+  // the colour of col=cols-1.
+  const ci = mod(col, cols), ri = mod(row, rows);
+  const fill = layer.fill;
+
+  switch (fill.kind) {
+    case 'solid': {
+      const color = fill.mode === 'palette-cycle'
+        ? palette[mod(ci + ri * cols, palette.length)]
+        : (fill.color || '#888');
       parent.appendChild(el('rect', {
-        x: col * cw, y: row * rh, width: cw, height: rh, fill: color,
+        x: cx, y: cy, width: cw, height: rh, fill: color,
       }));
+      break;
+    }
+    case 'shape': {
+      const shape = fill.shape || { kind: 'circle', size: 0.6 };
+      // Vary: scale, rotate, jitter applied per cell; jitter is in
+      // fractions of cell size so it stays consistent across cell
+      // dimensions.
+      let s = 1, rot = 0, jx = 0, jy = 0;
+      if (layer.vary?.scale)  s   = evalMod(layer.vary.scale,  rng, col, row, 1);
+      if (layer.vary?.rotate) rot = evalMod(layer.vary.rotate, rng, col, row, 0);
+      if (layer.vary?.jitter) {
+        jx = evalMod(layer.vary.jitter, rng, col, row, 0) * cw;
+        jy = evalMod(layer.vary.jitter, rng, col, row, 0) * rh;
+      }
+      const color = fill.mode === 'palette-cycle'
+        ? palette[mod(ci + ri * cols, palette.length)]
+        : (layer.vary?.color?.type === 'palette'
+            ? palette[Math.floor(rng() * palette.length)]
+            : (fill.color || palette[0]));
+      const node = shapeNode(shape, cw, rh, color);
+      node.setAttribute(
+        'transform',
+        `translate(${cx + cw / 2 + jx} ${cy + rh / 2 + jy}) rotate(${rot}) scale(${s})`,
+      );
+      parent.appendChild(node);
+      break;
+    }
+    case 'layer': {
+      if (fill.layer) {
+        renderLayer(parent, fill.layer, cx, cy, cw, rh, palette,
+          (rng() * 0xffffffff) | 0);
+      }
+      break;
     }
   }
 }
 
-// Equilateral triangle tessellation that tiles cleanly in both
-// directions AND keeps colours continuous across the seams.
-//
-// Geometry: adjacent strips offset by s/2 so triangles share full
-// edges. Strip count rounded to an even integer so the offset
-// alternation completes a vertical period at N.
-//
-// Colour scheme: each triangle's colour is keyed off its "rhombus
-// identity" — the (strip, column) of the up triangle that pairs
-// with it across a shared edge. Indices wrap modulo (strips, cols),
-// so a triangle in tile A whose rhombus continues into tile B
-// computes the same colour either way the wrap is approached.
-function renderTriangular(parent, layer, N, palette) {
-  const cols = Math.max(1, layer.cols | 0 || 6);
-  const s = N / cols;
-  const stripsIdeal = N / (s * Math.sqrt(3) / 2);
-  const strips = Math.max(2, Math.round(stripsIdeal / 2) * 2);
-  const h = N / strips;
-
-  const mod = (a, n) => ((a % n) + n) % n;
-  const hash = (r, c) =>
-    palette[mod(mod(r, strips) * cols + mod(c, cols), palette.length)];
-
-  // Up at strip r, column c -> rhombus is (r, c).
-  const colorUp = (r, c) => hash(r, c);
-  // Down at strip r, column c: its rhombus partner sits in strip
-  // r-1. The horizontal alignment of that partner depends on the
-  // parity of r-1 (which determines whether the previous strip's
-  // ups are at integer or half-integer columns).
-  const colorDown = (r, c) => {
-    const prevR = r - 1;
-    const prevEven = mod(prevR, 2) === 0;
-    return hash(prevR, prevEven ? c + 1 : c);
-  };
-
-  for (let r = 0; r < strips; r++) {
-    const y0 = r * h;
-    const y1 = y0 + h;
-    const odd = r % 2 === 1;
-    const off = odd ? s / 2 : 0;
-
-    // Ups. Even strip: cols+1 (the c=cols wrap shares c-mod-cols=0's
-    // colour automatically). Odd strip: cols, all interior.
-    const upCount = odd ? cols : cols + 1;
-    for (let c = 0; c < upCount; c++) {
-      const cx = c * s + off;
-      parent.appendChild(el('polygon', {
-        points: `${cx - s / 2},${y1} ${cx + s / 2},${y1} ${cx},${y0}`,
-        fill: colorUp(r, c),
-      }));
-    }
-
-    // Downs. Even strip: cols interior. Odd strip: cols-1 interior
-    // plus a wrap pair at xL=(cols-1)*s+s/2 and xL=-s/2 sharing the
-    // c=cols-1 colour.
-    if (odd) {
-      for (let c = 0; c < cols - 1; c++) {
-        const xL = c * s + s / 2;
-        parent.appendChild(el('polygon', {
-          points: `${xL},${y0} ${xL + s},${y0} ${xL + s / 2},${y1}`,
-          fill: colorDown(r, c),
-        }));
-      }
-      const wrapColor = colorDown(r, cols - 1);
-      for (const xL of [(cols - 1) * s + s / 2, -s / 2]) {
-        parent.appendChild(el('polygon', {
-          points: `${xL},${y0} ${xL + s},${y0} ${xL + s / 2},${y1}`,
-          fill: wrapColor,
-        }));
-      }
-    } else {
-      for (let c = 0; c < cols; c++) {
-        const xL = c * s;
-        parent.appendChild(el('polygon', {
-          points: `${xL},${y0} ${xL + s},${y0} ${xL + s / 2},${y1}`,
-          fill: colorDown(r, c),
-        }));
-      }
-    }
-  }
-}
-
-// Pointy-top hexagon tessellation across the tile rect. cols sets
-// the horizontal hex count. Colours cycle the palette by row × col.
-function renderHex(parent, layer, N, palette) {
-  const cols = Math.max(1, layer.cols | 0 || 6);
-  const w = N / cols;                       // hex flat-to-flat
-  const side = w / Math.sqrt(3);
-  const rowStep = 1.5 * side;
-  const rows = Math.ceil(N / rowStep) + 2;
-  let idx = 0;
-  for (let r = -1; r < rows; r++) {
-    const offX = ((r % 2) + 2) % 2 === 1 ? w / 2 : 0;
-    for (let c = -1; c < cols + 1; c++) {
-      const cx = c * w + offX + w / 2;
-      const cy = r * rowStep + side;
-      parent.appendChild(el('polygon', {
-        points: hexPolygonPoints(cx, cy, w),
-        fill: palette[idx++ % palette.length],
-      }));
-    }
-  }
-}
-
-// Randomized: shape per grid cell with per-cell modifiers. Drawn at
-// 9 wrapped offsets so shapes crossing the tile edge appear on the
-// opposite side too.
-function renderRandomized(parent, layer, N, rng, palette) {
-  const { cols, rows, originOffset = 0 } = layer.grid;
-  const cw = N / cols, rh = N / rows;
-  const off = originOffset * (cw + rh) / 2;
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      const cx = col * cw + cw / 2 + off;
-      const cy = row * rh + rh / 2 + off;
-      const m = layer.modifiers;
-      const s  = evalMod(m.scale,  rng, col, row, 1);
-      const r  = evalMod(m.rotate, rng, col, row, 0);
-      const jx = evalMod(m.jitter, rng, col, row, 0);
-      const jy = evalMod(m.jitter, rng, col, row, 0);
-      const color = pickColor(m.color, rng, palette);
-      for (let dy = -N; dy <= N; dy += N) {
-        for (let dx = -N; dx <= N; dx += N) {
-          const node = shapeNode(layer.shape, color);
-          node.setAttribute(
-            'transform',
-            `translate(${cx + jx + dx} ${cy + jy + dy}) rotate(${r}) scale(${s})`,
-          );
-          parent.appendChild(node);
-        }
-      }
-    }
-  }
-}
-
-// ---------- Repeat unit ----------
+// ---------- Repeat unit (SVG <pattern> body) ----------
 function buildRepeatUnit(pattern, tileGroup) {
   const N = pattern.tileSize;
   switch (pattern.repeat) {
@@ -374,33 +277,6 @@ function buildRepeatUnit(pattern, tileGroup) {
       const g2 = tileGroup.cloneNode(true);
       g2.setAttribute('transform', `translate(${N / 2} ${N})`);
       return { width: N, height: N * 2, content: [g1, g2] };
-    }
-    case 'hex': {
-      const w = N;
-      const side = N / Math.sqrt(3);
-      const rowStep = 1.5 * side;
-      const unitH = 2 * rowStep;
-      const clipId = 'girard-hex-clip';
-      const clipPath = el('clipPath', { id: clipId }, [el('path', { d: hexagonPath(w) })]);
-      const place = (cx, cy) => {
-        const wrap = el('g', {
-          transform: `translate(${cx} ${cy})`,
-          'clip-path': `url(#${clipId})`,
-        });
-        const inner = tileGroup.cloneNode(true);
-        inner.setAttribute('transform', `translate(${-N / 2} ${-N / 2})`);
-        wrap.appendChild(inner);
-        return wrap;
-      };
-      return {
-        width: w, height: unitH,
-        content: [
-          clipPath,
-          place(w / 2, rowStep / 2),
-          place(0,     rowStep / 2 + rowStep),
-          place(w,     rowStep / 2 + rowStep),
-        ],
-      };
     }
     default:
       return { width: N, height: N, content: [tileGroup] };
@@ -429,8 +305,6 @@ function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
   unit.content.forEach(n => tilePattern.appendChild(n));
   root.appendChild(el('defs', {}, [tilePattern]));
 
-  // 3x3 preview. All cells render the pattern at full opacity; a
-  // white veil layered over the outer ring fades them to taste.
   const cell = viewSize / 3;
   root.appendChild(el('rect', {
     width: viewSize, height: viewSize,
@@ -454,12 +328,11 @@ function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
   return root;
 }
 
-// ---------- Layer list rendering ----------
+// ---------- Layer list ----------
 function renderLayerList(listEl, pattern, selected, handlers) {
   const items = pattern.layers.map((layer, i) => {
     const li = document.createElement('li');
     li.className = 'layer-item' + (i === selected ? ' selected' : '');
-
     const label = document.createElement('span');
     label.className = 'layer-label';
     label.textContent = `${i + 1}. ${layerLabel(layer)}`;
@@ -516,29 +389,28 @@ function buildConfigForm(host, layer, onChange) {
     host.appendChild(wrap);
     return input;
   };
+  const addHeader = (text) => {
+    const h = document.createElement('h4');
+    h.className = 'config-section';
+    h.textContent = text;
+    host.appendChild(h);
+  };
 
-  // Universal layer controls (blend + opacity) come first.
+  // --- Blend + opacity (universal) ---
   const blend = addCtrl('blend', 'select', layer.blendMode || 'normal', { options: BLEND_MODES });
   const op = addCtrl('opacity', 'range', layer.opacity ?? 1, { min: 0, max: 1, step: 0.05 });
   blend.addEventListener('change', () => { layer.blendMode = blend.value; onChange(); });
   op.addEventListener('input',  () => { layer.opacity = Number(op.value); onChange(); });
 
-  // Solid layers use a single colour field; every other type pulls
-  // from a palette which can be set per-layer (falling back to the
-  // pattern palette when unset).
-  if (layer.type !== 'solid') {
+  // --- Palette (skipped for fixed-color solid) ---
+  const isFixedSolid = layer.fill.kind === 'solid' && layer.fill.mode !== 'palette-cycle';
+  if (!isFixedSolid) {
+    addHeader('palette');
     const wrap = document.createElement('div');
-    wrap.className = 'ctrl palette-ctrl';
-    const span = document.createElement('span');
-    span.textContent = 'palette';
-    wrap.appendChild(span);
-    const swatches = document.createElement('div');
-    swatches.className = 'palette-swatches';
-    wrap.appendChild(swatches);
+    wrap.className = 'palette-swatches';
     host.appendChild(wrap);
-
     const renderSwatches = () => {
-      swatches.replaceChildren();
+      wrap.replaceChildren();
       const list = layer.palette || [];
       list.forEach((color, i) => {
         const cell = document.createElement('div');
@@ -551,80 +423,121 @@ function buildConfigForm(host, layer, onChange) {
           layer.palette[i] = input.value;
           onChange();
         });
-        const remove = document.createElement('button');
-        remove.type = 'button';
-        remove.textContent = '×';
-        remove.title = 'remove colour';
-        remove.addEventListener('click', () => {
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.textContent = '×';
+        rm.addEventListener('click', () => {
           layer.palette = list.filter((_, j) => j !== i);
           renderSwatches();
           onChange();
         });
         cell.appendChild(input);
-        cell.appendChild(remove);
-        swatches.appendChild(cell);
+        cell.appendChild(rm);
+        wrap.appendChild(cell);
       });
       const add = document.createElement('button');
       add.type = 'button';
       add.className = 'swatch-add';
       add.textContent = '+';
-      add.title = 'add colour';
       add.addEventListener('click', () => {
         layer.palette = [...(layer.palette || []), '#888888'];
         renderSwatches();
         onChange();
       });
-      swatches.appendChild(add);
+      wrap.appendChild(add);
     };
     renderSwatches();
   }
 
-  switch (layer.type) {
-    case 'solid': {
-      const c = addCtrl('color', 'color', layer.color || '#8a8a8a');
-      c.addEventListener('input', () => { layer.color = c.value; onChange(); });
-      break;
+  // --- Grid ---
+  addHeader('grid');
+  const cols = addCtrl('cols', 'number', layer.grid.cols, { min: 1, max: 64, step: 1 });
+  const rows = addCtrl('rows', 'number', layer.grid.rows, { min: 1, max: 64, step: 1 });
+  cols.addEventListener('input', () => { layer.grid.cols = Math.max(1, Number(cols.value) | 0); onChange(); });
+  rows.addEventListener('input', () => { layer.grid.rows = Math.max(1, Number(rows.value) | 0); onChange(); });
+
+  const offMode = addCtrl('offset mode', 'select', layer.grid.offsetMode || 'none', {
+    options: ['none', 'alternate-row', 'alternate-col'],
+  });
+  offMode.addEventListener('change', () => { layer.grid.offsetMode = offMode.value; onChange(); });
+
+  const offX = addCtrl('offset x', 'range', layer.grid.offset?.x ?? 0, { min: 0, max: 1, step: 0.05 });
+  const offY = addCtrl('offset y', 'range', layer.grid.offset?.y ?? 0, { min: 0, max: 1, step: 0.05 });
+  offX.addEventListener('input', () => {
+    layer.grid.offset = { ...(layer.grid.offset || {}), x: Number(offX.value) };
+    onChange();
+  });
+  offY.addEventListener('input', () => {
+    layer.grid.offset = { ...(layer.grid.offset || {}), y: Number(offY.value) };
+    onChange();
+  });
+
+  // --- Fill ---
+  addHeader('fill');
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape'] });
+  fillKind.addEventListener('change', () => {
+    if (fillKind.value === 'solid') {
+      layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
+    } else {
+      layer.fill = { kind: 'shape', shape: layer.fill.shape || { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' };
     }
-    case 'regular':
-      switch (layer.subtype) {
-        case 'striped': {
-          const o = addCtrl('orientation', 'select', layer.orientation || 'horizontal', { options: ['horizontal', 'vertical'] });
-          const n = addCtrl('count', 'number', layer.count ?? 8, { min: 2, max: 24, step: 1 });
-          const j = addCtrl('jitter', 'range', layer.widthJitter ?? 0.6, { min: 0, max: 1, step: 0.05 });
-          o.addEventListener('change', () => { layer.orientation = o.value; onChange(); });
-          n.addEventListener('input',  () => { layer.count = Number(n.value) | 0; onChange(); });
-          j.addEventListener('input',  () => { layer.widthJitter = Number(j.value); onChange(); });
-          break;
-        }
-        case 'checkered': {
-          const c = addCtrl('cols', 'number', layer.cols ?? 6, { min: 1, max: 24, step: 1 });
-          const r = addCtrl('rows', 'number', layer.rows ?? 6, { min: 1, max: 24, step: 1 });
-          c.addEventListener('input', () => { layer.cols = Number(c.value) | 0; onChange(); });
-          r.addEventListener('input', () => { layer.rows = Number(r.value) | 0; onChange(); });
-          break;
-        }
-        case 'triangular':
-        case 'hex': {
-          const c = addCtrl('cols', 'number', layer.cols ?? 6, { min: 2, max: 24, step: 1 });
-          c.addEventListener('input', () => { layer.cols = Number(c.value) | 0; onChange(); });
-          break;
-        }
-      }
-      break;
-    case 'randomized': {
-      const shape = addCtrl('shape', 'select', layer.shape?.kind || 'circle', { options: ['circle', 'square', 'triangle'] });
-      const grid  = addCtrl('grid', 'number', layer.grid?.cols ?? 6, { min: 1, max: 24, step: 1 });
-      shape.addEventListener('change', () => {
-        layer.shape = shape.value === 'circle' ? { kind: 'circle', r: 22 } : { kind: shape.value, size: 30 };
-        onChange();
-      });
-      grid.addEventListener('input', () => {
-        const v = Number(grid.value) | 0;
-        layer.grid = { ...(layer.grid || {}), cols: v, rows: v };
-        onChange();
-      });
-      break;
+    onChange();
+  });
+
+  if (layer.fill.kind === 'solid') {
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle'] });
+    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); });
+    if ((layer.fill.mode || 'fixed') === 'fixed') {
+      const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
+      c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
     }
+  } else if (layer.fill.kind === 'shape') {
+    const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
+      options: ['circle', 'square', 'triangle'],
+    });
+    shapeKind.addEventListener('change', () => {
+      layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
+      onChange();
+    });
+    const size = addCtrl('size (× cell)', 'range', layer.fill.shape?.size ?? 0.6, { min: 0.05, max: 1.5, step: 0.05 });
+    size.addEventListener('input', () => {
+      layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), size: Number(size.value) };
+      onChange();
+    });
+  }
+
+  // --- Vary (per-cell randomization) ---
+  addHeader('vary (per-cell)');
+  const varyOn = addCtrl('enable', 'select', layer.vary ? 'on' : 'off', { options: ['off', 'on'] });
+  varyOn.addEventListener('change', () => {
+    if (varyOn.value === 'on') {
+      layer.vary = layer.vary || {
+        scale:  { type: 'random', min: 0.5, max: 1.2 },
+        rotate: { type: 'random', min: 0, max: 360 },
+        jitter: { type: 'random', min: -0.2, max: 0.2 },
+      };
+    } else {
+      delete layer.vary;
+    }
+    onChange();
+  });
+  if (layer.vary) {
+    const sMax = addCtrl('scale max', 'range', layer.vary.scale?.max ?? 1.2, { min: 0.5, max: 2, step: 0.05 });
+    sMax.addEventListener('input', () => {
+      layer.vary.scale = { type: 'random', min: layer.vary.scale?.min ?? 0.5, max: Number(sMax.value) };
+      onChange();
+    });
+    const rMax = addCtrl('rotate max°', 'range', layer.vary.rotate?.max ?? 360, { min: 0, max: 360, step: 5 });
+    rMax.addEventListener('input', () => {
+      layer.vary.rotate = { type: 'random', min: 0, max: Number(rMax.value) };
+      onChange();
+    });
+    const jit = addCtrl('jitter (× cell)', 'range', layer.vary.jitter?.max ?? 0.2, { min: 0, max: 0.5, step: 0.02 });
+    jit.addEventListener('input', () => {
+      const v = Number(jit.value);
+      layer.vary.jitter = { type: 'random', min: -v, max: v };
+      onChange();
+    });
   }
 }
 
