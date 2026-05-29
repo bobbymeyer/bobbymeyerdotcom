@@ -211,11 +211,13 @@ function cellOriginY(y, row, rh, offset, offsetMode, col) {
 function placeCell(parent, layer, x, y, col, row, cw, rh, offset, offsetMode, rng, palette) {
   const cx = cellOriginX(x, col, cw, offset, offsetMode, row);
   const cy = cellOriginY(y, row, rh, offset, offsetMode, col);
-  const { cols, rows, gutter = 0 } = layer.grid;
+  const { cols, rows, gutter, gutterX, gutterY } = layer.grid;
+  const gX = gutterX ?? gutter ?? 0;
+  const gY = gutterY ?? gutter ?? 0;
   // Inset the cell by half the gutter on every side so adjacent
   // cells share the gap symmetrically.
-  const gx = cw * gutter / 2;
-  const gy = rh * gutter / 2;
+  const gx = cw * gX / 2;
+  const gy = rh * gY / 2;
   const ix = cx + gx;
   const iy = cy + gy;
   const iw = cw - 2 * gx;
@@ -476,9 +478,20 @@ function buildConfigForm(host, layer, onChange) {
     layer.grid.offset = { ...(layer.grid.offset || {}), y: Number(offY.value) };
     onChange();
   });
-  const gutter = addCtrl('gutter (× cell)', 'range', layer.grid.gutter ?? 0, { min: 0, max: 0.9, step: 0.02 });
-  gutter.addEventListener('input', () => {
-    layer.grid.gutter = Number(gutter.value);
+  const gx = addCtrl('gutter x (× cell)', 'range',
+    layer.grid.gutterX ?? layer.grid.gutter ?? 0,
+    { min: 0, max: 0.9, step: 0.02 });
+  gx.addEventListener('input', () => {
+    layer.grid.gutterX = Number(gx.value);
+    delete layer.grid.gutter;
+    onChange();
+  });
+  const gy = addCtrl('gutter y (× cell)', 'range',
+    layer.grid.gutterY ?? layer.grid.gutter ?? 0,
+    { min: 0, max: 0.9, step: 0.02 });
+  gy.addEventListener('input', () => {
+    layer.grid.gutterY = Number(gy.value);
+    delete layer.grid.gutter;
     onChange();
   });
 
