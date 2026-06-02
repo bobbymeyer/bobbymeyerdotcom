@@ -583,15 +583,18 @@ function buildConfigForm(host, layer, onChange) {
         input.type = 'color';
         input.value = color;
         input.addEventListener('input', () => {
-          layer.palette = [...list];
-          layer.palette[i] = input.value;
+          // Read layer.palette live so concurrent edits from other
+          // swatches aren't reverted to a stale captured copy.
+          const next = [...(layer.palette || [])];
+          next[i] = input.value;
+          layer.palette = next;
           onChange();
         });
         const rm = document.createElement('button');
         rm.type = 'button';
         rm.textContent = '×';
         rm.addEventListener('click', () => {
-          layer.palette = list.filter((_, j) => j !== i);
+          layer.palette = (layer.palette || []).filter((_, j) => j !== i);
           renderSwatches();
           onChange();
         });
