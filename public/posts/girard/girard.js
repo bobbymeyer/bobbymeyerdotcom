@@ -48,7 +48,37 @@ const defaultPattern = () => ({
   ],
 });
 
-// ---------- Layer factories ----------
+// ---------- Sample library ----------
+// Each entry is a partial pattern: a layers stack plus optional
+// palette / repeat overrides. Loading either replaces the current
+// pattern (default palette + repeat reset) or appends the sample's
+// layers on top of the existing pattern.
+const SAMPLES = {
+  'starter dots': {
+    palette: ['#f5e9d0', '#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50'],
+    layers: [
+      { grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f5e9d0', mode: 'fixed' } },
+      { grid: { cols: 8, rows: 8, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'shape', shape: { kind: 'circle', size: 0.5 }, mode: 'palette-cycle' } },
+    ],
+  },
+};
+
+function loadSample(name, current, clear) {
+  const sample = SAMPLES[name];
+  if (!sample) return current;
+  const layers = JSON.parse(JSON.stringify(sample.layers));
+  if (clear) {
+    return {
+      ...defaultPattern(),
+      ...(sample.palette ? { palette: sample.palette } : {}),
+      ...(sample.repeat ? { repeat: sample.repeat } : {}),
+      layers,
+    };
+  }
+  return { ...current, layers: [...current.layers, ...layers] };
+}
 function makeLayer(spec) {
   switch (spec) {
     case 'solid':
@@ -579,7 +609,24 @@ function mount() {
   const roll      = document.getElementById('girard-roll');
   const repeat    = document.getElementById('girard-repeat');
   const veil      = document.getElementById('girard-veil');
+  const sampleSel = document.getElementById('girard-sample');
+  const loadBtn   = document.getElementById('girard-load-sample');
   if (!stage) return;
+
+  // Populate sample dropdown from SAMPLES.
+  if (sampleSel) {
+    sampleSel.replaceChildren();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = '(pick a sample)';
+    sampleSel.appendChild(placeholder);
+    for (const name of Object.keys(SAMPLES)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      sampleSel.appendChild(opt);
+    }
+  }
 
   let pattern = defaultPattern();
   let selected = 0;
@@ -645,6 +692,22 @@ function mount() {
   veil.addEventListener('input', () => {
     pattern.surroundVeil = Number(veil.value);
     rerenderSvg();
+  });
+
+  loadBtn.addEventListener('click', () => {
+    const name = sampleSel.value;
+    if (!name) return;
+    // OK = clear and load fresh. Cancel = layer on top of current.
+    const clear = window.confirm(
+      `Load "${name}"?\n\nOK: clear current design and load fresh.\nCancel: layer this sample on top of the current pattern.`
+    );
+    pattern = loadSample(name, pattern, clear);
+    selected = pattern.layers.length - 1;
+    // Mirror any incoming top-level fields onto their UI controls.
+    seed.value = pattern.seed;
+    repeat.value = pattern.repeat;
+    veil.value = pattern.surroundVeil;
+    rerenderUI();
   });
 
   rerenderUI();

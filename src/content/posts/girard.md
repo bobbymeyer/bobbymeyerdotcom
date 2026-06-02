@@ -38,6 +38,11 @@ tags:
         <span>surround veil</span>
         <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.5' />
       </label>
+      <label class='ctrl'>
+        <span>sample</span>
+        <select id='girard-sample'></select>
+      </label>
+      <button id='girard-load-sample' class='ctrl'>load sample</button>
     </div>
     <div id='girard-layer-panel'>
       <div class='layer-panel-header'>
