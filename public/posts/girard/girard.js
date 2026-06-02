@@ -1146,6 +1146,39 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
           x1: baseX, y1: baseY, x2: tipX, y2: tipY,
           stroke: stemColor, 'stroke-width': stemW, 'stroke-linecap': 'round',
         }));
+
+        // Leaves: football/almond shapes placed randomly along the
+        // stem, matching the stem colour, oriented along it. Count
+        // scales with leafDensity.
+        const leafDensity = fill.leafDensity ?? 0;
+        if (leafDensity > 0) {
+          const stemAng = Math.atan2(tipY - baseY, tipX - baseX);
+          const nLeaves = Math.floor(leafDensity * 6 + crng() * leafDensity * 4);
+          const leafLen = (fill.leafSize ?? 0.1) * Math.min(iw, ih);
+          const leafW = leafLen * 0.42;
+          for (let k = 0; k < nLeaves; k++) {
+            const t = 0.15 + crng() * 0.7;          // position along stem
+            const lx = baseX + (tipX - baseX) * t;
+            const ly = baseY + (tipY - baseY) * t;
+            // Tilt the leaf off the stem to one side.
+            const side = crng() < 0.5 ? -1 : 1;
+            const tilt = (0.5 + crng() * 0.5) * side;
+            const a = stemAng + tilt;
+            const ca = Math.cos(a), sa = Math.sin(a);
+            // Lens centred at origin, long axis = leafLen, then placed
+            // so its inner tip touches the stem.
+            const hx = ca * leafLen / 2, hy = sa * leafLen / 2;     // half long-axis
+            const px = -sa * leafW / 2, py = ca * leafW / 2;        // half short-axis
+            const x0 = lx - hx, y0 = ly - hy;   // inner tip on stem
+            const x1 = lx + hx, y1 = ly + hy;   // outer tip
+            const cx1 = lx + px, cy1 = ly + py;
+            const cx2 = lx - px, cy2 = ly - py;
+            flower.appendChild(el('path', {
+              d: `M${x0.toFixed(2)},${y0.toFixed(2)} Q${cx1.toFixed(2)},${cy1.toFixed(2)} ${x1.toFixed(2)},${y1.toFixed(2)} Q${cx2.toFixed(2)},${cy2.toFixed(2)} ${x0.toFixed(2)},${y0.toFixed(2)} Z`,
+              fill: stemColor,
+            }));
+          }
+        }
         const color = palette[Math.floor(crng() * palette.length)];
         if (isTransparent(color)) continue;
         const r = bloomR * (0.7 + crng() * 0.6);
@@ -1889,6 +1922,12 @@ function buildConfigForm(host, layer, onChange) {
     dst.addEventListener('input', () => { layer.fill.distort = Number(dst.value); onChange(); });
     const sw = addCtrl('stem width (× cell)', 'number', layer.fill.stemWidth ?? 0.012, { min: 0.002, max: 0.05, step: 0.002 });
     sw.addEventListener('input', () => { layer.fill.stemWidth = Number(sw.value); onChange(); });
+    const ld = addCtrl('leaf density', 'number', layer.fill.leafDensity ?? 0, { min: 0, max: 1, step: 0.05 });
+    ld.addEventListener('input', () => { layer.fill.leafDensity = Number(ld.value); onChange(); rebuild(); });
+    if ((layer.fill.leafDensity ?? 0) > 0) {
+      const ls = addCtrl('leaf size (× cell)', 'number', layer.fill.leafSize ?? 0.1, { min: 0.02, max: 0.3, step: 0.01 });
+      ls.addEventListener('input', () => { layer.fill.leafSize = Number(ls.value); onChange(); });
+    }
     addColorCtrl('stem color', layer.fill.stemColor || '#454545', (v) => { layer.fill.stemColor = v; onChange(); });
   } else if (layer.fill.kind === 'voronoi') {
     const jit = addCtrl('jitter (× cell)', 'number', layer.fill.jitter ?? 0.4, { min: 0, max: 0.5, step: 0.02 });
