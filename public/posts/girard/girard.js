@@ -63,6 +63,26 @@ const SAMPLES = {
         fill: { kind: 'shape', shape: { kind: 'circle', size: 0.5 }, mode: 'palette-cycle' } },
     ],
   },
+  'Geometric cross': {
+    // Blue ground; a single 1x1 white cell with gutter leaves blue
+    // borders that meet at tile seams to form the cross; a 2x2 grid
+    // of red squares sits in each quadrant.
+    palette: ['#f3efe1', '#5b85be', '#e23827'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#5b85be', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 1, rows: 1, gutter: 0.08, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f3efe1', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 2, rows: 2, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'shape', shape: { kind: 'square', size: 0.3 }, color: '#e23827', mode: 'fixed' },
+      },
+    ],
+  },
   'Rayamax stripe': {
     // Order: black, yellow, grey, pink, blue, white. Two small + one
     // large band on each side, repeating vertically.
