@@ -1125,6 +1125,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const stemW = (fill.stemWidth ?? 0.012) * Math.min(iw, ih);
       const nStems = Math.max(1, Math.round((fill.stems ?? 4) + (crng() * 2 - 1)));
       const spread = (fill.spread ?? 48) * Math.PI / 180;
+      const angleJit = (fill.angleJitter ?? 0) * Math.PI / 180;
       const baseX = ix + iw / 2 + (crng() * 2 - 1) * iw * 0.12;
       const baseY = iy + ih * 0.92;
       const stemLen = ih * (0.62 + crng() * 0.16);
@@ -1137,7 +1138,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const flower = el('g');
       for (let i = 0; i < nStems; i++) {
         const frac = nStems === 1 ? 0.5 : i / (nStems - 1);
-        const ang = (frac - 0.5) * spread;       // from vertical
+        const ang = (frac - 0.5) * spread + (crng() * 2 - 1) * angleJit; // from vertical
         const len = stemLen * (0.78 + crng() * 0.3);
         const tipX = baseX + Math.sin(ang) * len;
         const tipY = baseY - Math.cos(ang) * len;
@@ -1874,6 +1875,8 @@ function buildConfigForm(host, layer, onChange) {
     stems.addEventListener('input', () => { layer.fill.stems = Number(stems.value) | 0; onChange(); });
     const spread = addCtrl('spread°', 'number', layer.fill.spread ?? 48, { min: 0, max: 180, step: 2 });
     spread.addEventListener('input', () => { layer.fill.spread = Number(spread.value); onChange(); });
+    const aj = addCtrl('angle jitter ±°', 'number', layer.fill.angleJitter ?? 0, { min: 0, max: 45, step: 1 });
+    aj.addEventListener('input', () => { layer.fill.angleJitter = Number(aj.value); onChange(); });
     const bs = addCtrl('bloom size (× cell)', 'number', layer.fill.bloomSize ?? 0.16, { min: 0.02, max: 0.5, step: 0.01 });
     bs.addEventListener('input', () => { layer.fill.bloomSize = Number(bs.value); onChange(); });
     if (layer.fill.bloom !== 'circle') {
