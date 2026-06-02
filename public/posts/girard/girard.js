@@ -83,6 +83,24 @@ const SAMPLES = {
         fill: { kind: 'shape', shape: { kind: 'circle', size: 0.5 }, mode: 'palette-cycle' } },
     ],
   },
+  'Circle sections': {
+    // Cream ground; an 8x16 arc-split grid where each cell paints a
+    // quarter-circle wedge over a ground rect. Palette mostly red
+    // with a transparent entry — random pairings produce a mix of
+    // fully red, half-arc, and empty cells, like Girard's 1971 panel.
+    palette: ['#d6433a', 'transparent'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f3eedd', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 8, rows: 16, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'arc-split', mode: 'random' },
+        palette: ['#d6433a', '#d6433a', 'transparent', 'transparent'],
+      },
+    ],
+  },
   'Firecrackers': {
     // Cream ground; a 1x3 row grid paints an orange top band (and
     // leaves the lower rows transparent); a 24x3 row grid then
@@ -313,6 +331,7 @@ function loadSample(name, current, clear) {
     return (l.fill?.kind === 'solid' && paletteModes.includes(l.fill?.mode))
         || (l.fill?.kind === 'shape' && (paletteModes.includes(l.fill?.mode) || l.vary?.color?.type === 'palette'))
         || (l.fill?.kind === 'split')
+        || (l.fill?.kind === 'arc-split')
         || (l.fill?.kind === 'mesh' && l.fill?.mode === 'palette-cycle')
         || (l.fill?.kind === 'triangles' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'));
   };
@@ -592,6 +611,25 @@ function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
 //   1:  / , A = upper-left
 //   2:  \ , A = lower-left
 //   3:  / , A = lower-right
+// Cell with a quarter-circle wedge at one corner over a solid ground.
+// corner ∈ [0..3] maps to TL, TR, BR, BL. Wedge radius = min(w, h);
+// when the cell is square the arc reaches the two opposite midlines.
+function drawArcSplit(parent, x, y, w, h, colorWedge, colorGround, corner) {
+  if (!(colorGround == null || colorGround === 'transparent' || colorGround === 'none')) {
+    parent.appendChild(el('rect', { x, y, width: w, height: h, fill: colorGround }));
+  }
+  if (colorWedge == null || colorWedge === 'transparent' || colorWedge === 'none') return;
+  const r = Math.min(w, h);
+  let d;
+  switch (((corner % 4) + 4) % 4) {
+    case 0: d = `M${x},${y} L${x + r},${y} A${r},${r} 0 0,1 ${x},${y + r} Z`; break;
+    case 1: d = `M${x + w},${y} L${x + w},${y + r} A${r},${r} 0 0,1 ${x + w - r},${y} Z`; break;
+    case 2: d = `M${x + w},${y + h} L${x + w - r},${y + h} A${r},${r} 0 0,1 ${x + w},${y + h - r} Z`; break;
+    case 3: d = `M${x},${y + h} L${x},${y + h - r} A${r},${r} 0 0,1 ${x + r},${y + h} Z`; break;
+  }
+  parent.appendChild(el('path', { d, fill: colorWedge }));
+}
+
 function drawSplit(parent, x, y, w, h, colorA, colorB, dir) {
   const tl = `${x},${y}`;
   const tr = `${x + w},${y}`;
@@ -852,6 +890,19 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
           paint(p10, p11, p01, (c + r * ncols) * 2 + 1);
         }
       }
+      break;
+    }
+    case 'arc-split': {
+      // Quarter-circle split. Each cell paints a pie wedge at one of
+      // four corners (random or palette-cycle position) over a
+      // background rect. Two palette picks per cell — one for the
+      // wedge, one for the ground — with transparent surfacing as
+      // empty.
+      const pickRandom = () => palette[Math.floor(rng() * palette.length)];
+      const colorWedge = pickRandom();
+      const colorGround = pickRandom();
+      const corner = Math.floor(rng() * 4);
+      drawArcSplit(parent, ix, iy, iw, ih, colorWedge, colorGround, corner);
       break;
     }
     case 'split': {
@@ -1190,7 +1241,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'mesh', 'triangles'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'mesh', 'triangles'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
@@ -1198,6 +1249,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'shape', shape: layer.fill.shape || { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' };
     } else if (fillKind.value === 'split') {
       layer.fill = { kind: 'split', mode: 'random' };
+    } else if (fillKind.value === 'arc-split') {
+      layer.fill = { kind: 'arc-split', mode: 'random' };
     } else if (fillKind.value === 'mesh') {
       layer.fill = { kind: 'mesh', mode: 'fixed', color: '#d24a45', jitter: 0.25, strokeWidth: 0.01, stroke: '#ffffff' };
     } else {
