@@ -36,6 +36,26 @@ function makeRng(seed) {
 
 function mod(a, n) { return ((a % n) + n) % n; }
 
+// ---------- Colour helpers ----------
+function parseColor(str) {
+  if (!str || str === 'transparent' || str === 'none') return { r: 0, g: 0, b: 0, a: 0 };
+  if (typeof str === 'string' && str.startsWith('#')) {
+    const h = str.slice(1);
+    if (h.length === 3) return { r: parseInt(h[0]+h[0],16), g: parseInt(h[1]+h[1],16), b: parseInt(h[2]+h[2],16), a: 1 };
+    if (h.length === 6) return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16), a: 1 };
+    if (h.length === 8) return { r: parseInt(h.slice(0,2),16), g: parseInt(h.slice(2,4),16), b: parseInt(h.slice(4,6),16), a: parseInt(h.slice(6,8),16) / 255 };
+  }
+  const m = String(str).match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)(?:\s*,\s*([\d.]+))?\s*\)/);
+  if (m) return { r: +m[1], g: +m[2], b: +m[3], a: m[4] != null ? +m[4] : 1 };
+  return { r: 0, g: 0, b: 0, a: 1 };
+}
+function formatColor({ r, g, b, a }) {
+  if (a <= 0) return 'transparent';
+  const hex = (v) => Math.round(Math.max(0, Math.min(255, v))).toString(16).padStart(2, '0');
+  if (a >= 1) return '#' + hex(r) + hex(g) + hex(b);
+  return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${(+a).toFixed(3)})`;
+}
+
 // ---------- Default pattern ----------
 const defaultPattern = () => ({
   seed: 1,
@@ -576,8 +596,16 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
 
   // Transparent palette entries skip painting that cell — useful for
   // "draw only on certain grid positions" tricks (e.g. a cross made
-  // of a 3x3 grid where the four corners are empty).
-  const isTransparent = (c) => c == null || c === 'transparent' || c === 'none';
+  // of a 3x3 grid where the four corners are empty). Recognises the
+  // string sentinels plus any rgba() / #rrggbb00 with alpha 0.
+  const isTransparent = (c) => {
+    if (c == null || c === 'transparent' || c === 'none') return true;
+    if (typeof c === 'string') {
+      if (/^rgba?\([^,]+,[^,]+,[^,]+,\s*0(?:\.0*)?\s*\)$/.test(c)) return true;
+      if (/^#[0-9a-f]{6}00$/i.test(c)) return true;
+    }
+    return false;
+  };
 
   // Index helpers per colour mode.
   //   palette-cycle: col + row * cols — unique index per cell. Use
@@ -919,6 +947,59 @@ function buildConfigForm(host, layer, onChange) {
   // (fill kind, vary on/off, solid colour mode).
   const rebuild = () => buildConfigForm(host, layer, onChange);
 
+  // Compact RGBA editor: small swatch + four number inputs. Returns
+  // a DOM node; pair with addColorCtrl when a label row is wanted.
+  const createColorWidget = (initial, onColorChange) => {
+    const root = document.createElement('div');
+    root.className = 'rgba-widget';
+    const swatch = document.createElement('span');
+    swatch.className = 'rgba-swatch';
+    root.appendChild(swatch);
+    const rgba = parseColor(initial);
+    const sync = () => { swatch.style.background = formatColor(rgba); };
+    sync();
+    const inputs = document.createElement('span');
+    inputs.className = 'rgba-inputs';
+    const mkInput = (axis, max, step) => {
+      const cell = document.createElement('span');
+      cell.className = 'rgba-cell';
+      const tag = document.createElement('em');
+      tag.textContent = axis.toUpperCase();
+      const inp = document.createElement('input');
+      inp.type = 'number';
+      inp.min = 0;
+      inp.max = max;
+      inp.step = step;
+      inp.value = axis === 'a' ? rgba.a : rgba[axis];
+      inp.addEventListener('input', () => {
+        let v = Number(inp.value);
+        if (axis === 'a') v = Math.max(0, Math.min(1, v));
+        else v = Math.max(0, Math.min(255, v));
+        rgba[axis] = v;
+        sync();
+        onColorChange(formatColor(rgba));
+      });
+      cell.appendChild(tag);
+      cell.appendChild(inp);
+      inputs.appendChild(cell);
+    };
+    mkInput('r', 255, 1);
+    mkInput('g', 255, 1);
+    mkInput('b', 255, 1);
+    mkInput('a', 1, 0.05);
+    root.appendChild(inputs);
+    return root;
+  };
+  const addColorCtrl = (label, value, onColorChange) => {
+    const wrap = document.createElement('label');
+    wrap.className = 'ctrl';
+    const span = document.createElement('span');
+    span.textContent = label;
+    wrap.appendChild(span);
+    wrap.appendChild(createColorWidget(value, onColorChange));
+    host.appendChild(wrap);
+  };
+
   const addCtrl = (label, kind, value, opts = {}) => {
     const wrap = document.createElement('label');
     wrap.className = 'ctrl';
@@ -973,30 +1054,28 @@ function buildConfigForm(host, layer, onChange) {
       wrap.replaceChildren();
       const list = layer.palette || [];
       list.forEach((color, i) => {
-        const cell = document.createElement('div');
-        cell.className = 'swatch';
-        const input = document.createElement('input');
-        input.type = 'color';
-        input.value = color;
-        input.addEventListener('input', () => {
+        const row = document.createElement('div');
+        row.className = 'palette-row';
+        row.appendChild(createColorWidget(color, (v) => {
           // Read layer.palette live so concurrent edits from other
           // swatches aren't reverted to a stale captured copy.
           const next = [...(layer.palette || [])];
-          next[i] = input.value;
+          next[i] = v;
           layer.palette = next;
           onChange();
-        });
+        }));
         const rm = document.createElement('button');
         rm.type = 'button';
+        rm.className = 'palette-rm';
         rm.textContent = '×';
+        rm.title = 'remove colour';
         rm.addEventListener('click', () => {
           layer.palette = (layer.palette || []).filter((_, j) => j !== i);
           renderSwatches();
           onChange();
         });
-        cell.appendChild(input);
-        cell.appendChild(rm);
-        wrap.appendChild(cell);
+        row.appendChild(rm);
+        wrap.appendChild(row);
       });
       const add = document.createElement('button');
       add.type = 'button';
@@ -1100,8 +1179,7 @@ function buildConfigForm(host, layer, onChange) {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'fixed') === 'fixed') {
-      const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
-      c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
+      addColorCtrl('color', layer.fill.color || '#8a8a8a', (v) => { layer.fill.color = v; onChange(); });
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
@@ -1126,15 +1204,13 @@ function buildConfigForm(host, layer, onChange) {
       if (was !== (v > 0)) rebuild();
     });
     if ((layer.fill.shape?.strokeWidth ?? 0) > 0) {
-      const strokeC = addCtrl('stroke color', 'color', layer.fill.shape?.stroke ?? '#000000');
-      strokeC.addEventListener('input', () => {
-        layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), stroke: strokeC.value };
+      addColorCtrl('stroke color', layer.fill.shape?.stroke ?? '#000000', (v) => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), stroke: v };
         onChange();
       });
     }
     if (layer.fill.shape?.kind === 'quatrefoil') {
       const c = addCtrl('center (× lobe)', 'number', layer.fill.shape?.center ?? 1, { min: 0, max: 2, step: 0.05 });
-      c.addEventListener('input', () => {
         layer.fill.shape = { ...(layer.fill.shape || { kind: 'quatrefoil' }), center: Number(c.value) };
         onChange();
       });
@@ -1172,15 +1248,13 @@ function buildConfigForm(host, layer, onChange) {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['fixed', 'palette-cycle', 'checker', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'palette-cycle') === 'fixed') {
-      const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
-      c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
+      addColorCtrl('color', layer.fill.color || '#8a8a8a', (v) => { layer.fill.color = v; onChange(); });
     }
   } else if (layer.fill.kind === 'triangles') {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'random', { options: ['fixed', 'palette-cycle', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'random') === 'fixed') {
-      const c = addCtrl('color', 'color', layer.fill.color || '#d24a45');
-      c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
+      addColorCtrl('color', layer.fill.color || '#d24a45', (v) => { layer.fill.color = v; onChange(); });
     }
     const sw = addCtrl('stroke (× cell)', 'number', layer.fill.strokeWidth ?? 0, { min: 0, max: 0.15, step: 0.005 });
     sw.addEventListener('input', () => {
@@ -1192,8 +1266,7 @@ function buildConfigForm(host, layer, onChange) {
       if (was !== (v > 0)) rebuild();
     });
     if ((layer.fill.strokeWidth ?? 0) > 0) {
-      const sc = addCtrl('stroke color', 'color', layer.fill.stroke ?? '#ffffff');
-      sc.addEventListener('input', () => { layer.fill.stroke = sc.value; onChange(); });
+      addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
     }
   } else if (layer.fill.kind === 'mesh') {
     const jit = addCtrl('point jitter (× cell)', 'number', layer.fill.jitter ?? 0.25, { min: 0, max: 0.49, step: 0.01 });
@@ -1201,8 +1274,7 @@ function buildConfigForm(host, layer, onChange) {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'fixed') === 'fixed') {
-      const c = addCtrl('color', 'color', layer.fill.color || '#d24a45');
-      c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
+      addColorCtrl('color', layer.fill.color || '#d24a45', (v) => { layer.fill.color = v; onChange(); });
     }
     const sw = addCtrl('stroke (× cell)', 'number', layer.fill.strokeWidth ?? 0, { min: 0, max: 0.1, step: 0.002 });
     sw.addEventListener('input', () => {
@@ -1214,8 +1286,7 @@ function buildConfigForm(host, layer, onChange) {
       if (was !== (v > 0)) rebuild();
     });
     if ((layer.fill.strokeWidth ?? 0) > 0) {
-      const sc = addCtrl('stroke color', 'color', layer.fill.stroke ?? '#ffffff');
-      sc.addEventListener('input', () => { layer.fill.stroke = sc.value; onChange(); });
+      addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
     }
   }
 
