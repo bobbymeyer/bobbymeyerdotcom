@@ -588,24 +588,33 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const strokeAttrs = sw > 0
         ? { stroke: fill.stroke || '#ffffff', 'stroke-width': sw, 'stroke-linejoin': 'round' }
         : {};
-      const paint = (points, colorIdx) => {
+      const paint = (pa, pb, pc, colorIdx) => {
         const color = fill.mode === 'palette-cycle'
           ? palette[mod(colorIdx, palette.length)]
           : (fill.color || palette[0] || '#888');
         if (isTransparent(color) && !sw) return;
-        parent.appendChild(el('polygon', {
-          points,
-          fill: isTransparent(color) ? 'none' : color,
-          ...strokeAttrs,
-        }));
+        // Paint the triangle at the 9 layer-canvas wraps so any
+        // vertex pushed past an edge by jitter still tiles cleanly —
+        // the pattern element clips off-tile portions and the
+        // neighbouring tile draws the matching wrap copy.
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const ox2 = dx * lw, oy2 = dy * lh;
+            parent.appendChild(el('polygon', {
+              points: `${pa.x + ox2},${pa.y + oy2} ${pb.x + ox2},${pb.y + oy2} ${pc.x + ox2},${pc.y + oy2}`,
+              fill: isTransparent(color) ? 'none' : color,
+              ...strokeAttrs,
+            }));
+          }
+        }
       };
       for (let r = 0; r < nrows; r++) {
         for (let c = 0; c < ncols; c++) {
           const p00 = pointAt(c, r),     p10 = pointAt(c + 1, r);
           const p01 = pointAt(c, r + 1), p11 = pointAt(c + 1, r + 1);
           // Two triangles split along the / diagonal.
-          paint(`${p00.x},${p00.y} ${p10.x},${p10.y} ${p01.x},${p01.y}`, (c + r * ncols) * 2);
-          paint(`${p10.x},${p10.y} ${p11.x},${p11.y} ${p01.x},${p01.y}`, (c + r * ncols) * 2 + 1);
+          paint(p00, p10, p01, (c + r * ncols) * 2);
+          paint(p10, p11, p01, (c + r * ncols) * 2 + 1);
         }
       }
       break;
