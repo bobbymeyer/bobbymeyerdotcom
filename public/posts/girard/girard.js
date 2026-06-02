@@ -63,6 +63,33 @@ const SAMPLES = {
         fill: { kind: 'shape', shape: { kind: 'circle', size: 0.5 }, mode: 'palette-cycle' } },
     ],
   },
+  'Quatrefoil': {
+    // 16x16 grid of quatrefoils (4 overlapping circles each), random
+    // palette pick per cell from a saturated 12-colour set, over an
+    // off-white ground.
+    palette: [
+      '#d3367c', '#283a78', '#1d99b2', '#5d8e4d', '#a06236', '#cd3a6e',
+      '#e88438', '#c5377a', '#cc7d96', '#f06a8e', '#3b7ec6', '#8a3973',
+    ],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f5f0e6', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 16, rows: 16, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'shape',
+          shape: { kind: 'quatrefoil', size: 0.85 },
+          mode: 'random',
+        },
+        palette: [
+          '#d3367c', '#283a78', '#1d99b2', '#5d8e4d', '#a06236', '#cd3a6e',
+          '#e88438', '#c5377a', '#cc7d96', '#f06a8e', '#3b7ec6', '#8a3973',
+        ],
+      },
+    ],
+  },
   'Triangular lattice': {
     // Cream ground; one mesh layer fills the tile with a jittered
     // triangle field. Palette cycles two colours per cell (one per
@@ -197,11 +224,13 @@ function loadSample(name, current, clear) {
   // cycling but doesn't carry its own; otherwise the per-layer
   // palette editor would appear empty even though the renderer is
   // pulling colours from pattern.palette.
-  const usesPalette = (l) =>
-    (l.fill?.kind === 'solid'  && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'checker')) ||
-    (l.fill?.kind === 'shape'  && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'checker' || l.vary?.color?.type === 'palette')) ||
-    (l.fill?.kind === 'split') ||
-    (l.fill?.kind === 'mesh'   && (l.fill?.mode === 'palette-cycle'));
+  const usesPalette = (l) => {
+    const paletteModes = ['palette-cycle', 'checker', 'random'];
+    return (l.fill?.kind === 'solid' && paletteModes.includes(l.fill?.mode))
+        || (l.fill?.kind === 'shape' && (paletteModes.includes(l.fill?.mode) || l.vary?.color?.type === 'palette'))
+        || (l.fill?.kind === 'split')
+        || (l.fill?.kind === 'mesh' && l.fill?.mode === 'palette-cycle');
+  };
   if (sample.palette) {
     for (const l of layers) {
       if (usesPalette(l) && !l.palette) l.palette = [...sample.palette];
@@ -323,6 +352,21 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         fill,
         ...strokeAttrs,
       });
+    }
+    case 'quatrefoil': {
+      // 4 overlapping circles forming a flower / clover shape. Total
+      // extent = dim. Lobe radius = dim/3, lobe centre offset = dim/6
+      // — gives noticeable centre overlap.
+      const r = dim / 3;
+      const off = dim / 6;
+      const g = el('g', {});
+      for (const [sx, sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
+        g.appendChild(el('circle', {
+          cx: sx * off, cy: sy * off, r,
+          fill, ...strokeAttrs,
+        }));
+      }
+      return g;
     }
     case 'star': {
       const numPoints = Math.max(3, shape.numPoints | 0 || 5);
@@ -508,6 +552,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
     case 'solid': {
       const color = (fill.mode === 'palette-cycle' || fill.mode === 'checker')
         ? palette[paletteIndex(fill.mode)]
+        : fill.mode === 'random'
+        ? palette[Math.floor(rng() * palette.length)]
         : (fill.color || '#888');
       if (isTransparent(color)) break;
       parent.appendChild(el('rect', {
@@ -526,6 +572,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }
       const color = (fill.mode === 'palette-cycle' || fill.mode === 'checker')
         ? palette[paletteIndex(fill.mode)]
+        : fill.mode === 'random'
+        ? palette[Math.floor(rng() * palette.length)]
         : (layer.vary?.color?.type === 'palette'
             ? palette[Math.floor(rng() * palette.length)]
             : (fill.color || palette[0]));
@@ -791,7 +839,8 @@ function buildConfigForm(host, layer, onChange) {
   // --- Palette (skipped for fixed-color solid) ---
   const isFixedSolid = layer.fill.kind === 'solid'
     && layer.fill.mode !== 'palette-cycle'
-    && layer.fill.mode !== 'checker';
+    && layer.fill.mode !== 'checker'
+    && layer.fill.mode !== 'random';
   if (!isFixedSolid) {
     addHeader('palette');
     const wrap = document.createElement('div');
@@ -923,7 +972,7 @@ function buildConfigForm(host, layer, onChange) {
   });
 
   if (layer.fill.kind === 'solid') {
-    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker'] });
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'fixed') === 'fixed') {
       const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
@@ -931,7 +980,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'text', 'star'],
+      options: ['circle', 'square', 'triangle', 'text', 'star', 'quatrefoil'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
@@ -988,7 +1037,7 @@ function buildConfigForm(host, layer, onChange) {
         onChange();
       });
     }
-    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['fixed', 'palette-cycle', 'checker'] });
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['fixed', 'palette-cycle', 'checker', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'palette-cycle') === 'fixed') {
       const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
