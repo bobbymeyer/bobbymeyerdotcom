@@ -631,6 +631,34 @@ function drawArcSplit(parent, x, y, w, h, colorWedge, colorGround, corner) {
   parent.appendChild(el('path', { d, fill: colorWedge }));
 }
 
+// Quarter annular sector. 90° band centred at one cell corner with
+// outer radius = cell side and inner radius = cell side / 2. Four
+// of these at the four corners of a 2x2 block combine into a ring.
+function drawArcRing(parent, x, y, w, h, color, corner) {
+  const r2 = Math.min(w, h);
+  const r1 = r2 / 2;
+  let d;
+  switch (((corner % 4) + 4) % 4) {
+    case 0: // TL
+      d = `M ${x + r2},${y} A ${r2},${r2} 0 0,1 ${x},${y + r2}`
+        + ` L ${x},${y + r1} A ${r1},${r1} 0 0,0 ${x + r1},${y} Z`;
+      break;
+    case 1: // TR
+      d = `M ${x + w},${y + r2} A ${r2},${r2} 0 0,1 ${x + w - r2},${y}`
+        + ` L ${x + w - r1},${y} A ${r1},${r1} 0 0,0 ${x + w},${y + r1} Z`;
+      break;
+    case 2: // BR
+      d = `M ${x + w - r2},${y + h} A ${r2},${r2} 0 0,1 ${x + w},${y + h - r2}`
+        + ` L ${x + w},${y + h - r1} A ${r1},${r1} 0 0,0 ${x + w - r1},${y + h} Z`;
+      break;
+    case 3: // BL
+      d = `M ${x},${y + h - r2} A ${r2},${r2} 0 0,1 ${x + r2},${y + h}`
+        + ` L ${x + r1},${y + h} A ${r1},${r1} 0 0,0 ${x},${y + h - r1} Z`;
+      break;
+  }
+  parent.appendChild(el('path', { d, fill: color }));
+}
+
 // Triangular half. corner ∈ [0..3] (TL, TR, BR, BL). The triangle
 // includes the named corner and its two neighbours — split by the
 // diagonal NOT touching that corner.
@@ -953,7 +981,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         const innerCorner = innerY === 0
           ? (innerX === 0 ? 2 : 3)  // TL→BR, TR→BL
           : (innerX === 0 ? 1 : 0); // BL→TR, BR→TL
-        drawArcSplit(parent, ix, iy, iw, ih, color, null, innerCorner);
+        drawArcRing(parent, ix, iy, iw, ih, color, innerCorner);
       } else if (cellType === 'vsplit') {
         // Inner side is the LEFT half for right-column cells, RIGHT
         // half for left-column cells (always facing block centre).
