@@ -1211,6 +1211,7 @@ function buildConfigForm(host, layer, onChange) {
     }
     if (layer.fill.shape?.kind === 'quatrefoil') {
       const c = addCtrl('center (× lobe)', 'number', layer.fill.shape?.center ?? 1, { min: 0, max: 2, step: 0.05 });
+      c.addEventListener('input', () => {
         layer.fill.shape = { ...(layer.fill.shape || { kind: 'quatrefoil' }), center: Number(c.value) };
         onChange();
       });
