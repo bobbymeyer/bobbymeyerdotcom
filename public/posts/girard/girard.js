@@ -354,16 +354,25 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       });
     }
     case 'quatrefoil': {
-      // 4 tangent circles forming a clover / Girard quatrefoil. With
-      // r = off, the four circles touch their neighbours at single
-      // points on the axes — sharp cusps between lobes, no blended
-      // centre. Total extent = 4·r = dim.
+      // 4 tangent circles forming a clover. r = off = dim/4 makes
+      // the lobes touch at single points on the axes (sharp cusps).
+      // shape.center adds a 5th circle at the origin with radius
+      // (shape.center × dim/4) — 0 disables it, 1 matches the lobe
+      // radius, default 0.5 = a soft accent that fills the centre
+      // diamond.
       const r = dim / 4;
       const off = dim / 4;
+      const centerScale = shape.center ?? 0.5;
       const g = el('g', {});
       for (const [sx, sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
         g.appendChild(el('circle', {
           cx: sx * off, cy: sy * off, r,
+          fill, ...strokeAttrs,
+        }));
+      }
+      if (centerScale > 0) {
+        g.appendChild(el('circle', {
+          cx: 0, cy: 0, r: r * centerScale,
           fill, ...strokeAttrs,
         }));
       }
@@ -1005,6 +1014,13 @@ function buildConfigForm(host, layer, onChange) {
       const strokeC = addCtrl('stroke color', 'color', layer.fill.shape?.stroke ?? '#000000');
       strokeC.addEventListener('input', () => {
         layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), stroke: strokeC.value };
+        onChange();
+      });
+    }
+    if (layer.fill.shape?.kind === 'quatrefoil') {
+      const c = addCtrl('center (× lobe)', 'number', layer.fill.shape?.center ?? 0.5, { min: 0, max: 2, step: 0.05 });
+      c.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'quatrefoil' }), center: Number(c.value) };
         onChange();
       });
     }
