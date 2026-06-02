@@ -63,6 +63,29 @@ const SAMPLES = {
         fill: { kind: 'shape', shape: { kind: 'circle', size: 0.5 }, mode: 'palette-cycle' } },
     ],
   },
+  'Triangular lattice': {
+    // Cream ground; one mesh layer fills the tile with a jittered
+    // triangle field. Palette cycles two colours per cell (one per
+    // triangle of the / split); white stroke holds the edges.
+    palette: ['#d24a45', '#f5e9d0'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f5e9d0', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 14, rows: 14, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'mesh',
+          mode: 'palette-cycle',
+          jitter: 0.32,
+          strokeWidth: 0.025,
+          stroke: '#f5e9d0',
+        },
+        palette: ['#d24a45', '#c44741', '#b34038', '#d24a45'],
+      },
+    ],
+  },
   'Checker split': {
     // Off-white ground; a 22x22 split-fill grid picks two random
     // palette entries per cell with one of four 90° rotations. With
