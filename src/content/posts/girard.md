@@ -35,6 +35,10 @@ tags:
         </select>
       </label>
       <label class='ctrl'>
+        <span>aspect (w/h)</span>
+        <input id='girard-aspect' type='number' value='1' min='0.2' max='5' step='0.05' />
+      </label>
+      <label class='ctrl'>
         <span>surround veil</span>
         <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.5' />
       </label>

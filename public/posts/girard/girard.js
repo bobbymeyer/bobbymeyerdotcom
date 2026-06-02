@@ -644,11 +644,19 @@ function shapeNode(shape, cw, rh, fill, ctx) {
 }
 
 // ---------- Layer rendering ----------
+// Tile dimensions. aspect = width / height (default 1 = square). The
+// longer side is held at tileSize so the tile always fits the view.
+function tileDims(pattern) {
+  const base = pattern.tileSize;
+  const a = pattern.aspect ?? 1;
+  return a >= 1 ? { w: base, h: base / a } : { w: base * a, h: base };
+}
+
 function buildTileGroup(pattern) {
-  const N = pattern.tileSize;
+  const { w, h } = tileDims(pattern);
   const root = el('g');
   pattern.layers.forEach((layer, li) => {
-    renderLayer(root, layer, 0, 0, N, N, pattern.palette, pattern.seed + li * 9973);
+    renderLayer(root, layer, 0, 0, w, h, pattern.palette, pattern.seed + li * 9973);
   });
   return root;
 }
@@ -1318,30 +1326,32 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
 
 // ---------- Repeat unit (SVG <pattern> body) ----------
 function buildRepeatUnit(pattern, tileGroup) {
-  const N = pattern.tileSize;
+  const { w, h } = tileDims(pattern);
   switch (pattern.repeat) {
     case 'half-drop': {
       const g1 = tileGroup.cloneNode(true);
       const g2 = tileGroup.cloneNode(true);
-      g2.setAttribute('transform', `translate(${N} ${N / 2})`);
-      return { width: N * 2, height: N, content: [g1, g2] };
+      g2.setAttribute('transform', `translate(${w} ${h / 2})`);
+      return { width: w * 2, height: h, content: [g1, g2] };
     }
     case 'half-brick': {
       const g1 = tileGroup.cloneNode(true);
       const g2 = tileGroup.cloneNode(true);
-      g2.setAttribute('transform', `translate(${N / 2} ${N})`);
-      return { width: N, height: N * 2, content: [g1, g2] };
+      g2.setAttribute('transform', `translate(${w / 2} ${h})`);
+      return { width: w, height: h * 2, content: [g1, g2] };
     }
     default:
-      return { width: N, height: N, content: [tileGroup] };
+      return { width: w, height: h, content: [tileGroup] };
   }
 }
 
 // ---------- Top-level SVG ----------
-function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
+function buildSvg(pattern) {
+  const { w: tileW, h: tileH } = tileDims(pattern);
+  const viewW = tileW * 3, viewH = tileH * 3;
   const root = el('svg', {
     xmlns: SVG_NS,
-    viewBox: `0 0 ${viewSize} ${viewSize}`,
+    viewBox: `0 0 ${viewW} ${viewH}`,
     width: '100%',
     height: '100%',
   });
@@ -1359,9 +1369,8 @@ function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
   unit.content.forEach(n => tilePattern.appendChild(n));
   root.appendChild(el('defs', {}, [tilePattern]));
 
-  const cell = viewSize / 3;
   root.appendChild(el('rect', {
-    width: viewSize, height: viewSize,
+    width: viewW, height: viewH,
     fill: `url(#${patternId})`,
   }));
   const veil = Math.max(0, Math.min(1, pattern.surroundVeil ?? 0.5));
@@ -1370,8 +1379,8 @@ function buildSvg(pattern, viewSize = pattern.tileSize * 3) {
       for (let col = 0; col < 3; col++) {
         if (row === 1 && col === 1) continue;
         root.appendChild(el('rect', {
-          x: col * cell, y: row * cell,
-          width: cell, height: cell,
+          x: col * tileW, y: row * tileH,
+          width: tileW, height: tileH,
           fill: '#ffffff',
           opacity: veil,
         }));
@@ -1840,6 +1849,7 @@ function mount() {
   const seed      = document.getElementById('girard-seed');
   const roll      = document.getElementById('girard-roll');
   const repeat    = document.getElementById('girard-repeat');
+  const aspect    = document.getElementById('girard-aspect');
   const veil      = document.getElementById('girard-veil');
   const sampleSel = document.getElementById('girard-sample');
   const loadBtn   = document.getElementById('girard-load-sample');
@@ -1921,6 +1931,11 @@ function mount() {
     rerenderSvg();
   });
 
+  aspect.addEventListener('input', () => {
+    pattern.aspect = Math.max(0.2, Number(aspect.value) || 1);
+    rerenderSvg();
+  });
+
   veil.addEventListener('input', () => {
     pattern.surroundVeil = Number(veil.value);
     rerenderSvg();
@@ -1938,6 +1953,7 @@ function mount() {
     // Mirror any incoming top-level fields onto their UI controls.
     seed.value = pattern.seed;
     repeat.value = pattern.repeat;
+    aspect.value = pattern.aspect ?? 1;
     veil.value = pattern.surroundVeil;
     rerenderUI();
   });
