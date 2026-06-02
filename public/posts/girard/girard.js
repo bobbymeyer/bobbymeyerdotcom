@@ -84,10 +84,10 @@ const SAMPLES = {
     ],
   },
   'Geometric cross': {
-    // White ground; a horizontal and a vertical bar pass through
-    // the tile centre (no edge gutter, so adjacent tiles meet
-    // white-to-white); a 2x2 grid of red squares fills the four
-    // quadrants.
+    // White ground; one 3x3 grid weighted [9,2,9] in both axes
+    // paints the cross — the four corners are transparent so the
+    // ground shows through; the cross cells are blue. A 2x2 grid
+    // of red squares fills the four quadrants.
     palette: ['#f3efe1', '#5b85be', '#e23827'],
     layers: [
       {
@@ -95,17 +95,19 @@ const SAMPLES = {
         fill: { kind: 'solid', color: '#f3efe1', mode: 'fixed' },
       },
       {
-        // Horizontal bar: 1x3 rows, palette cycles white/blue/white
-        // and the middle row is weighted thin.
-        grid: { cols: 1, rows: 3, rowWeights: [9, 2, 9], offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        grid: {
+          cols: 3, rows: 3,
+          colWeights: [9, 2, 9], rowWeights: [9, 2, 9],
+          offset: { x: 0, y: 0 }, offsetMode: 'none',
+        },
         fill: { kind: 'solid', mode: 'palette-cycle' },
-        palette: ['#f3efe1', '#5b85be', '#f3efe1'],
-      },
-      {
-        // Vertical bar: 3x1 cols, mirror of the above.
-        grid: { cols: 3, rows: 1, colWeights: [9, 2, 9], offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', mode: 'palette-cycle' },
-        palette: ['#f3efe1', '#5b85be', '#f3efe1'],
+        // 3x3 cells indexed (col + row*cols): corners go transparent,
+        // the five cross cells get blue.
+        palette: [
+          'transparent', '#5b85be', 'transparent',
+          '#5b85be',     '#5b85be', '#5b85be',
+          'transparent', '#5b85be', 'transparent',
+        ],
       },
       {
         grid: { cols: 2, rows: 2, offset: { x: 0, y: 0 }, offsetMode: 'none' },
@@ -349,11 +351,17 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
   const ci = mod(col, cols), ri = mod(row, rows);
   const fill = layer.fill;
 
+  // Transparent palette entries skip painting that cell — useful for
+  // "draw only on certain grid positions" tricks (e.g. a cross made
+  // of a 3x3 grid where the four corners are empty).
+  const isTransparent = (c) => c == null || c === 'transparent' || c === 'none';
+
   switch (fill.kind) {
     case 'solid': {
       const color = fill.mode === 'palette-cycle'
         ? palette[mod(ci + ri * cols, palette.length)]
         : (fill.color || '#888');
+      if (isTransparent(color)) break;
       parent.appendChild(el('rect', {
         x: ix, y: iy, width: iw, height: ih, fill: color,
       }));
@@ -373,6 +381,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         : (layer.vary?.color?.type === 'palette'
             ? palette[Math.floor(rng() * palette.length)]
             : (fill.color || palette[0]));
+      if (isTransparent(color)) break;
       const node = shapeNode(shape, iw, ih, color);
       node.setAttribute(
         'transform',
