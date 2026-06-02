@@ -94,6 +94,37 @@ function insetConvex(poly, d) {
   return out;
 }
 
+// Vertices for a bloom head, centred on the origin.
+//   circle  → many-sided blob (smooth once rounded)
+//   polygon → n-gon
+//   star    → 2n alternating outer/inner radii (depth = inner/outer)
+// `distort` randomly perturbs each vertex radius by ±distort.
+function bloomPolygon(kind, r, n, depth, distort, rng) {
+  const verts = [];
+  const jitter = () => 1 + (rng() * 2 - 1) * distort;
+  if (kind === 'circle') {
+    const sides = 10;
+    for (let i = 0; i < sides; i++) {
+      const a = (Math.PI * 2 * i) / sides - Math.PI / 2;
+      const rr = r * jitter();
+      verts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+    }
+  } else if (kind === 'star') {
+    for (let i = 0; i < n * 2; i++) {
+      const a = (Math.PI * 2 * i) / (n * 2) - Math.PI / 2;
+      const rr = (i % 2 === 0 ? r : r * depth) * jitter();
+      verts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+    }
+  } else { // polygon
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n - Math.PI / 2;
+      const rr = r * jitter();
+      verts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+    }
+  }
+  return verts;
+}
+
 // Build an SVG path for a polygon, optionally rounding corners by
 // fraction `round` (0 = sharp, 1 = max). Rounds via quadratic curves.
 function polyPath(poly, round) {
@@ -358,6 +389,23 @@ const SAMPLES = {
       },
     ],
   },
+  'Blooms': {
+    // White ground; a bloom layer scatters little flowers — stems
+    // fanning from a base, each tipped with a rounded, slightly
+    // distorted bloom. Bright palette per the Girard collage.
+    palette: ['#e8612d', '#f2a93b', '#f4d23b', '#b9d44a', '#e8408a', '#f0a8c8', '#cfcabb'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#fbfaf6', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 5, rows: 5, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: { kind: 'bloom', bloom: 'circle', stems: 4, spread: 52, bloomSize: 0.13, round: 0.7, distort: 0.18, stemColor: '#4a4a4a', stemWidth: 0.01 },
+        palette: ['#e8612d', '#f2a93b', '#f4d23b', '#b9d44a', '#e8408a', '#f0a8c8', '#cfcabb'],
+      },
+    ],
+  },
   'Brick': {
     // Tan ground; a 5x12 brick grid with alternate-row x-offset of
     // 0.5 and asymmetric gutters lets the tan show through as
@@ -446,7 +494,8 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'arc-block')
         || (l.fill?.kind === 'mesh' && l.fill?.mode === 'palette-cycle')
         || (l.fill?.kind === 'triangles' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'))
-        || (l.fill?.kind === 'voronoi' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'));
+        || (l.fill?.kind === 'voronoi' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'))
+        || (l.fill?.kind === 'bloom');
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -1059,6 +1108,64 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }
       break;
     }
+    case 'bloom': {
+      // A "flower" per cell: stems fan out from a base point near the
+      // bottom of the cell, each tipped with a bloom shape (blob /
+      // polygon / star) that can be rounded and distorted. Per-cell
+      // randomness (stem count, angles, lengths, bloom colours and
+      // sizes) comes from a deterministic cell RNG so it's seed-
+      // responsive; drawn at the 9 wraps so flowers crossing the cell
+      // edge tile cleanly.
+      const salt = layerBounds?.salt ?? 1;
+      const lw = layerBounds?.w, lh = layerBounds?.h;
+      const cseed = (((col * 73856093) ^ (row * 19349663) ^ salt) >>> 0) || 1;
+      const crng = makeRng(cseed);
+
+      const stemColor = fill.stemColor || '#454545';
+      const stemW = (fill.stemWidth ?? 0.012) * Math.min(iw, ih);
+      const nStems = Math.max(1, Math.round((fill.stems ?? 4) + (crng() * 2 - 1)));
+      const spread = (fill.spread ?? 48) * Math.PI / 180;
+      const baseX = ix + iw / 2 + (crng() * 2 - 1) * iw * 0.12;
+      const baseY = iy + ih * 0.92;
+      const stemLen = ih * (0.62 + crng() * 0.16);
+      const bloomR = (fill.bloomSize ?? 0.16) * Math.min(iw, ih);
+      const kind = fill.bloom || 'circle';
+      const pts = Math.max(3, fill.points | 0 || 5);
+      const round = fill.round ?? 0.4;
+      const distort = fill.distort ?? 0.15;
+
+      const flower = el('g');
+      for (let i = 0; i < nStems; i++) {
+        const frac = nStems === 1 ? 0.5 : i / (nStems - 1);
+        const ang = (frac - 0.5) * spread;       // from vertical
+        const len = stemLen * (0.78 + crng() * 0.3);
+        const tipX = baseX + Math.sin(ang) * len;
+        const tipY = baseY - Math.cos(ang) * len;
+        flower.appendChild(el('line', {
+          x1: baseX, y1: baseY, x2: tipX, y2: tipY,
+          stroke: stemColor, 'stroke-width': stemW, 'stroke-linecap': 'round',
+        }));
+        const color = palette[Math.floor(crng() * palette.length)];
+        if (isTransparent(color)) continue;
+        const r = bloomR * (0.7 + crng() * 0.6);
+        const poly = bloomPolygon(kind, r, pts, fill.depth ?? 0.5, distort, crng);
+        flower.appendChild(el('path', {
+          d: polyPath(poly.map(p => [tipX + p[0], tipY + p[1]]), round),
+          fill: color,
+        }));
+      }
+
+      const wx = lw || 0, wy = lh || 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if ((dx || dy) && (!wx || !wy)) continue;
+          const node = flower.cloneNode(true);
+          if (dx || dy) node.setAttribute('transform', `translate(${dx * wx} ${dy * wy})`);
+          parent.appendChild(node);
+        }
+      }
+      break;
+    }
     case 'voronoi': {
       // Toroidal Voronoi "pebbles". Jittered seed points on a torus
       // (jitter hashed per wrapped cell so it tiles). Each cell is
@@ -1639,7 +1746,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'maze'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'maze'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
@@ -1657,6 +1764,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'maze', color: '#2c3340', thickness: 0.18 };
     } else if (fillKind.value === 'voronoi') {
       layer.fill = { kind: 'voronoi', mode: 'fixed', color: '#d8c79c', jitter: 0.4, gap: 0.08, round: 0.5 };
+    } else if (fillKind.value === 'bloom') {
+      layer.fill = { kind: 'bloom', bloom: 'circle', stems: 4, spread: 48, bloomSize: 0.16, points: 5, round: 0.5, distort: 0.15, stemColor: '#454545', stemWidth: 0.012 };
     } else {
       layer.fill = { kind: 'triangles', mode: 'random', strokeWidth: 0.02, stroke: '#ffffff' };
     }
@@ -1758,6 +1867,26 @@ function buildConfigForm(host, layer, onChange) {
     if ((layer.fill.strokeWidth ?? 0) > 0) {
       addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
     }
+  } else if (layer.fill.kind === 'bloom') {
+    const bk = addCtrl('bloom', 'select', layer.fill.bloom || 'circle', { options: ['circle', 'polygon', 'star'] });
+    bk.addEventListener('change', () => { layer.fill.bloom = bk.value; onChange(); rebuild(); });
+    const stems = addCtrl('stems', 'number', layer.fill.stems ?? 4, { min: 1, max: 9, step: 1 });
+    stems.addEventListener('input', () => { layer.fill.stems = Number(stems.value) | 0; onChange(); });
+    const spread = addCtrl('spread°', 'number', layer.fill.spread ?? 48, { min: 0, max: 180, step: 2 });
+    spread.addEventListener('input', () => { layer.fill.spread = Number(spread.value); onChange(); });
+    const bs = addCtrl('bloom size (× cell)', 'number', layer.fill.bloomSize ?? 0.16, { min: 0.02, max: 0.5, step: 0.01 });
+    bs.addEventListener('input', () => { layer.fill.bloomSize = Number(bs.value); onChange(); });
+    if (layer.fill.bloom !== 'circle') {
+      const p = addCtrl('points', 'number', layer.fill.points ?? 5, { min: 3, max: 12, step: 1 });
+      p.addEventListener('input', () => { layer.fill.points = Number(p.value) | 0; onChange(); });
+    }
+    const rnd = addCtrl('corner round', 'number', layer.fill.round ?? 0.5, { min: 0, max: 1, step: 0.05 });
+    rnd.addEventListener('input', () => { layer.fill.round = Number(rnd.value); onChange(); });
+    const dst = addCtrl('distort', 'number', layer.fill.distort ?? 0.15, { min: 0, max: 0.6, step: 0.02 });
+    dst.addEventListener('input', () => { layer.fill.distort = Number(dst.value); onChange(); });
+    const sw = addCtrl('stem width (× cell)', 'number', layer.fill.stemWidth ?? 0.012, { min: 0.002, max: 0.05, step: 0.002 });
+    sw.addEventListener('input', () => { layer.fill.stemWidth = Number(sw.value); onChange(); });
+    addColorCtrl('stem color', layer.fill.stemColor || '#454545', (v) => { layer.fill.stemColor = v; onChange(); });
   } else if (layer.fill.kind === 'voronoi') {
     const jit = addCtrl('jitter (× cell)', 'number', layer.fill.jitter ?? 0.4, { min: 0, max: 0.5, step: 0.02 });
     jit.addEventListener('input', () => { layer.fill.jitter = Number(jit.value); onChange(); });
