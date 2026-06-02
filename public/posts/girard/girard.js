@@ -83,6 +83,44 @@ const SAMPLES = {
         fill: { kind: 'shape', shape: { kind: 'circle', size: 0.5 }, mode: 'palette-cycle' } },
     ],
   },
+  'Firecrackers': {
+    // Cream ground; a 1x3 row grid paints an orange top band (and
+    // leaves the lower rows transparent); a 24x3 row grid then
+    // positions vertical tabs only in the middle row by addressing
+    // specific palette positions — top and bottom rows all
+    // transparent, middle row all orange, gutterX carves the gaps
+    // between tabs.
+    palette: ['#e0954a', '#f3eedd'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f3eedd', mode: 'fixed' },
+      },
+      {
+        grid: {
+          cols: 1, rows: 3,
+          rowWeights: [1, 3, 6],
+          offset: { x: 0, y: 0 }, offsetMode: 'none',
+        },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['#e0954a', 'transparent', 'transparent'],
+      },
+      {
+        grid: {
+          cols: 24, rows: 3,
+          rowWeights: [1, 3, 6],
+          gutterX: 0.5,
+          offset: { x: 0, y: 0 }, offsetMode: 'none',
+        },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: [
+          ...Array(24).fill('transparent'),
+          ...Array(24).fill('#e0954a'),
+          ...Array(24).fill('transparent'),
+        ],
+      },
+    ],
+  },
   'Quatrefoil': {
     // 16x16 grid of quatrefoils (4 overlapping circles each), random
     // palette pick per cell from a saturated 12-colour set, over an
@@ -1350,7 +1388,7 @@ function mount() {
     placeholder.value = '';
     placeholder.textContent = '(pick a sample)';
     sampleSel.appendChild(placeholder);
-    for (const name of Object.keys(SAMPLES)) {
+    for (const name of Object.keys(SAMPLES).sort((a, b) => a.localeCompare(b))) {
       const opt = document.createElement('option');
       opt.value = name;
       opt.textContent = name;
