@@ -139,6 +139,22 @@ const SAMPLES = {
       },
     ],
   },
+  'Labyrinth': {
+    // Cream ground; a perfect maze generated on a torus so the wall
+    // pattern tiles seamlessly. 90° passages only. Roll the seed for
+    // a new maze.
+    palette: ['#2c3340'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#efe9dc', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 10, rows: 10, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'maze', color: '#2c3340', thickness: 0.18 },
+      },
+    ],
+  },
   'Quatrefoil': {
     // 16x16 grid of quatrefoils (4 overlapping circles each), random
     // palette pick per cell from a saturated 12-colour set, over an
@@ -939,6 +955,90 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }
       break;
     }
+    case 'maze': {
+      // Perfect maze (spanning tree of passages) generated on a TORUS
+      // so it tiles seamlessly: adjacency wraps in both axes. Walls
+      // for every non-passage edge are drawn as thick strokes; wrap
+      // walls are mirrored to the opposite edge.
+      if (col !== 0 || row !== 0) break;
+      const nc = cols, nr = rows;
+      const lw = layerBounds?.w ?? cw * nc;
+      const lh = layerBounds?.h ?? rh * nr;
+      const ox = layerBounds?.x ?? 0;
+      const oy = layerBounds?.y ?? 0;
+      const cellW = lw / nc, cellH = lh / nr;
+      const salt = layerBounds?.salt ?? 1;
+      const mr = makeRng(salt);
+
+      // Walls present by default; carving removes them.
+      const vWall = new Set(); // 'c:r' = wall east of (c,r) → ((c+1)%nc, r)
+      const hWall = new Set(); // 'c:r' = wall south of (c,r) → (c,(r+1)%nr)
+      for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) {
+        vWall.add(`${c}:${r}`);
+        hWall.add(`${c}:${r}`);
+      }
+
+      // Randomized DFS (recursive backtracker) on the torus.
+      const visited = new Uint8Array(nc * nr);
+      const stack = [[0, 0]];
+      visited[0] = 1;
+      const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      while (stack.length) {
+        const [c, r] = stack[stack.length - 1];
+        // Shuffle directions deterministically.
+        const order = [0, 1, 2, 3];
+        for (let i = order.length - 1; i > 0; i--) {
+          const j = Math.floor(mr() * (i + 1));
+          [order[i], order[j]] = [order[j], order[i]];
+        }
+        let advanced = false;
+        for (const di of order) {
+          const [dc, dr] = dirs[di];
+          const ncx = mod(c + dc, nc), nry = mod(r + dr, nr);
+          if (visited[nry * nc + ncx]) continue;
+          // Remove the wall between (c,r) and the neighbour.
+          if (dc === 1) vWall.delete(`${c}:${r}`);
+          else if (dc === -1) vWall.delete(`${ncx}:${r}`);
+          else if (dr === 1) hWall.delete(`${c}:${r}`);
+          else hWall.delete(`${c}:${nry}`);
+          visited[nry * nc + ncx] = 1;
+          stack.push([ncx, nry]);
+          advanced = true;
+          break;
+        }
+        if (!advanced) stack.pop();
+      }
+
+      const color = fill.color || palette[0] || '#2c3340';
+      const thickness = (fill.thickness ?? 0.18) * Math.min(cellW, cellH);
+      const segs = [];
+      const addSeg = (x1, y1, x2, y2) => segs.push([x1, y1, x2, y2]);
+      // Vertical walls (east edges).
+      for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) {
+        if (!vWall.has(`${c}:${r}`)) continue;
+        const x = ox + ((c + 1) * cellW);
+        const y1 = oy + r * cellH, y2 = oy + (r + 1) * cellH;
+        addSeg(x, y1, x, y2);
+        if (c === nc - 1) addSeg(ox, y1, ox, y2); // mirror wrap wall to left edge
+      }
+      // Horizontal walls (south edges).
+      for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) {
+        if (!hWall.has(`${c}:${r}`)) continue;
+        const y = oy + ((r + 1) * cellH);
+        const x1 = ox + c * cellW, x2 = ox + (c + 1) * cellW;
+        addSeg(x1, y, x2, y);
+        if (r === nr - 1) addSeg(x1, oy, x2, oy); // mirror wrap wall to top edge
+      }
+      for (const [x1, y1, x2, y2] of segs) {
+        parent.appendChild(el('line', {
+          x1, y1, x2, y2,
+          stroke: color,
+          'stroke-width': thickness,
+          'stroke-linecap': 'square',
+        }));
+      }
+      break;
+    }
     case 'arc-block': {
       // 2x2 block tile set. Each cell picks one of five types:
       //   blank  | nothing
@@ -1352,7 +1452,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'maze'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
@@ -1366,6 +1466,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'arc-block' };
     } else if (fillKind.value === 'mesh') {
       layer.fill = { kind: 'mesh', mode: 'fixed', color: '#d24a45', jitter: 0.25, strokeWidth: 0.01, stroke: '#ffffff' };
+    } else if (fillKind.value === 'maze') {
+      layer.fill = { kind: 'maze', color: '#2c3340', thickness: 0.18 };
     } else {
       layer.fill = { kind: 'triangles', mode: 'random', strokeWidth: 0.02, stroke: '#ffffff' };
     }
@@ -1467,6 +1569,10 @@ function buildConfigForm(host, layer, onChange) {
     if ((layer.fill.strokeWidth ?? 0) > 0) {
       addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
     }
+  } else if (layer.fill.kind === 'maze') {
+    addColorCtrl('color', layer.fill.color || '#2c3340', (v) => { layer.fill.color = v; onChange(); });
+    const th = addCtrl('thickness (× cell)', 'number', layer.fill.thickness ?? 0.18, { min: 0.02, max: 0.5, step: 0.01 });
+    th.addEventListener('input', () => { layer.fill.thickness = Number(th.value); onChange(); });
   } else if (layer.fill.kind === 'mesh') {
     const jit = addCtrl('point jitter (× cell)', 'number', layer.fill.jitter ?? 0.25, { min: 0, max: 0.49, step: 0.01 });
     jit.addEventListener('input', () => { layer.fill.jitter = Number(jit.value); onChange(); });
