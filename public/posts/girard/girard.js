@@ -362,7 +362,10 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       // diamond.
       const r = dim / 4;
       const off = dim / 4;
-      const centerScale = shape.center ?? 0.5;
+      // Default 1: centre circle radius equals lobe radius, which
+      // exactly inscribes the four tangent points — the diamond gap
+      // between the lobes is fully covered.
+      const centerScale = shape.center ?? 1;
       const g = el('g', {});
       for (const [sx, sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
         g.appendChild(el('circle', {
@@ -1018,7 +1021,7 @@ function buildConfigForm(host, layer, onChange) {
       });
     }
     if (layer.fill.shape?.kind === 'quatrefoil') {
-      const c = addCtrl('center (× lobe)', 'number', layer.fill.shape?.center ?? 0.5, { min: 0, max: 2, step: 0.05 });
+      const c = addCtrl('center (× lobe)', 'number', layer.fill.shape?.center ?? 1, { min: 0, max: 2, step: 0.05 });
       c.addEventListener('input', () => {
         layer.fill.shape = { ...(layer.fill.shape || { kind: 'quatrefoil' }), center: Number(c.value) };
         onChange();
