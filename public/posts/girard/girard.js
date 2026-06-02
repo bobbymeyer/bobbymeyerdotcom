@@ -274,7 +274,7 @@ function el(tag, attrs, children) {
 
 // Shape.size is a fraction (0..1) of the smaller cell dimension.
 // Lets shapes scale with the grid instead of needing absolute pixels.
-function shapeNode(shape, cw, rh, fill) {
+function shapeNode(shape, cw, rh, fill, ctx) {
   const dim = Math.min(cw, rh) * (shape.size ?? 0.6);
   switch (shape.kind) {
     case 'circle':
@@ -291,6 +291,11 @@ function shapeNode(shape, cw, rh, fill) {
       });
     }
     case 'text': {
+      // shape.text can be a string or array. Arrays cycle per cell
+      // using the same formula as the fill colour mode (see ctx).
+      const list = Array.isArray(shape.text) ? shape.text
+                 : (typeof shape.text === 'string' ? [shape.text] : ['BI']);
+      const t = list[(ctx?.textIndex ?? 0) % list.length] ?? list[0];
       const node = el('text', {
         fill,
         'font-family': shape.fontFamily || 'sans-serif',
@@ -300,7 +305,7 @@ function shapeNode(shape, cw, rh, fill) {
         'text-anchor': 'middle',
         'dominant-baseline': 'central',
       });
-      node.textContent = shape.text || 'BI';
+      node.textContent = t;
       return node;
     }
     default:
@@ -464,7 +469,13 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
             ? palette[Math.floor(rng() * palette.length)]
             : (fill.color || palette[0]));
       if (isTransparent(color)) break;
-      const node = shapeNode(shape, iw, ih, color);
+      // Text shapes can cycle through an array; pick the index by
+      // the same formula the colour mode uses, or randomly if
+      // vary.color picks randomly.
+      const textIndex = fill.mode === 'checker' ? mod(ci + ri, 1e9)
+                      : fill.mode === 'palette-cycle' ? mod(ci + ri * cols, 1e9)
+                      : (layer.vary?.color?.type === 'palette' ? Math.floor(rng() * 1e9) : 0);
+      const node = shapeNode(shape, iw, ih, color, { textIndex });
       node.setAttribute(
         'transform',
         `translate(${ix + iw / 2 + jx} ${iy + ih / 2 + jy}) rotate(${rot}) scale(${s})`,
@@ -791,9 +802,18 @@ function buildConfigForm(host, layer, onChange) {
       onChange();
     });
     if (layer.fill.shape?.kind === 'text') {
-      const text = addCtrl('text', 'text', layer.fill.shape?.text ?? 'BI', {});
+      // Comma-separated list. Single item collapses to a string;
+      // multiple items become an array that cycles per cell using
+      // the fill colour mode's index formula.
+      const raw = Array.isArray(layer.fill.shape?.text)
+        ? layer.fill.shape.text.join(', ')
+        : (layer.fill.shape?.text ?? 'BI');
+      const text = addCtrl('text(s)', 'text', raw, {});
+      text.placeholder = 'BI, AA, UA';
       text.addEventListener('input', () => {
-        layer.fill.shape = { ...(layer.fill.shape || { kind: 'text' }), text: text.value };
+        const parts = text.value.split(',').map(s => s.trim()).filter(s => s.length);
+        const value = parts.length <= 1 ? (parts[0] ?? '') : parts;
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'text' }), text: value };
         onChange();
       });
     }
