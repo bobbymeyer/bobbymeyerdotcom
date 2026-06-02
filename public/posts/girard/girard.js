@@ -278,13 +278,10 @@ function shapeNode(shape, cw, rh, fill, ctx) {
   const dim = Math.min(cw, rh) * (shape.size ?? 0.6);
   // Optional stroke. strokeWidth is a fraction of the smaller cell
   // dim so outlines scale with the grid.
-  const stroke = shape.stroke;
   const swFrac = shape.strokeWidth;
-  const sw = (stroke && swFrac != null && swFrac > 0)
-    ? swFrac * Math.min(cw, rh)
-    : 0;
+  const sw = (swFrac != null && swFrac > 0) ? swFrac * Math.min(cw, rh) : 0;
   const strokeAttrs = sw > 0
-    ? { stroke, 'stroke-width': sw, 'stroke-linejoin': 'round' }
+    ? { stroke: shape.stroke || '#000000', 'stroke-width': sw, 'stroke-linejoin': 'round' }
     : {};
 
   switch (shape.kind) {
