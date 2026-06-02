@@ -34,12 +34,6 @@ function makeRng(seed) {
   };
 }
 
-// arc-block cell types. Each cell picks one independently; arc and
-// half are oriented toward the block centre so combinations always
-// stay coherent (4 arcs → circle, 4 halves → diamond, mixes give
-// partial shapes).
-const ARC_BLOCK_TYPES = ['empty', 'arc', 'half', 'full'];
-
 function mod(a, n) { return ((a % n) + n) % n; }
 
 // ---------- Colour helpers ----------
@@ -90,12 +84,12 @@ const SAMPLES = {
     ],
   },
   'Circle sections': {
-    // Cream ground; an arc-block layer where each cell randomly picks
-    // empty / arc / half / full. Arcs and halves orient toward the
-    // 2x2 block centre so four arcs form a circle, four halves form
-    // a diamond, mixes give partial shapes. Palette inverts per
-    // block parity for the red/cream alternation Girard uses.
-    palette: ['#d6433a', '#f3eedd'],
+    // Cream ground; an arc-block layer where every cell renders a
+    // quarter-circle wedge toward its 2x2 block centre. Four cells
+    // combine into a full circle. Per-cell colour is two random
+    // palette picks (wedge + ground) — duplicate red entries skew
+    // toward solid coverage; transparent entries leave gaps.
+    palette: ['#d6433a', 'transparent'],
     layers: [
       {
         grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
@@ -103,8 +97,8 @@ const SAMPLES = {
       },
       {
         grid: { cols: 12, rows: 24, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'arc-block', invert: true, weights: [1, 3, 2, 2] },
-        palette: ['#d6433a', '#f3eedd'],
+        fill: { kind: 'arc-block' },
+        palette: ['#d6433a', '#d6433a', '#d6433a', 'transparent'],
       },
     ],
   },
@@ -918,17 +912,14 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       break;
     }
     case 'arc-block': {
-      // Each cell independently picks a type (empty / arc / half /
-      // full). Arc and half are oriented to point at the block centre
-      // — four arcs combine into a circle, four halves into a
-      // diamond, mixes give partial shapes. Optional palette
-      // inversion alternates fg / bg per 2x2 block.
-      const blockCol = Math.floor(col / 2);
-      const blockRow = Math.floor(row / 2);
+      // Every cell is a quarter-circle wedge oriented toward its 2x2
+      // block centre — four cells in a block always combine into a
+      // full circle. The only per-cell variation is COLOUR: each
+      // cell picks two random palette entries (wedge + ground), and
+      // transparent entries leave the cell empty or half-empty.
       const innerX = mod(col, 2);
       const innerY = mod(row, 2);
       // Inner corner of this cell (the corner facing block centre).
-      // Maps (innerX, innerY) -> drawArcSplit corner index.
       const innerCorner = innerY === 0
         ? (innerX === 0 ? 2 : 3)  // TL→BR, TR→BL
         : (innerX === 0 ? 1 : 0); // BL→TR, BR→TL
@@ -936,35 +927,9 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const salt = layerBounds?.salt ?? 1;
       const cellSeed = (((col * 73856093) ^ (row * 19349663) ^ salt) >>> 0) || 1;
       const cellRng = makeRng(cellSeed);
-      // Optional per-type weights (default uniform). User-supplied
-      // weights are aligned to ARC_BLOCK_TYPES order.
-      const weights = Array.isArray(fill.weights) && fill.weights.length === ARC_BLOCK_TYPES.length
-        ? fill.weights : [1, 1, 1, 1];
-      const total = weights.reduce((a, b) => a + Math.max(0, b), 0) || 1;
-      let pick = cellRng() * total, cellType = 'empty';
-      for (let i = 0; i < ARC_BLOCK_TYPES.length; i++) {
-        pick -= Math.max(0, weights[i]);
-        if (pick <= 0) { cellType = ARC_BLOCK_TYPES[i]; break; }
-      }
-
-      const invert = fill.invert !== false; // default ON
-      const inverted = invert && (mod(blockCol + blockRow, 2) === 1);
-      const c1 = palette[0] ?? '#888';
-      const c2 = palette[1] ?? 'transparent';
-      const fg = inverted ? c2 : c1;
-      const bg = inverted ? c1 : c2;
-
-      if (!isTransparent(bg)) {
-        parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: bg }));
-      }
-      if (cellType === 'empty' || isTransparent(fg)) break;
-      if (cellType === 'full') {
-        parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: fg }));
-      } else if (cellType === 'arc') {
-        drawArcSplit(parent, ix, iy, iw, ih, fg, null, innerCorner);
-      } else if (cellType === 'half') {
-        drawHalfTriangle(parent, ix, iy, iw, ih, fg, innerCorner);
-      }
+      const colorWedge = palette[Math.floor(cellRng() * palette.length)];
+      const colorGround = palette[Math.floor(cellRng() * palette.length)];
+      drawArcSplit(parent, ix, iy, iw, ih, colorWedge, colorGround, innerCorner);
       break;
     }
     case 'arc-split': {
@@ -1327,7 +1292,7 @@ function buildConfigForm(host, layer, onChange) {
     } else if (fillKind.value === 'arc-split') {
       layer.fill = { kind: 'arc-split', mode: 'random' };
     } else if (fillKind.value === 'arc-block') {
-      layer.fill = { kind: 'arc-block', invert: true };
+      layer.fill = { kind: 'arc-block' };
     } else if (fillKind.value === 'mesh') {
       layer.fill = { kind: 'mesh', mode: 'fixed', color: '#d24a45', jitter: 0.25, strokeWidth: 0.01, stroke: '#ffffff' };
     } else {
