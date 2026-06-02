@@ -177,7 +177,8 @@ function loadSample(name, current, clear) {
   const usesPalette = (l) =>
     (l.fill?.kind === 'solid'  && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'checker')) ||
     (l.fill?.kind === 'shape'  && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'checker' || l.vary?.color?.type === 'palette')) ||
-    (l.fill?.kind === 'split');
+    (l.fill?.kind === 'split') ||
+    (l.fill?.kind === 'mesh'   && (l.fill?.mode === 'palette-cycle'));
   if (sample.palette) {
     for (const l of layers) {
       if (usesPalette(l) && !l.palette) l.palette = [...sample.palette];
@@ -532,6 +533,60 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }
       break;
     }
+    case 'mesh': {
+      // Jittered triangle mesh. Each lattice point's jitter is
+      // hashed off (i mod cols, j mod rows) so the right-edge points
+      // share jitter with the left-edge points → tiles seamlessly.
+      const jitterAmt = Math.max(0, Math.min(0.49, fill.jitter ?? 0.25));
+      const ncols = cols, nrows = rows;
+      // Cell rect here is the WHOLE LAYER for mesh — we iterate all
+      // lattice points off the layer canvas, not per-cell. But our
+      // dispatcher calls placeCellRect once per cell, so guard: only
+      // generate the mesh on the (0,0) cell, draw it across the layer
+      // bounds in one pass.
+      if (col !== 0 || row !== 0) break;
+      const lw = layerBounds?.w ?? (cw * ncols);
+      const lh = layerBounds?.h ?? (rh * nrows);
+      const ox = layerBounds?.x ?? 0;
+      const oy = layerBounds?.y ?? 0;
+      const cellW = lw / ncols, cellH = lh / nrows;
+      const pointAt = (i, j) => {
+        // Deterministic per-lattice-point jitter via mulberry32 of a
+        // mixed hash of (ii, jj). Identical jitter on wrap copies.
+        const ii = mod(i, ncols), jj = mod(j, nrows);
+        const seed = ((ii * 73856093) ^ (jj * 19349663) ^ (rng() * 0)) >>> 0; // rng untouched
+        const r = makeRng((ii * 73856093) ^ (jj * 19349663) ^ 0x9E3779B1);
+        const dx = (r() * 2 - 1) * jitterAmt * cellW;
+        const dy = (r() * 2 - 1) * jitterAmt * cellH;
+        return { x: ox + i * cellW + dx, y: oy + j * cellH + dy };
+      };
+      const swFrac = fill.strokeWidth;
+      const sw = (swFrac != null && swFrac > 0) ? swFrac * Math.min(cellW, cellH) : 0;
+      const strokeAttrs = sw > 0
+        ? { stroke: fill.stroke || '#ffffff', 'stroke-width': sw, 'stroke-linejoin': 'round' }
+        : {};
+      const paint = (points, colorIdx) => {
+        const color = fill.mode === 'palette-cycle'
+          ? palette[mod(colorIdx, palette.length)]
+          : (fill.color || palette[0] || '#888');
+        if (isTransparent(color) && !sw) return;
+        parent.appendChild(el('polygon', {
+          points,
+          fill: isTransparent(color) ? 'none' : color,
+          ...strokeAttrs,
+        }));
+      };
+      for (let r = 0; r < nrows; r++) {
+        for (let c = 0; c < ncols; c++) {
+          const p00 = pointAt(c, r),     p10 = pointAt(c + 1, r);
+          const p01 = pointAt(c, r + 1), p11 = pointAt(c + 1, r + 1);
+          // Two triangles split along the / diagonal.
+          paint(`${p00.x},${p00.y} ${p10.x},${p10.y} ${p01.x},${p01.y}`, (c + r * ncols) * 2);
+          paint(`${p10.x},${p10.y} ${p11.x},${p11.y} ${p01.x},${p01.y}`, (c + r * ncols) * 2 + 1);
+        }
+      }
+      break;
+    }
     case 'split': {
       // Diagonal half-cell fill. Two independent palette picks per
       // cell (random or per-cell mode), plus a random rotation in
@@ -816,14 +871,16 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'mesh'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
       layer.fill = { kind: 'shape', shape: layer.fill.shape || { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' };
-    } else {
+    } else if (fillKind.value === 'split') {
       layer.fill = { kind: 'split', mode: 'random' };
+    } else {
+      layer.fill = { kind: 'mesh', mode: 'fixed', color: '#d24a45', jitter: 0.25, strokeWidth: 0.01, stroke: '#ffffff' };
     }
     onChange();
     rebuild();
@@ -850,14 +907,12 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), size: Number(size.value) };
       onChange();
     });
-    // Optional outline on any shape kind.
     const strokeW = addCtrl('stroke (× cell)', 'number', layer.fill.shape?.strokeWidth ?? 0, { min: 0, max: 0.3, step: 0.005 });
     strokeW.addEventListener('input', () => {
       const was = (layer.fill.shape?.strokeWidth ?? 0) > 0;
       const v = Number(strokeW.value);
       layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), strokeWidth: v };
       onChange();
-      // Toggle the stroke colour picker visibility when crossing zero.
       if (was !== (v > 0)) rebuild();
     });
     if ((layer.fill.shape?.strokeWidth ?? 0) > 0) {
@@ -878,16 +933,13 @@ function buildConfigForm(host, layer, onChange) {
         layer.fill.shape = { ...(layer.fill.shape || { kind: 'star' }), depth: Number(depth.value) };
         onChange();
       });
-      const jit = addCtrl('vertex jitter', 'number', layer.fill.shape?.jitter ?? 0, { min: 0, max: 0.5, step: 0.02 });
-      jit.addEventListener('input', () => {
-        layer.fill.shape = { ...(layer.fill.shape || { kind: 'star' }), jitter: Number(jit.value) };
+      const sjit = addCtrl('vertex jitter', 'number', layer.fill.shape?.jitter ?? 0, { min: 0, max: 0.5, step: 0.02 });
+      sjit.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'star' }), jitter: Number(sjit.value) };
         onChange();
       });
     }
     if (layer.fill.shape?.kind === 'text') {
-      // Comma-separated list. Single item collapses to a string;
-      // multiple items become an array that cycles per cell using
-      // the fill colour mode's index formula.
       const raw = Array.isArray(layer.fill.shape?.text)
         ? layer.fill.shape.text.join(', ')
         : (layer.fill.shape?.text ?? 'BI');
@@ -905,6 +957,28 @@ function buildConfigForm(host, layer, onChange) {
     if ((layer.fill.mode || 'palette-cycle') === 'fixed') {
       const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
       c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
+    }
+  } else if (layer.fill.kind === 'mesh') {
+    const jit = addCtrl('point jitter (× cell)', 'number', layer.fill.jitter ?? 0.25, { min: 0, max: 0.49, step: 0.01 });
+    jit.addEventListener('input', () => { layer.fill.jitter = Number(jit.value); onChange(); });
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle'] });
+    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
+    if ((layer.fill.mode || 'fixed') === 'fixed') {
+      const c = addCtrl('color', 'color', layer.fill.color || '#d24a45');
+      c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
+    }
+    const sw = addCtrl('stroke (× cell)', 'number', layer.fill.strokeWidth ?? 0, { min: 0, max: 0.1, step: 0.002 });
+    sw.addEventListener('input', () => {
+      const was = (layer.fill.strokeWidth ?? 0) > 0;
+      const v = Number(sw.value);
+      layer.fill.strokeWidth = v;
+      if (v > 0 && !layer.fill.stroke) layer.fill.stroke = '#ffffff';
+      onChange();
+      if (was !== (v > 0)) rebuild();
+    });
+    if ((layer.fill.strokeWidth ?? 0) > 0) {
+      const sc = addCtrl('stroke color', 'color', layer.fill.stroke ?? '#ffffff');
+      sc.addEventListener('input', () => { layer.fill.stroke = sc.value; onChange(); });
     }
   }
 
