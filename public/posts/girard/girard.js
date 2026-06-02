@@ -290,6 +290,19 @@ function shapeNode(shape, cw, rh, fill) {
         fill,
       });
     }
+    case 'text': {
+      const node = el('text', {
+        fill,
+        'font-family': shape.fontFamily || 'sans-serif',
+        'font-weight': shape.fontWeight || 'bold',
+        'font-style': shape.fontStyle || 'italic',
+        'font-size': dim,
+        'text-anchor': 'middle',
+        'dominant-baseline': 'central',
+      });
+      node.textContent = shape.text || 'BI';
+      return node;
+    }
     default:
       return el('g', {});
   }
@@ -765,17 +778,25 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle'],
+      options: ['circle', 'square', 'triangle', 'text'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
       onChange();
+      rebuild();
     });
     const size = addCtrl('size (× cell)', 'number', layer.fill.shape?.size ?? 0.6, { min: 0.05, max: 1.5, step: 0.05 });
     size.addEventListener('input', () => {
       layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), size: Number(size.value) };
       onChange();
     });
+    if (layer.fill.shape?.kind === 'text') {
+      const text = addCtrl('text', 'text', layer.fill.shape?.text ?? 'BI', {});
+      text.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'text' }), text: text.value };
+        onChange();
+      });
+    }
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['fixed', 'palette-cycle', 'checker'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'palette-cycle') === 'fixed') {
