@@ -64,22 +64,32 @@ const SAMPLES = {
     ],
   },
   'Geometric cross': {
-    // Blue ground; a single 1x1 white cell with gutter leaves blue
-    // borders that meet at tile seams to form the cross; a 2x2 grid
-    // of red squares sits in each quadrant.
+    // White ground; a horizontal and a vertical bar pass through
+    // the tile centre (no edge gutter, so adjacent tiles meet
+    // white-to-white); a 2x2 grid of red squares fills the four
+    // quadrants.
     palette: ['#f3efe1', '#5b85be', '#e23827'],
     layers: [
       {
         grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', color: '#5b85be', mode: 'fixed' },
-      },
-      {
-        grid: { cols: 1, rows: 1, gutter: 0.08, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         fill: { kind: 'solid', color: '#f3efe1', mode: 'fixed' },
       },
       {
+        // Horizontal bar: 1x3 rows, palette cycles white/blue/white
+        // and the middle row is weighted thin.
+        grid: { cols: 1, rows: 3, rowWeights: [9, 2, 9], offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['#f3efe1', '#5b85be', '#f3efe1'],
+      },
+      {
+        // Vertical bar: 3x1 cols, mirror of the above.
+        grid: { cols: 3, rows: 1, colWeights: [9, 2, 9], offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['#f3efe1', '#5b85be', '#f3efe1'],
+      },
+      {
         grid: { cols: 2, rows: 2, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'shape', shape: { kind: 'square', size: 0.3 }, color: '#e23827', mode: 'fixed' },
+        fill: { kind: 'shape', shape: { kind: 'square', size: 0.35 }, color: '#e23827', mode: 'fixed' },
       },
     ],
   },
