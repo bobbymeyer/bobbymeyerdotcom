@@ -90,6 +90,32 @@ const SAMPLES = {
       },
     ],
   },
+  'Triangle': {
+    // Cream ground; an equilateral triangle tessellation with a 14-col
+    // 16-strip grid (close to square aspect). Palette is heavy on
+    // 'transparent' so most triangles drop out as cream — leaving
+    // scattered colour, like the 1952 print.
+    palette: ['#e85a3a', '#cc2d4f', '#a8327a', '#f6efe1'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f6efe1', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 14, rows: 16, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'triangles',
+          mode: 'random',
+          strokeWidth: 0.025,
+          stroke: '#f6efe1',
+        },
+        palette: [
+          '#e85a3a', '#cc2d4f', '#a8327a',
+          'transparent', 'transparent', 'transparent', 'transparent',
+        ],
+      },
+    ],
+  },
   'Triangular lattice': {
     // Cream ground; one mesh layer fills the tile with a jittered
     // triangle field. Palette cycles two colours per cell (one per
@@ -229,7 +255,8 @@ function loadSample(name, current, clear) {
     return (l.fill?.kind === 'solid' && paletteModes.includes(l.fill?.mode))
         || (l.fill?.kind === 'shape' && (paletteModes.includes(l.fill?.mode) || l.vary?.color?.type === 'palette'))
         || (l.fill?.kind === 'split')
-        || (l.fill?.kind === 'mesh' && l.fill?.mode === 'palette-cycle');
+        || (l.fill?.kind === 'mesh' && l.fill?.mode === 'palette-cycle')
+        || (l.fill?.kind === 'triangles' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'));
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -617,6 +644,89 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }
       break;
     }
+    case 'triangles': {
+      // Equilateral-ish triangle tessellation across the layer canvas.
+      // cols controls up-triangles per strip; rows is rounded to an
+      // even strip count so the offset alternation completes a period.
+      // Colour by rhombus identity — the up at strip r, col c and the
+      // down at strip r+1, col c' (where c' depends on parity) share a
+      // base edge; both pull from the same hash so vertical seams match
+      // across tiles.
+      if (col !== 0 || row !== 0) break;
+      const tcols = cols;
+      const strips = Math.max(2, rows - (rows % 2));
+      const lw = layerBounds?.w ?? cw * cols;
+      const lh = layerBounds?.h ?? rh * rows;
+      const ox = layerBounds?.x ?? 0;
+      const oy = layerBounds?.y ?? 0;
+      const s = lw / tcols;
+      const h = lh / strips;
+
+      const swFrac = fill.strokeWidth;
+      const sw = (swFrac != null && swFrac > 0) ? swFrac * Math.min(s, h) : 0;
+      const strokeAttrs = sw > 0
+        ? { stroke: fill.stroke || '#ffffff', 'stroke-width': sw, 'stroke-linejoin': 'round' }
+        : {};
+
+      const triSalt = ((rng() * 0xffffffff) >>> 0) | 1;
+      const rhombusHash = (r, c) => mod(r, strips) * tcols + mod(c, tcols);
+      const colorAt = (r, c, type) => {
+        let hashR = r, hashC = c;
+        if (type === 'down') {
+          const prevR = r - 1;
+          const prevEven = mod(prevR, 2) === 0;
+          hashR = prevR;
+          hashC = prevEven ? c + 1 : c;
+        }
+        if (fill.mode === 'fixed') return fill.color || palette[0] || '#888';
+        const hashVal = rhombusHash(hashR, hashC);
+        if (fill.mode === 'palette-cycle') return palette[mod(hashVal, palette.length)];
+        // random: deterministic per-rhombus PRNG so the seam-sharing
+        // up and down triangles compute the same colour.
+        const seed = ((hashVal * 0x9E3779B1) ^ triSalt) >>> 0;
+        return palette[Math.floor(makeRng(seed || 1)() * palette.length)];
+      };
+
+      const drawTri = (points, color) => {
+        if (isTransparent(color) && !sw) return;
+        parent.appendChild(el('polygon', {
+          points,
+          fill: isTransparent(color) ? 'none' : color,
+          ...strokeAttrs,
+        }));
+      };
+
+      for (let r = 0; r < strips; r++) {
+        const y0 = oy + r * h;
+        const y1 = y0 + h;
+        const odd = r % 2 === 1;
+        const off = odd ? s / 2 : 0;
+        // Up triangles: tcols for odd strips, tcols+1 for even strips
+        // — the c=tcols copy shares colour with c=0 via mod, supplying
+        // the horizontal wrap.
+        const upCount = odd ? tcols : tcols + 1;
+        for (let c = 0; c < upCount; c++) {
+          const cx = ox + c * s + off;
+          drawTri(`${cx - s/2},${y1} ${cx + s/2},${y1} ${cx},${y0}`, colorAt(r, c, 'up'));
+        }
+        if (odd) {
+          for (let c = 0; c < tcols - 1; c++) {
+            const xL = ox + c * s + s/2;
+            drawTri(`${xL},${y0} ${xL + s},${y0} ${xL + s/2},${y1}`, colorAt(r, c, 'down'));
+          }
+          const wrapColor = colorAt(r, tcols - 1, 'down');
+          for (const xL of [ox + (tcols - 1) * s + s/2, ox - s/2]) {
+            drawTri(`${xL},${y0} ${xL + s},${y0} ${xL + s/2},${y1}`, wrapColor);
+          }
+        } else {
+          for (let c = 0; c < tcols; c++) {
+            const xL = ox + c * s;
+            drawTri(`${xL},${y0} ${xL + s},${y0} ${xL + s/2},${y1}`, colorAt(r, c, 'down'));
+          }
+        }
+      }
+      break;
+    }
     case 'mesh': {
       // Jittered triangle mesh. Each lattice point's jitter is
       // hashed off (i mod cols, j mod rows) so the right-edge points
@@ -969,7 +1079,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'mesh'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'mesh', 'triangles'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
@@ -977,8 +1087,10 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'shape', shape: layer.fill.shape || { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' };
     } else if (fillKind.value === 'split') {
       layer.fill = { kind: 'split', mode: 'random' };
-    } else {
+    } else if (fillKind.value === 'mesh') {
       layer.fill = { kind: 'mesh', mode: 'fixed', color: '#d24a45', jitter: 0.25, strokeWidth: 0.01, stroke: '#ffffff' };
+    } else {
+      layer.fill = { kind: 'triangles', mode: 'random', strokeWidth: 0.02, stroke: '#ffffff' };
     }
     onChange();
     rebuild();
@@ -1062,6 +1174,26 @@ function buildConfigForm(host, layer, onChange) {
     if ((layer.fill.mode || 'palette-cycle') === 'fixed') {
       const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
       c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
+    }
+  } else if (layer.fill.kind === 'triangles') {
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'random', { options: ['fixed', 'palette-cycle', 'random'] });
+    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
+    if ((layer.fill.mode || 'random') === 'fixed') {
+      const c = addCtrl('color', 'color', layer.fill.color || '#d24a45');
+      c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
+    }
+    const sw = addCtrl('stroke (× cell)', 'number', layer.fill.strokeWidth ?? 0, { min: 0, max: 0.15, step: 0.005 });
+    sw.addEventListener('input', () => {
+      const was = (layer.fill.strokeWidth ?? 0) > 0;
+      const v = Number(sw.value);
+      layer.fill.strokeWidth = v;
+      if (v > 0 && !layer.fill.stroke) layer.fill.stroke = '#ffffff';
+      onChange();
+      if (was !== (v > 0)) rebuild();
+    });
+    if ((layer.fill.strokeWidth ?? 0) > 0) {
+      const sc = addCtrl('stroke color', 'color', layer.fill.stroke ?? '#ffffff');
+      sc.addEventListener('input', () => { layer.fill.stroke = sc.value; onChange(); });
     }
   } else if (layer.fill.kind === 'mesh') {
     const jit = addCtrl('point jitter (× cell)', 'number', layer.fill.jitter ?? 0.25, { min: 0, max: 0.49, step: 0.01 });
