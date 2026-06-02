@@ -63,6 +63,27 @@ const SAMPLES = {
         fill: { kind: 'shape', shape: { kind: 'circle', size: 0.5 }, mode: 'palette-cycle' } },
     ],
   },
+  'Checker split': {
+    // Off-white ground; a 22x22 split-fill grid picks two random
+    // palette entries per cell with one of four 90° rotations. With
+    // 'transparent' in the palette some halves (or whole cells) read
+    // as empty, and duplicate solid entries mean some cells land
+    // wholly filled.
+    palette: ['#1c1c2c', '#e0dfd5'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f3f0e6', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 22, rows: 22, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'split', mode: 'random' },
+        // Weighting: dark + light twice each, transparent once. Tunes
+        // the share of empty vs half-filled vs full cells.
+        palette: ['#1c1c2c', '#1c1c2c', '#e0dfd5', '#e0dfd5', 'transparent'],
+      },
+    ],
+  },
   'Checker': {
     // Two-colour checker via the diagonal-index colour mode.
     palette: ['#d4c89c', '#4f3d20'],
@@ -155,7 +176,8 @@ function loadSample(name, current, clear) {
   // pulling colours from pattern.palette.
   const usesPalette = (l) =>
     (l.fill?.kind === 'solid'  && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'checker')) ||
-    (l.fill?.kind === 'shape'  && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'checker' || l.vary?.color?.type === 'palette'));
+    (l.fill?.kind === 'shape'  && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'checker' || l.vary?.color?.type === 'palette')) ||
+    (l.fill?.kind === 'split');
   if (sample.palette) {
     for (const l of layers) {
       if (usesPalette(l) && !l.palette) l.palette = [...sample.palette];
@@ -343,6 +365,32 @@ function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
   }
 }
 
+// Draws one cell as two triangles sharing a diagonal. dir ∈ [0..3]
+// picks which diagonal and which side is colour A:
+//   0:  \ , A = upper-right
+//   1:  / , A = upper-left
+//   2:  \ , A = lower-left
+//   3:  / , A = lower-right
+function drawSplit(parent, x, y, w, h, colorA, colorB, dir) {
+  const tl = `${x},${y}`;
+  const tr = `${x + w},${y}`;
+  const br = `${x + w},${y + h}`;
+  const bl = `${x},${y + h}`;
+  const variants = [
+    { pA: `${tl} ${tr} ${br}`, pB: `${tl} ${br} ${bl}` },
+    { pA: `${tl} ${tr} ${bl}`, pB: `${tr} ${br} ${bl}` },
+    { pA: `${tl} ${br} ${bl}`, pB: `${tl} ${tr} ${br}` },
+    { pA: `${tr} ${br} ${bl}`, pB: `${tl} ${tr} ${bl}` },
+  ];
+  const { pA, pB } = variants[((dir % 4) + 4) % 4];
+  const drawTri = (points, color) => {
+    if (color == null || color === 'transparent' || color === 'none') return;
+    parent.appendChild(el('polygon', { points, fill: color }));
+  };
+  drawTri(pA, colorA);
+  drawTri(pB, colorB);
+}
+
 function normWeights(weights, total) {
   const sum = weights.reduce((a, b) => a + Math.max(0, b), 0) || 1;
   return weights.map(w => (Math.max(0, w) / sum) * total);
@@ -409,6 +457,18 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         `translate(${ix + iw / 2 + jx} ${iy + ih / 2 + jy}) rotate(${rot}) scale(${s})`,
       );
       parent.appendChild(node);
+      break;
+    }
+    case 'split': {
+      // Diagonal half-cell fill. Two independent palette picks per
+      // cell (random or per-cell mode), plus a random rotation in
+      // four 90° steps. Transparent palette entries make some halves
+      // — or whole cells — read as empty.
+      const pickRandom = () => palette[Math.floor(rng() * palette.length)];
+      const colorA = pickRandom();
+      const colorB = pickRandom();
+      const dir = Math.floor(rng() * 4);
+      drawSplit(parent, ix, iy, iw, ih, colorA, colorB, dir);
       break;
     }
     case 'layer': {
@@ -683,12 +743,14 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
-    } else {
+    } else if (fillKind.value === 'shape') {
       layer.fill = { kind: 'shape', shape: layer.fill.shape || { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' };
+    } else {
+      layer.fill = { kind: 'split', mode: 'random' };
     }
     onChange();
     rebuild();
