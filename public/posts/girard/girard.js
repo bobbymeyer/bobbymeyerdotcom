@@ -354,20 +354,25 @@ function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
   const yStarts = [0];
   for (let j = 0; j < nRows; j++) yStarts.push(yStarts[j] + heights[j]);
 
+  // Layer-canvas bounds for shape wrap. A shape whose bounding box
+  // crosses the layer edge is also painted at the opposite edge by
+  // placeCellRect, so the layer reads continuously across its bounds.
+  const layerBounds = { x, y, w, h };
+
   for (let row = 0; row < nRows; row++) {
     for (let col = 0; col < nCols; col++) {
       placeCellRect(group, layer,
         x + xStarts[col] + (offsetMode === 'alternate-row' && row % 2 === 1 ? offset.x * widths[col] : 0),
         y + yStarts[row] + (offsetMode === 'alternate-col' && col % 2 === 1 ? offset.y * heights[row] : 0),
         widths[col], heights[row],
-        col, row, nCols, nRows, rng, palette);
+        col, row, nCols, nRows, rng, palette, layerBounds);
     }
     if (offsetMode === 'alternate-row' && row % 2 === 1 && offset.x !== 0) {
       const lastCol = nCols - 1;
       const cw = widths[lastCol], rh = heights[row];
       placeCellRect(group, layer,
         x - cw + offset.x * cw, y + yStarts[row], cw, rh,
-        lastCol, row, nCols, nRows, rng, palette);
+        lastCol, row, nCols, nRows, rng, palette, layerBounds);
     }
   }
   if (offsetMode === 'alternate-col') {
@@ -377,7 +382,7 @@ function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
         const cw = widths[col], rh = heights[lastRow];
         placeCellRect(group, layer,
           x + xStarts[col], y - rh + offset.y * rh, cw, rh,
-          col, lastRow, nCols, nRows, rng, palette);
+          col, lastRow, nCols, nRows, rng, palette, layerBounds);
       }
     }
   }
@@ -414,7 +419,7 @@ function normWeights(weights, total) {
   return weights.map(w => (Math.max(0, w) / sum) * total);
 }
 
-function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng, palette) {
+function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng, palette, layerBounds) {
   const { gutter, gutterX, gutterY } = layer.grid;
   const gX = gutterX ?? gutter ?? 0;
   const gY = gutterY ?? gutter ?? 0;
@@ -475,12 +480,24 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const textIndex = fill.mode === 'checker' ? mod(ci + ri, 1e9)
                       : fill.mode === 'palette-cycle' ? mod(ci + ri * cols, 1e9)
                       : (layer.vary?.color?.type === 'palette' ? Math.floor(rng() * 1e9) : 0);
-      const node = shapeNode(shape, iw, ih, color, { textIndex });
-      node.setAttribute(
-        'transform',
-        `translate(${ix + iw / 2 + jx} ${iy + ih / 2 + jy}) rotate(${rot}) scale(${s})`,
-      );
-      parent.appendChild(node);
+      // Paint the shape at the cell centre AND at the 8 layer-canvas
+      // wraps. Anything that would spill past the layer edge appears
+      // on the opposite edge — keeps shapes whose size or jitter
+      // exceeds the cell tiling seamlessly.
+      const lw = layerBounds?.w, lh = layerBounds?.h;
+      const baseX = ix + iw / 2 + jx;
+      const baseY = iy + ih / 2 + jy;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!lw || !lh) { if (dx || dy) continue; }
+          const node = shapeNode(shape, iw, ih, color, { textIndex });
+          node.setAttribute(
+            'transform',
+            `translate(${baseX + dx * (lw || 0)} ${baseY + dy * (lh || 0)}) rotate(${rot}) scale(${s})`,
+          );
+          parent.appendChild(node);
+        }
+      }
       break;
     }
     case 'split': {
