@@ -34,20 +34,6 @@ function makeRng(seed) {
   };
 }
 
-// Allowed 2x2 block configurations for arc-block fills. Each entry
-// is [TL, TR, BL, BR] specifying the arc corner for each cell within
-// the block (using the drawArcSplit corner index: 0=TL, 1=TR, 2=BR,
-// 3=BL). Designed so curves stay continuous inside the block —
-// circles, semicircles, and corner wedges, never broken arcs.
-const ARC_BLOCK_CONFIGS = [
-  [2, 3, 1, 0], // circle in centre (all inner corners)
-  [0, 1, 3, 2], // corner wedges (all outer corners) → concave diamond hole
-  [1, 0, 2, 3], // top + bottom semicircles
-  [3, 2, 0, 1], // left + right semicircles
-  null,         // solid (all wedge)
-  null,         // empty (all ground)
-];
-
 function mod(a, n) { return ((a % n) + n) % n; }
 
 // ---------- Colour helpers ----------
@@ -98,11 +84,11 @@ const SAMPLES = {
     ],
   },
   'Circle sections': {
-    // Cream ground; an 8x16 arc-block grid. 2x2 blocks pick from a
-    // set of coherent configurations (full circle / corner wedges /
-    // two semicircles / solid / empty), with palette inverting on
-    // adjacent blocks. Curves stay continuous within each block.
-    palette: ['#d6433a', '#f3eedd'],
+    // Cream ground; an 8x16 arc-split grid where each cell paints a
+    // quarter-circle wedge over a ground rect. Palette mostly red
+    // with a transparent entry — random pairings produce a mix of
+    // fully red, half-arc, and empty cells, like Girard's 1971 panel.
+    palette: ['#d6433a', 'transparent'],
     layers: [
       {
         grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
@@ -110,8 +96,8 @@ const SAMPLES = {
       },
       {
         grid: { cols: 8, rows: 16, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'arc-block' },
-        palette: ['#d6433a', '#f3eedd'],
+        fill: { kind: 'arc-split', mode: 'random' },
+        palette: ['#d6433a', '#d6433a', 'transparent', 'transparent'],
       },
     ],
   },
@@ -345,7 +331,6 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'shape' && (paletteModes.includes(l.fill?.mode) || l.vary?.color?.type === 'palette'))
         || (l.fill?.kind === 'split')
         || (l.fill?.kind === 'arc-split')
-        || (l.fill?.kind === 'arc-block')
         || (l.fill?.kind === 'mesh' && l.fill?.mode === 'palette-cycle')
         || (l.fill?.kind === 'triangles' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'));
   };
@@ -588,7 +573,7 @@ function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
   // Layer-canvas bounds for shape wrap. A shape whose bounding box
   // crosses the layer edge is also painted at the opposite edge by
   // placeCellRect, so the layer reads continuously across its bounds.
-  const layerBounds = { x, y, w, h, salt: (rngSeed >>> 0) | 1 };
+  const layerBounds = { x, y, w, h };
 
   for (let row = 0; row < nRows; row++) {
     for (let col = 0; col < nCols; col++) {
@@ -902,43 +887,6 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
           // Two triangles split along the / diagonal.
           paint(p00, p10, p01, (c + r * ncols) * 2);
           paint(p10, p11, p01, (c + r * ncols) * 2 + 1);
-        }
-      }
-      break;
-    }
-    case 'arc-block': {
-      // 2x2 block configurations chosen deterministically per-block
-      // so the four cells' arcs always combine into a coherent shape
-      // (circle, semicircle pair, corner wedges, etc.). Palette
-      // inverts on adjacent blocks via (blockCol + blockRow) parity
-      // for the checker-of-inverted-colours effect.
-      const blockCol = Math.floor(col / 2);
-      const blockRow = Math.floor(row / 2);
-      const inner = (mod(row, 2)) * 2 + mod(col, 2); // 0=TL, 1=TR, 2=BL, 3=BR
-      const salt = layerBounds?.salt ?? 1;
-      const blockSeed = (((blockCol * 73856093) ^ (blockRow * 19349663) ^ salt) >>> 0) || 1;
-      const blockRng = makeRng(blockSeed);
-      const cfgIdx = Math.floor(blockRng() * ARC_BLOCK_CONFIGS.length);
-      const cfg = ARC_BLOCK_CONFIGS[cfgIdx];
-
-      const inverted = mod(blockCol + blockRow, 2) === 1;
-      const c1 = palette[0] ?? '#888';
-      const c2 = palette[1] ?? 'transparent';
-      const wedge = inverted ? c2 : c1;
-      const ground = inverted ? c1 : c2;
-
-      if (cfg) {
-        const corner = cfg[inner];
-        drawArcSplit(parent, ix, iy, iw, ih, wedge, ground, corner);
-      } else if (cfgIdx === 4) {
-        // Solid block: all cells = wedge
-        if (!isTransparent(wedge)) {
-          parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: wedge }));
-        }
-      } else {
-        // Empty block: all cells = ground
-        if (!isTransparent(ground)) {
-          parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: ground }));
         }
       }
       break;
@@ -1292,7 +1240,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'mesh', 'triangles'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
@@ -1302,8 +1250,6 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'split', mode: 'random' };
     } else if (fillKind.value === 'arc-split') {
       layer.fill = { kind: 'arc-split', mode: 'random' };
-    } else if (fillKind.value === 'arc-block') {
-      layer.fill = { kind: 'arc-block' };
     } else if (fillKind.value === 'mesh') {
       layer.fill = { kind: 'mesh', mode: 'fixed', color: '#d24a45', jitter: 0.25, strokeWidth: 0.01, stroke: '#ffffff' };
     } else {
