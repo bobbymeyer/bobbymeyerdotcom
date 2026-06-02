@@ -63,6 +63,17 @@ const SAMPLES = {
         fill: { kind: 'shape', shape: { kind: 'circle', size: 0.5 }, mode: 'palette-cycle' } },
     ],
   },
+  'Checker': {
+    // Two-colour checker, palette cycles by (col + row) % 2.
+    palette: ['#d4c89c', '#4f3d20'],
+    layers: [
+      {
+        grid: { cols: 12, rows: 12, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['#d4c89c', '#4f3d20'],
+      },
+    ],
+  },
   'Brick': {
     // Tan ground; a 5x12 brick grid with alternate-row x-offset of
     // 0.5 and asymmetric gutters lets the tan show through as
