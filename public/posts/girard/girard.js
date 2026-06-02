@@ -231,7 +231,7 @@ function makeLayer(spec) {
         fill: { kind: 'shape', shape: { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' },
         vary: {
           scale:  { type: 'random', min: 0.5, max: 1.2 },
-          rotate: { type: 'random', min: 0, max: 360 },
+          rotate: { type: 'random', min: -180, max: 180 },
           jitter: { type: 'random', min: -0.2, max: 0.2 },
         },
       };
@@ -849,7 +849,7 @@ function buildConfigForm(host, layer, onChange) {
     if (varyOn.value === 'on') {
       layer.vary = layer.vary || {
         scale:  { type: 'random', min: 0.5, max: 1.2 },
-        rotate: { type: 'random', min: 0, max: 360 },
+        rotate: { type: 'random', min: -180, max: 180 },
         jitter: { type: 'random', min: -0.2, max: 0.2 },
       };
     } else {
@@ -864,9 +864,10 @@ function buildConfigForm(host, layer, onChange) {
       layer.vary.scale = { type: 'random', min: layer.vary.scale?.min ?? 0.5, max: Number(sMax.value) };
       onChange();
     });
-    const rMax = addCtrl('rotate max°', 'number', layer.vary.rotate?.max ?? 360, { min: 0, max: 360, step: 5 });
+    const rMax = addCtrl('rotate ±°', 'number', layer.vary.rotate?.max ?? 180, { min: 0, max: 360, step: 5 });
     rMax.addEventListener('input', () => {
-      layer.vary.rotate = { type: 'random', min: 0, max: Number(rMax.value) };
+      const v = Number(rMax.value);
+      layer.vary.rotate = { type: 'random', min: -v, max: v };
       onChange();
     });
     const jit = addCtrl('jitter (× cell)', 'number', layer.vary.jitter?.max ?? 0.2, { min: 0, max: 0.5, step: 0.02 });
