@@ -64,12 +64,12 @@ const SAMPLES = {
     ],
   },
   'Checker': {
-    // Two-colour checker, palette cycles by (col + row) % 2.
+    // Two-colour checker via the diagonal-index colour mode.
     palette: ['#d4c89c', '#4f3d20'],
     layers: [
       {
         grid: { cols: 12, rows: 12, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', mode: 'palette-cycle' },
+        fill: { kind: 'solid', mode: 'checker' },
         palette: ['#d4c89c', '#4f3d20'],
       },
     ],
@@ -154,8 +154,8 @@ function loadSample(name, current, clear) {
   // palette editor would appear empty even though the renderer is
   // pulling colours from pattern.palette.
   const usesPalette = (l) =>
-    (l.fill?.kind === 'solid'  && l.fill?.mode === 'palette-cycle') ||
-    (l.fill?.kind === 'shape'  && (l.fill?.mode === 'palette-cycle' || l.vary?.color?.type === 'palette'));
+    (l.fill?.kind === 'solid'  && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'checker')) ||
+    (l.fill?.kind === 'shape'  && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'checker' || l.vary?.color?.type === 'palette'));
   if (sample.palette) {
     for (const l of layers) {
       if (usesPalette(l) && !l.palette) l.palette = [...sample.palette];
@@ -368,10 +368,19 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
   // of a 3x3 grid where the four corners are empty).
   const isTransparent = (c) => c == null || c === 'transparent' || c === 'none';
 
+  // Index helpers per colour mode.
+  //   palette-cycle: col + row * cols — unique index per cell. Use
+  //     when you want to address specific cells in the palette.
+  //   checker:       col + row        — diagonal cycling. Two colours
+  //     make a classic checker; 3+ make diagonal bands.
+  const paletteIndex = (mode) =>
+    mode === 'checker' ? mod(ci + ri, palette.length)
+                       : mod(ci + ri * cols, palette.length);
+
   switch (fill.kind) {
     case 'solid': {
-      const color = fill.mode === 'palette-cycle'
-        ? palette[mod(ci + ri * cols, palette.length)]
+      const color = (fill.mode === 'palette-cycle' || fill.mode === 'checker')
+        ? palette[paletteIndex(fill.mode)]
         : (fill.color || '#888');
       if (isTransparent(color)) break;
       parent.appendChild(el('rect', {
@@ -388,8 +397,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         jx = evalMod(layer.vary.jitter, rng, col, row, 0) * iw;
         jy = evalMod(layer.vary.jitter, rng, col, row, 0) * ih;
       }
-      const color = fill.mode === 'palette-cycle'
-        ? palette[mod(ci + ri * cols, palette.length)]
+      const color = (fill.mode === 'palette-cycle' || fill.mode === 'checker')
+        ? palette[paletteIndex(fill.mode)]
         : (layer.vary?.color?.type === 'palette'
             ? palette[Math.floor(rng() * palette.length)]
             : (fill.color || palette[0]));
@@ -556,7 +565,9 @@ function buildConfigForm(host, layer, onChange) {
   op.addEventListener('input',  () => { layer.opacity = Number(op.value); onChange(); });
 
   // --- Palette (skipped for fixed-color solid) ---
-  const isFixedSolid = layer.fill.kind === 'solid' && layer.fill.mode !== 'palette-cycle';
+  const isFixedSolid = layer.fill.kind === 'solid'
+    && layer.fill.mode !== 'palette-cycle'
+    && layer.fill.mode !== 'checker';
   if (!isFixedSolid) {
     addHeader('palette');
     const wrap = document.createElement('div');
@@ -681,7 +692,7 @@ function buildConfigForm(host, layer, onChange) {
   });
 
   if (layer.fill.kind === 'solid') {
-    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle'] });
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'fixed') === 'fixed') {
       const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
@@ -700,7 +711,7 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), size: Number(size.value) };
       onChange();
     });
-    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['fixed', 'palette-cycle'] });
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['fixed', 'palette-cycle', 'checker'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'palette-cycle') === 'fixed') {
       const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
