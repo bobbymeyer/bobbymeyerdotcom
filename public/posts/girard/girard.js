@@ -111,7 +111,8 @@ const SAMPLES = {
       },
       {
         grid: { cols: 2, rows: 2, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'shape', shape: { kind: 'square', size: 0.35 }, color: '#e23827', mode: 'fixed' },
+        fill: { kind: 'shape', shape: { kind: 'square', size: 0.35 }, mode: 'palette-cycle' },
+        palette: ['#e23827'],
       },
     ],
   },
@@ -688,6 +689,12 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), size: Number(size.value) };
       onChange();
     });
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['fixed', 'palette-cycle'] });
+    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
+    if ((layer.fill.mode || 'palette-cycle') === 'fixed') {
+      const c = addCtrl('color', 'color', layer.fill.color || '#8a8a8a');
+      c.addEventListener('input', () => { layer.fill.color = c.value; onChange(); });
+    }
   }
 
   // --- Vary (per-cell randomization) ---
