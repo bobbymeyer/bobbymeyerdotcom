@@ -1029,12 +1029,25 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         addSeg(x1, y, x2, y);
         if (r === nr - 1) addSeg(x1, oy, x2, oy); // mirror wrap wall to top edge
       }
+      // Butt caps + a filled square stamped at every wall endpoint
+      // (junction vertex) — square caps leave chipped corners at L
+      // bends, the stamps fill them flush.
+      const junctions = new Set();
       for (const [x1, y1, x2, y2] of segs) {
         parent.appendChild(el('line', {
           x1, y1, x2, y2,
           stroke: color,
           'stroke-width': thickness,
-          'stroke-linecap': 'square',
+          'stroke-linecap': 'butt',
+        }));
+        junctions.add(`${x1}:${y1}`);
+        junctions.add(`${x2}:${y2}`);
+      }
+      for (const key of junctions) {
+        const [jx, jy] = key.split(':').map(Number);
+        parent.appendChild(el('rect', {
+          x: jx - thickness / 2, y: jy - thickness / 2,
+          width: thickness, height: thickness, fill: color,
         }));
       }
       break;
