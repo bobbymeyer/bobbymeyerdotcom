@@ -95,6 +95,7 @@ const SAMPLES = {
           offset: { x: 0, y: 0 }, offsetMode: 'none',
         },
         fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['#1a1c2c', '#e8d36a', '#c2c4ce', '#e8a4c2', '#7e8fbe', '#f3efe1'],
       },
     ],
   },
@@ -104,6 +105,18 @@ function loadSample(name, current, clear) {
   const sample = SAMPLES[name];
   if (!sample) return current;
   const layers = JSON.parse(JSON.stringify(sample.layers));
+  // Surface the sample's palette on each layer that uses palette
+  // cycling but doesn't carry its own; otherwise the per-layer
+  // palette editor would appear empty even though the renderer is
+  // pulling colours from pattern.palette.
+  const usesPalette = (l) =>
+    (l.fill?.kind === 'solid'  && l.fill?.mode === 'palette-cycle') ||
+    (l.fill?.kind === 'shape'  && (l.fill?.mode === 'palette-cycle' || l.vary?.color?.type === 'palette'));
+  if (sample.palette) {
+    for (const l of layers) {
+      if (usesPalette(l) && !l.palette) l.palette = [...sample.palette];
+    }
+  }
   if (clear) {
     return {
       ...defaultPattern(),
