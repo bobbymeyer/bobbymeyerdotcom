@@ -573,12 +573,16 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const ox = layerBounds?.x ?? 0;
       const oy = layerBounds?.y ?? 0;
       const cellW = lw / ncols, cellH = lh / nrows;
+      // Draw a per-layer salt off the layer's RNG so the same layer
+      // re-rolls when the pattern seed changes, while the per-point
+      // hash stays deterministic within one render.
+      const meshSalt = ((rng() * 0xffffffff) >>> 0) | 1;
       const pointAt = (i, j) => {
         // Deterministic per-lattice-point jitter via mulberry32 of a
-        // mixed hash of (ii, jj). Identical jitter on wrap copies.
+        // mixed hash of (ii, jj, salt). Identical jitter on wrap
+        // copies because ii / jj wrap mod cols / rows.
         const ii = mod(i, ncols), jj = mod(j, nrows);
-        const seed = ((ii * 73856093) ^ (jj * 19349663) ^ (rng() * 0)) >>> 0; // rng untouched
-        const r = makeRng((ii * 73856093) ^ (jj * 19349663) ^ 0x9E3779B1);
+        const r = makeRng((ii * 73856093) ^ (jj * 19349663) ^ meshSalt);
         const dx = (r() * 2 - 1) * jitterAmt * cellW;
         const dy = (r() * 2 - 1) * jitterAmt * cellH;
         return { x: ox + i * cellW + dx, y: oy + j * cellH + dy };
