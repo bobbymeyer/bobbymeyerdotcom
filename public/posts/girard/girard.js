@@ -96,7 +96,7 @@ const SAMPLES = {
         fill: { kind: 'solid', color: '#f3eedd', mode: 'fixed' },
       },
       {
-        grid: { cols: 12, rows: 24, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        grid: { cols: 8, rows: 8, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         fill: { kind: 'arc-block', weights: [1, 5, 1, 1, 1] },
         palette: ['#d6433a'],
       },
@@ -983,15 +983,17 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
           : (innerX === 0 ? 1 : 0); // BL→TR, BR→TL
         drawArcRing(parent, ix, iy, iw, ih, color, innerCorner);
       } else if (cellType === 'vsplit') {
-        // Inner side is the LEFT half for right-column cells, RIGHT
-        // half for left-column cells (always facing block centre).
-        const fillRight = innerX === 0;
+        // Fill the OUTER half — the side away from the block centre,
+        // aligning with the edge the annular band hugs. Right-column
+        // cells fill right, left-column cells fill left.
+        const fillRight = innerX === 1;
         parent.appendChild(el('rect', {
           x: fillRight ? ix + iw / 2 : ix,
           y: iy, width: iw / 2, height: ih, fill: color,
         }));
       } else if (cellType === 'hsplit') {
-        const fillBottom = innerY === 0;
+        // Bottom-row cells fill bottom, top-row cells fill top.
+        const fillBottom = innerY === 1;
         parent.appendChild(el('rect', {
           x: ix, y: fillBottom ? iy + ih / 2 : iy,
           width: iw, height: ih / 2, fill: color,
