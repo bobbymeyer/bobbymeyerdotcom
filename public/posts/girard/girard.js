@@ -102,12 +102,11 @@ const SAMPLES = {
     ],
   },
   'Firecrackers': {
-    // Cream ground; a 1x3 row grid paints an orange top band (and
-    // leaves the lower rows transparent); a 24x3 row grid then
-    // positions vertical tabs only in the middle row by addressing
-    // specific palette positions — top and bottom rows all
-    // transparent, middle row all orange, gutterX carves the gaps
-    // between tabs.
+    // Cream ground; a 1x3 row grid paints a thin orange top band (and
+    // leaves the lower rows transparent); a 32x3 row grid positions
+    // vertical tabs only in the middle row by addressing specific
+    // palette positions — top and bottom rows all transparent, middle
+    // row all orange, gutterX carves the gaps between tabs.
     palette: ['#e0954a', '#f3eedd'],
     layers: [
       {
@@ -117,7 +116,7 @@ const SAMPLES = {
       {
         grid: {
           cols: 1, rows: 3,
-          rowWeights: [1, 3, 6],
+          rowWeights: [1, 5, 8],
           offset: { x: 0, y: 0 }, offsetMode: 'none',
         },
         fill: { kind: 'solid', mode: 'palette-cycle' },
@@ -125,16 +124,16 @@ const SAMPLES = {
       },
       {
         grid: {
-          cols: 24, rows: 3,
-          rowWeights: [1, 3, 6],
-          gutterX: 0.5,
+          cols: 32, rows: 3,
+          rowWeights: [1, 5, 8],
+          gutterX: 0.4,
           offset: { x: 0, y: 0 }, offsetMode: 'none',
         },
         fill: { kind: 'solid', mode: 'palette-cycle' },
         palette: [
-          ...Array(24).fill('transparent'),
-          ...Array(24).fill('#e0954a'),
-          ...Array(24).fill('transparent'),
+          ...Array(32).fill('transparent'),
+          ...Array(32).fill('#e0954a'),
+          ...Array(32).fill('transparent'),
         ],
       },
     ],
