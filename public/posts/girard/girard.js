@@ -276,18 +276,31 @@ function el(tag, attrs, children) {
 // Lets shapes scale with the grid instead of needing absolute pixels.
 function shapeNode(shape, cw, rh, fill, ctx) {
   const dim = Math.min(cw, rh) * (shape.size ?? 0.6);
+  // Optional stroke. strokeWidth is a fraction of the smaller cell
+  // dim so outlines scale with the grid.
+  const stroke = shape.stroke;
+  const swFrac = shape.strokeWidth;
+  const sw = (stroke && swFrac != null && swFrac > 0)
+    ? swFrac * Math.min(cw, rh)
+    : 0;
+  const strokeAttrs = sw > 0
+    ? { stroke, 'stroke-width': sw, 'stroke-linejoin': 'round' }
+    : {};
+
   switch (shape.kind) {
     case 'circle':
-      return el('circle', { r: dim / 2, fill });
+      return el('circle', { r: dim / 2, fill, ...strokeAttrs });
     case 'square':
       return el('rect', {
         x: -dim / 2, y: -dim / 2, width: dim, height: dim, fill,
+        ...strokeAttrs,
       });
     case 'triangle': {
       const r = dim / 2;
       return el('polygon', {
         points: `0,${-r} ${r * 0.866},${r * 0.5} ${-r * 0.866},${r * 0.5}`,
         fill,
+        ...strokeAttrs,
       });
     }
     case 'text': {
@@ -304,6 +317,8 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         'font-size': dim,
         'text-anchor': 'middle',
         'dominant-baseline': 'central',
+        ...strokeAttrs,
+        ...(sw > 0 ? { 'paint-order': 'stroke fill' } : {}),
       });
       node.textContent = t;
       return node;
@@ -818,6 +833,23 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), size: Number(size.value) };
       onChange();
     });
+    // Optional outline on any shape kind.
+    const strokeW = addCtrl('stroke (× cell)', 'number', layer.fill.shape?.strokeWidth ?? 0, { min: 0, max: 0.3, step: 0.005 });
+    strokeW.addEventListener('input', () => {
+      const was = (layer.fill.shape?.strokeWidth ?? 0) > 0;
+      const v = Number(strokeW.value);
+      layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), strokeWidth: v };
+      onChange();
+      // Toggle the stroke colour picker visibility when crossing zero.
+      if (was !== (v > 0)) rebuild();
+    });
+    if ((layer.fill.shape?.strokeWidth ?? 0) > 0) {
+      const strokeC = addCtrl('stroke color', 'color', layer.fill.shape?.stroke ?? '#000000');
+      strokeC.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), stroke: strokeC.value };
+        onChange();
+      });
+    }
     if (layer.fill.shape?.kind === 'text') {
       // Comma-separated list. Single item collapses to a string;
       // multiple items become an array that cycles per cell using
