@@ -36,6 +36,85 @@ function makeRng(seed) {
 
 function mod(a, n) { return ((a % n) + n) % n; }
 
+// ---------- Convex polygon helpers (for Voronoi cells) ----------
+// Sutherland-Hodgman clip: keep the side of the bisector nearer P.
+// M = midpoint of P,Q; dir = Q-P. Keep verts with dot(v-M, dir) <= 0.
+function clipHalfPlane(poly, mx, my, dx, dy) {
+  const out = [];
+  const n = poly.length;
+  const side = (p) => (p[0] - mx) * dx + (p[1] - my) * dy;
+  for (let i = 0; i < n; i++) {
+    const a = poly[i], b = poly[(i + 1) % n];
+    const sa = side(a), sb = side(b);
+    if (sa <= 0) out.push(a);
+    if ((sa < 0 && sb > 0) || (sa > 0 && sb < 0)) {
+      const t = sa / (sa - sb);
+      out.push([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])]);
+    }
+  }
+  return out;
+}
+
+// Inset a convex polygon by distance d (toward its interior). Returns
+// null if the polygon collapses.
+function insetConvex(poly, d) {
+  if (poly.length < 3) return null;
+  let cx = 0, cy = 0;
+  for (const p of poly) { cx += p[0]; cy += p[1]; }
+  cx /= poly.length; cy /= poly.length;
+  const lines = [];
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    let ex = b[0] - a[0], ey = b[1] - a[1];
+    const len = Math.hypot(ex, ey) || 1;
+    ex /= len; ey /= len;
+    // Inward normal (toward centroid).
+    let nx = -ey, ny = ex;
+    const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+    if ((cx - mx) * nx + (cy - my) * ny < 0) { nx = -nx; ny = -ny; }
+    lines.push([a[0] + nx * d, a[1] + ny * d, ex, ey]);
+  }
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const L1 = lines[(i - 1 + lines.length) % lines.length], L2 = lines[i];
+    const [px, py, dx1, dy1] = L1;
+    const [qx, qy, dx2, dy2] = L2;
+    const denom = dx1 * dy2 - dy1 * dx2;
+    if (Math.abs(denom) < 1e-9) { out.push([qx, qy]); continue; }
+    const t = ((qx - px) * dy2 - (qy - py) * dx2) / denom;
+    out.push([px + dx1 * t, py + dy1 * t]);
+  }
+  // Reject if it turned inside out (centroid moved far / negative area).
+  let area = 0;
+  for (let i = 0; i < out.length; i++) {
+    const a = out[i], b = out[(i + 1) % out.length];
+    area += a[0] * b[1] - b[0] * a[1];
+  }
+  if (Math.abs(area) < 1e-3) return null;
+  return out;
+}
+
+// Build an SVG path for a polygon, optionally rounding corners by
+// fraction `round` (0 = sharp, 1 = max). Rounds via quadratic curves.
+function polyPath(poly, round) {
+  if (!poly || poly.length < 3) return '';
+  if (!round || round <= 0) {
+    return 'M' + poly.map(p => `${p[0].toFixed(2)},${p[1].toFixed(2)}`).join(' L') + 'Z';
+  }
+  const n = poly.length;
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const prev = poly[(i - 1 + n) % n], cur = poly[i], next = poly[(i + 1) % n];
+    const t = Math.min(0.5, round * 0.5);
+    const p1 = [cur[0] + (prev[0] - cur[0]) * t, cur[1] + (prev[1] - cur[1]) * t];
+    const p2 = [cur[0] + (next[0] - cur[0]) * t, cur[1] + (next[1] - cur[1]) * t];
+    if (i === 0) d += `M${p1[0].toFixed(2)},${p1[1].toFixed(2)}`;
+    else d += ` L${p1[0].toFixed(2)},${p1[1].toFixed(2)}`;
+    d += ` Q${cur[0].toFixed(2)},${cur[1].toFixed(2)} ${p2[0].toFixed(2)},${p2[1].toFixed(2)}`;
+  }
+  return d + 'Z';
+}
+
 // ---------- Colour helpers ----------
 function parseColor(str) {
   if (!str || str === 'transparent' || str === 'none') return { r: 0, g: 0, b: 0, a: 0 };
@@ -152,6 +231,22 @@ const SAMPLES = {
       {
         grid: { cols: 10, rows: 10, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         fill: { kind: 'maze', color: '#2c3340', thickness: 0.18 },
+      },
+    ],
+  },
+  'Pebbles': {
+    // Dark ground; a toroidal Voronoi layer of rounded tan pebbles
+    // with a thin dark gap between them. Roll the seed for a fresh
+    // arrangement.
+    palette: ['#d8c79c'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#2b2b2b', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 14, rows: 14, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'voronoi', mode: 'fixed', color: '#d8c79c', jitter: 0.42, gap: 0.12, round: 0.6 },
       },
     ],
   },
@@ -350,7 +445,8 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'arc-split')
         || (l.fill?.kind === 'arc-block')
         || (l.fill?.kind === 'mesh' && l.fill?.mode === 'palette-cycle')
-        || (l.fill?.kind === 'triangles' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'));
+        || (l.fill?.kind === 'triangles' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'))
+        || (l.fill?.kind === 'voronoi' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'));
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -955,6 +1051,72 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }
       break;
     }
+    case 'voronoi': {
+      // Toroidal Voronoi "pebbles". Jittered seed points on a torus
+      // (jitter hashed per wrapped cell so it tiles). Each cell is
+      // computed by clipping a bounding box against the perpendicular
+      // bisectors of nearby sites, then inset by a gap and corner-
+      // rounded. Drawn at the 9 layer wraps so edge cells complete
+      // across the seam.
+      if (col !== 0 || row !== 0) break;
+      const nc = cols, nr = rows;
+      const lw = layerBounds?.w ?? cw * nc;
+      const lh = layerBounds?.h ?? rh * nr;
+      const ox = layerBounds?.x ?? 0;
+      const oy = layerBounds?.y ?? 0;
+      const cellW = lw / nc, cellH = lh / nr;
+      const salt = layerBounds?.salt ?? 1;
+      const jitterAmt = Math.max(0, Math.min(0.5, fill.jitter ?? 0.4));
+      const gap = (fill.gap ?? 0.08) * Math.min(cellW, cellH);
+      const round = fill.round ?? 0.5;
+
+      const siteAt = (c, r) => {
+        const cc = mod(c, nc), rr = mod(r, nr);
+        const rng2 = makeRng((((cc * 73856093) ^ (rr * 19349663) ^ salt) >>> 0) || 1);
+        const jx = (rng2() * 2 - 1) * jitterAmt * cellW;
+        const jy = (rng2() * 2 - 1) * jitterAmt * cellH;
+        return [ox + (c + 0.5) * cellW + jx, oy + (r + 0.5) * cellH + jy];
+      };
+
+      for (let r = 0; r < nr; r++) {
+        for (let c = 0; c < nc; c++) {
+          const P = siteAt(c, r);
+          // Start with a generous bounding box around the site.
+          let poly = [
+            [P[0] - cellW * 1.6, P[1] - cellH * 1.6],
+            [P[0] + cellW * 1.6, P[1] - cellH * 1.6],
+            [P[0] + cellW * 1.6, P[1] + cellH * 1.6],
+            [P[0] - cellW * 1.6, P[1] + cellH * 1.6],
+          ];
+          for (let dr = -2; dr <= 2 && poly.length; dr++) {
+            for (let dc = -2; dc <= 2; dc++) {
+              if (dc === 0 && dr === 0) continue;
+              const Q = siteAt(c + dc, r + dr);
+              const mx = (P[0] + Q[0]) / 2, my = (P[1] + Q[1]) / 2;
+              poly = clipHalfPlane(poly, mx, my, Q[0] - P[0], Q[1] - P[1]);
+              if (!poly.length) break;
+            }
+          }
+          const pebble = insetConvex(poly, gap / 2);
+          if (!pebble) continue;
+          const color = fill.mode === 'random' || fill.mode === 'palette-cycle'
+            ? palette[fill.mode === 'random'
+                ? Math.floor(makeRng((((c * 12347) ^ (r * 56789) ^ salt) >>> 0) || 1)() * palette.length)
+                : mod(c + r * nc, palette.length)]
+            : (fill.color || palette[0] || '#d8c79c');
+          if (isTransparent(color)) continue;
+          const dPath = polyPath(pebble, round);
+          for (let wy = -1; wy <= 1; wy++) {
+            for (let wx = -1; wx <= 1; wx++) {
+              const node = el('path', { d: dPath, fill: color });
+              if (wx || wy) node.setAttribute('transform', `translate(${wx * lw} ${wy * lh})`);
+              parent.appendChild(node);
+            }
+          }
+        }
+      }
+      break;
+    }
     case 'maze': {
       // Perfect maze (spanning tree of passages) generated on a TORUS
       // so it tiles seamlessly: adjacency wraps in both axes. Walls
@@ -1468,7 +1630,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'maze'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'maze'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
@@ -1484,6 +1646,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'mesh', mode: 'fixed', color: '#d24a45', jitter: 0.25, strokeWidth: 0.01, stroke: '#ffffff' };
     } else if (fillKind.value === 'maze') {
       layer.fill = { kind: 'maze', color: '#2c3340', thickness: 0.18 };
+    } else if (fillKind.value === 'voronoi') {
+      layer.fill = { kind: 'voronoi', mode: 'fixed', color: '#d8c79c', jitter: 0.4, gap: 0.08, round: 0.5 };
     } else {
       layer.fill = { kind: 'triangles', mode: 'random', strokeWidth: 0.02, stroke: '#ffffff' };
     }
@@ -1584,6 +1748,18 @@ function buildConfigForm(host, layer, onChange) {
     });
     if ((layer.fill.strokeWidth ?? 0) > 0) {
       addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
+    }
+  } else if (layer.fill.kind === 'voronoi') {
+    const jit = addCtrl('jitter (× cell)', 'number', layer.fill.jitter ?? 0.4, { min: 0, max: 0.5, step: 0.02 });
+    jit.addEventListener('input', () => { layer.fill.jitter = Number(jit.value); onChange(); });
+    const gap = addCtrl('gap (× cell)', 'number', layer.fill.gap ?? 0.08, { min: 0, max: 0.5, step: 0.01 });
+    gap.addEventListener('input', () => { layer.fill.gap = Number(gap.value); onChange(); });
+    const rnd = addCtrl('corner round', 'number', layer.fill.round ?? 0.5, { min: 0, max: 1, step: 0.05 });
+    rnd.addEventListener('input', () => { layer.fill.round = Number(rnd.value); onChange(); });
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'random'] });
+    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
+    if ((layer.fill.mode || 'fixed') === 'fixed') {
+      addColorCtrl('color', layer.fill.color || '#d8c79c', (v) => { layer.fill.color = v; onChange(); });
     }
   } else if (layer.fill.kind === 'maze') {
     addColorCtrl('color', layer.fill.color || '#2c3340', (v) => { layer.fill.color = v; onChange(); });
