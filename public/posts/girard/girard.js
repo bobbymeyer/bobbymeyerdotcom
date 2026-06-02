@@ -697,21 +697,15 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         : {};
 
       const triSalt = ((rng() * 0xffffffff) >>> 0) | 1;
-      const rhombusHash = (r, c) => mod(r, strips) * tcols + mod(c, tcols);
+      // Each triangle gets its own colour; horizontal wrap pairs land
+      // on the same index via mod(cols). Up and down at the same (r,c)
+      // are distinct triangles (no rhombus pairing) so they don't
+      // collapse into a visible diamond.
       const colorAt = (r, c, type) => {
-        let hashR = r, hashC = c;
-        if (type === 'down') {
-          const prevR = r - 1;
-          const prevEven = mod(prevR, 2) === 0;
-          hashR = prevR;
-          hashC = prevEven ? c + 1 : c;
-        }
         if (fill.mode === 'fixed') return fill.color || palette[0] || '#888';
-        const hashVal = rhombusHash(hashR, hashC);
-        if (fill.mode === 'palette-cycle') return palette[mod(hashVal, palette.length)];
-        // random: deterministic per-rhombus PRNG so the seam-sharing
-        // up and down triangles compute the same colour.
-        const seed = ((hashVal * 0x9E3779B1) ^ triSalt) >>> 0;
+        const idx = mod(r, strips) * tcols * 2 + mod(c, tcols) * 2 + (type === 'down' ? 1 : 0);
+        if (fill.mode === 'palette-cycle') return palette[mod(idx, palette.length)];
+        const seed = ((idx * 0x9E3779B1) ^ triSalt) >>> 0;
         return palette[Math.floor(makeRng(seed || 1)() * palette.length)];
       };
 
