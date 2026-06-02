@@ -303,6 +303,26 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         ...strokeAttrs,
       });
     }
+    case 'star': {
+      const numPoints = Math.max(3, shape.numPoints | 0 || 5);
+      const depth = Math.max(0.05, Math.min(1, shape.depth ?? 0.5));
+      const jitter = Math.max(0, Math.min(1, shape.jitter ?? 0));
+      const rng = ctx?.rng;
+      const outerR = dim / 2;
+      const innerR = outerR * depth;
+      const verts = [];
+      for (let i = 0; i < numPoints * 2; i++) {
+        const angle = (Math.PI * 2 * i) / (numPoints * 2) - Math.PI / 2;
+        let r = i % 2 === 0 ? outerR : innerR;
+        if (jitter > 0 && rng) r += (rng() * 2 - 1) * jitter * outerR;
+        verts.push(`${(r * Math.cos(angle)).toFixed(2)},${(r * Math.sin(angle)).toFixed(2)}`);
+      }
+      return el('polygon', {
+        points: verts.join(' '),
+        fill,
+        ...strokeAttrs,
+      });
+    }
     case 'text': {
       // shape.text can be a string or array. Arrays cycle per cell
       // using the same formula as the fill colour mode (see ctx).
@@ -505,7 +525,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           if (!lw || !lh) { if (dx || dy) continue; }
-          const node = shapeNode(shape, iw, ih, color, { textIndex });
+          const node = shapeNode(shape, iw, ih, color, { textIndex, rng });
           node.setAttribute(
             'transform',
             `translate(${baseX + dx * (lw || 0)} ${baseY + dy * (lh || 0)}) rotate(${rot}) scale(${s})`,
@@ -821,7 +841,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'text'],
+      options: ['circle', 'square', 'triangle', 'text', 'star'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
@@ -847,6 +867,23 @@ function buildConfigForm(host, layer, onChange) {
       const strokeC = addCtrl('stroke color', 'color', layer.fill.shape?.stroke ?? '#000000');
       strokeC.addEventListener('input', () => {
         layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), stroke: strokeC.value };
+        onChange();
+      });
+    }
+    if (layer.fill.shape?.kind === 'star') {
+      const pts = addCtrl('points', 'number', layer.fill.shape?.numPoints ?? 5, { min: 3, max: 16, step: 1 });
+      pts.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'star' }), numPoints: Math.max(3, Number(pts.value) | 0) };
+        onChange();
+      });
+      const depth = addCtrl('indent (0..1)', 'number', layer.fill.shape?.depth ?? 0.5, { min: 0.05, max: 1, step: 0.05 });
+      depth.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'star' }), depth: Number(depth.value) };
+        onChange();
+      });
+      const jit = addCtrl('vertex jitter', 'number', layer.fill.shape?.jitter ?? 0, { min: 0, max: 0.5, step: 0.02 });
+      jit.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'star' }), jitter: Number(jit.value) };
         onChange();
       });
     }
