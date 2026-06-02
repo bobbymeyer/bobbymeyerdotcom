@@ -354,11 +354,12 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       });
     }
     case 'quatrefoil': {
-      // 4 overlapping circles forming a flower / clover shape. Total
-      // extent = dim. Lobe radius = dim/3, lobe centre offset = dim/6
-      // — gives noticeable centre overlap.
-      const r = dim / 3;
-      const off = dim / 6;
+      // 4 tangent circles forming a clover / Girard quatrefoil. With
+      // r = off, the four circles touch their neighbours at single
+      // points on the axes — sharp cusps between lobes, no blended
+      // centre. Total extent = 4·r = dim.
+      const r = dim / 4;
+      const off = dim / 4;
       const g = el('g', {});
       for (const [sx, sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
         g.appendChild(el('circle', {
