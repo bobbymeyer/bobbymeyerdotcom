@@ -63,6 +63,21 @@ const SAMPLES = {
         fill: { kind: 'shape', shape: { kind: 'circle', size: 0.5 }, mode: 'palette-cycle' } },
     ],
   },
+  'Rayamax stripe': {
+    // Order: black, yellow, grey, pink, blue, white. Two small + one
+    // large band on each side, repeating vertically.
+    palette: ['#1a1c2c', '#e8d36a', '#c2c4ce', '#e8a4c2', '#7e8fbe', '#f3efe1'],
+    layers: [
+      {
+        grid: {
+          cols: 1, rows: 6,
+          rowWeights: [1, 1, 8, 1, 1, 8],
+          offset: { x: 0, y: 0 }, offsetMode: 'none',
+        },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+      },
+    ],
+  },
 };
 
 function loadSample(name, current, clear) {
@@ -203,49 +218,63 @@ function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
 
   const palette = layer.palette && layer.palette.length ? layer.palette : parentPalette;
   const rng = makeRng(rngSeed);
-  const { cols, rows, offset = { x: 0, y: 0 }, offsetMode = 'none' } = layer.grid;
-  const cw = w / cols, rh = h / rows;
+  const { cols, rows, rowWeights, colWeights,
+          offset = { x: 0, y: 0 }, offsetMode = 'none' } = layer.grid;
 
-  // For each cell in [0..cols) × [0..rows), plus wrap-around cells at
-  // col=-1 or row=-1 when an offset extends the grid past the tile
-  // edge, so the layer tiles seamlessly.
-  for (let row = 0; row < rows; row++) {
-    for (let col = 0; col < cols; col++) {
-      placeCell(group, layer, x, y, col, row, cw, rh, offset, offsetMode, rng, palette);
+  // Per-cell dimensions. With *Weights present, each cell occupies
+  // its share of the canvas (weight / sum) — count comes from the
+  // array length. Without weights, uniform cells from cols / rows.
+  const widths  = colWeights && colWeights.length
+    ? normWeights(colWeights, w)
+    : Array(cols).fill(w / cols);
+  const heights = rowWeights && rowWeights.length
+    ? normWeights(rowWeights, h)
+    : Array(rows).fill(h / rows);
+  const nCols = widths.length, nRows = heights.length;
+  // Cumulative starts in user space (relative to x / y).
+  const xStarts = [0];
+  for (let i = 0; i < nCols; i++) xStarts.push(xStarts[i] + widths[i]);
+  const yStarts = [0];
+  for (let j = 0; j < nRows; j++) yStarts.push(yStarts[j] + heights[j]);
+
+  for (let row = 0; row < nRows; row++) {
+    for (let col = 0; col < nCols; col++) {
+      placeCellRect(group, layer,
+        x + xStarts[col] + (offsetMode === 'alternate-row' && row % 2 === 1 ? offset.x * widths[col] : 0),
+        y + yStarts[row] + (offsetMode === 'alternate-col' && col % 2 === 1 ? offset.y * heights[row] : 0),
+        widths[col], heights[row],
+        col, row, nCols, nRows, rng, palette);
     }
     if (offsetMode === 'alternate-row' && row % 2 === 1 && offset.x !== 0) {
-      placeCell(group, layer, x, y, -1, row, cw, rh, offset, offsetMode, rng, palette);
+      const lastCol = nCols - 1;
+      const cw = widths[lastCol], rh = heights[row];
+      placeCellRect(group, layer,
+        x - cw + offset.x * cw, y + yStarts[row], cw, rh,
+        lastCol, row, nCols, nRows, rng, palette);
     }
   }
   if (offsetMode === 'alternate-col') {
-    for (let col = 0; col < cols; col++) {
+    for (let col = 0; col < nCols; col++) {
       if (col % 2 === 1 && offset.y !== 0) {
-        placeCell(group, layer, x, y, col, -1, cw, rh, offset, offsetMode, rng, palette);
+        const lastRow = nRows - 1;
+        const cw = widths[col], rh = heights[lastRow];
+        placeCellRect(group, layer,
+          x + xStarts[col], y - rh + offset.y * rh, cw, rh,
+          col, lastRow, nCols, nRows, rng, palette);
       }
     }
   }
 }
 
-function cellOriginX(x, col, cw, offset, offsetMode, row) {
-  let dx = 0;
-  if (offsetMode === 'alternate-row' && mod(row, 2) === 1) dx = offset.x * cw;
-  return x + col * cw + dx;
+function normWeights(weights, total) {
+  const sum = weights.reduce((a, b) => a + Math.max(0, b), 0) || 1;
+  return weights.map(w => (Math.max(0, w) / sum) * total);
 }
 
-function cellOriginY(y, row, rh, offset, offsetMode, col) {
-  let dy = 0;
-  if (offsetMode === 'alternate-col' && mod(col, 2) === 1) dy = offset.y * rh;
-  return y + row * rh + dy;
-}
-
-function placeCell(parent, layer, x, y, col, row, cw, rh, offset, offsetMode, rng, palette) {
-  const cx = cellOriginX(x, col, cw, offset, offsetMode, row);
-  const cy = cellOriginY(y, row, rh, offset, offsetMode, col);
-  const { cols, rows, gutter, gutterX, gutterY } = layer.grid;
+function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng, palette) {
+  const { gutter, gutterX, gutterY } = layer.grid;
   const gX = gutterX ?? gutter ?? 0;
   const gY = gutterY ?? gutter ?? 0;
-  // Inset the cell by half the gutter on every side so adjacent
-  // cells share the gap symmetrically.
   const gx = cw * gX / 2;
   const gy = rh * gY / 2;
   const ix = cx + gx;
@@ -525,6 +554,32 @@ function buildConfigForm(host, layer, onChange) {
   gy.addEventListener('input', () => {
     layer.grid.gutterY = Number(gy.value);
     delete layer.grid.gutter;
+    onChange();
+  });
+
+  // Optional explicit weights for variable-width columns / rows.
+  // Comma-separated list of positive numbers; blank = fall back to
+  // uniform cols/rows.
+  const parseWeights = (str) => {
+    const list = str.split(',').map(s => Number(s.trim())).filter(n => isFinite(n) && n > 0);
+    return list.length ? list : null;
+  };
+  const cWeights = addCtrl('col weights', 'text',
+    (layer.grid.colWeights || []).join(', '),
+    {});
+  cWeights.placeholder = 'uniform';
+  cWeights.addEventListener('input', () => {
+    const w = parseWeights(cWeights.value);
+    if (w) layer.grid.colWeights = w; else delete layer.grid.colWeights;
+    onChange();
+  });
+  const rWeights = addCtrl('row weights', 'text',
+    (layer.grid.rowWeights || []).join(', '),
+    {});
+  rWeights.placeholder = 'uniform';
+  rWeights.addEventListener('input', () => {
+    const w = parseWeights(rWeights.value);
+    if (w) layer.grid.rowWeights = w; else delete layer.grid.rowWeights;
     onChange();
   });
 
