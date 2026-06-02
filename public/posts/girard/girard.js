@@ -1089,32 +1089,39 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Vary (per-cell randomization) ---
   addHeader('vary (per-cell)');
-  const varyOn = addCtrl('enable', 'select', layer.vary ? 'on' : 'off', { options: ['off', 'on'] });
-  varyOn.addEventListener('change', () => {
-    if (varyOn.value === 'on') {
-      layer.vary = layer.vary || {
-        scale:  { type: 'random', min: 0.5, max: 1.2 },
-        rotate: { type: 'random', min: -180, max: 180 },
-        jitter: { type: 'random', min: -0.2, max: 0.2 },
-      };
-    } else {
-      delete layer.vary;
-    }
-    onChange();
-    rebuild();
-  });
-  if (layer.vary) {
+  const toggleAxis = (axisKey, label, defaultSpec) => {
+    const on = addCtrl(`${label}`, 'select', layer.vary?.[axisKey] ? 'on' : 'off', { options: ['off', 'on'] });
+    on.addEventListener('change', () => {
+      if (on.value === 'on') {
+        layer.vary = layer.vary || {};
+        layer.vary[axisKey] = layer.vary[axisKey] || defaultSpec;
+      } else if (layer.vary) {
+        delete layer.vary[axisKey];
+        if (!layer.vary.scale && !layer.vary.rotate && !layer.vary.jitter) delete layer.vary;
+      }
+      onChange();
+      rebuild();
+    });
+  };
+  toggleAxis('scale',  'scale',  { type: 'random', min: 0.5, max: 1.2 });
+  if (layer.vary?.scale) {
     const sMax = addCtrl('scale max', 'number', layer.vary.scale?.max ?? 1.2, { min: 0.5, max: 2, step: 0.05 });
     sMax.addEventListener('input', () => {
       layer.vary.scale = { type: 'random', min: layer.vary.scale?.min ?? 0.5, max: Number(sMax.value) };
       onChange();
     });
+  }
+  toggleAxis('rotate', 'rotate', { type: 'random', min: -180, max: 180 });
+  if (layer.vary?.rotate) {
     const rMax = addCtrl('rotate ±°', 'number', layer.vary.rotate?.max ?? 180, { min: 0, max: 360, step: 5 });
     rMax.addEventListener('input', () => {
       const v = Number(rMax.value);
       layer.vary.rotate = { type: 'random', min: -v, max: v };
       onChange();
     });
+  }
+  toggleAxis('jitter', 'jitter', { type: 'random', min: -0.2, max: 0.2 });
+  if (layer.vary?.jitter) {
     const jit = addCtrl('jitter (× cell)', 'number', layer.vary.jitter?.max ?? 0.2, { min: 0, max: 0.5, step: 0.02 });
     jit.addEventListener('input', () => {
       const v = Number(jit.value);
