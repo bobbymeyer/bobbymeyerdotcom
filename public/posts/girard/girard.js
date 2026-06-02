@@ -63,6 +63,26 @@ const SAMPLES = {
         fill: { kind: 'shape', shape: { kind: 'circle', size: 0.5 }, mode: 'palette-cycle' } },
     ],
   },
+  'Brick': {
+    // Tan ground; a 5x12 brick grid with alternate-row x-offset of
+    // 0.5 and asymmetric gutters lets the tan show through as
+    // mortar. Wrap cells fill the staggered left edge on odd rows.
+    palette: ['#d3b288', '#d2624d'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#d3b288', mode: 'fixed' },
+      },
+      {
+        grid: {
+          cols: 5, rows: 12,
+          offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row',
+          gutterX: 0.04, gutterY: 0.10,
+        },
+        fill: { kind: 'solid', color: '#d2624d', mode: 'fixed' },
+      },
+    ],
+  },
   'Geometric cross': {
     // White ground; a horizontal and a vertical bar pass through
     // the tile centre (no edge gutter, so adjacent tiles meet
