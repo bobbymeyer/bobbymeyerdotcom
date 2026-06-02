@@ -97,8 +97,8 @@ const SAMPLES = {
       },
       {
         grid: { cols: 12, rows: 24, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'arc-block' },
-        palette: ['#d6433a', '#d6433a', '#d6433a', 'transparent'],
+        fill: { kind: 'arc-block', weights: [1, 5, 1, 1, 1] },
+        palette: ['#d6433a'],
       },
     ],
   },
@@ -912,24 +912,65 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       break;
     }
     case 'arc-block': {
-      // Every cell is a quarter-circle wedge oriented toward its 2x2
-      // block centre — four cells in a block always combine into a
-      // full circle. The only per-cell variation is COLOUR: each
-      // cell picks two random palette entries (wedge + ground), and
-      // transparent entries leave the cell empty or half-empty.
+      // 2x2 block tile set. Each cell picks one of five types:
+      //   blank  | nothing
+      //   arc    | quarter-circle at the inner corner (facing block centre)
+      //   vsplit | half-cell, vertical split, inner side filled
+      //   hsplit | half-cell, horizontal split, inner side filled
+      //   full   | whole cell filled
+      // Orientation in every type is derived from the cell's position
+      // in the block — four arcs always combine into a full circle,
+      // four vsplits into a vertical bar through the block, etc.
+      // Colour is picked once PER BLOCK so a circle reads as one
+      // colour even when cells differ in type.
       const innerX = mod(col, 2);
       const innerY = mod(row, 2);
-      // Inner corner of this cell (the corner facing block centre).
-      const innerCorner = innerY === 0
-        ? (innerX === 0 ? 2 : 3)  // TL→BR, TR→BL
-        : (innerX === 0 ? 1 : 0); // BL→TR, BR→TL
-
       const salt = layerBounds?.salt ?? 1;
+
+      // Per-cell type (deterministic weighted random).
       const cellSeed = (((col * 73856093) ^ (row * 19349663) ^ salt) >>> 0) || 1;
       const cellRng = makeRng(cellSeed);
-      const colorWedge = palette[Math.floor(cellRng() * palette.length)];
-      const colorGround = palette[Math.floor(cellRng() * palette.length)];
-      drawArcSplit(parent, ix, iy, iw, ih, colorWedge, colorGround, innerCorner);
+      const types = ['blank', 'arc', 'vsplit', 'hsplit', 'full'];
+      const weights = (Array.isArray(fill.weights) && fill.weights.length === types.length)
+        ? fill.weights : [1, 3, 1, 1, 1];
+      const total = weights.reduce((a, b) => a + Math.max(0, b), 0) || 1;
+      let pick = cellRng() * total, cellType = 'blank';
+      for (let i = 0; i < types.length; i++) {
+        pick -= Math.max(0, weights[i]);
+        if (pick <= 0) { cellType = types[i]; break; }
+      }
+      if (cellType === 'blank') break;
+
+      // Per-block colour.
+      const blockCol = Math.floor(col / 2);
+      const blockRow = Math.floor(row / 2);
+      const blockSeed = (((blockCol * 73856093) ^ (blockRow * 19349663) ^ salt ^ 0x5bd1e995) >>> 0) || 1;
+      const blockRng = makeRng(blockSeed);
+      const color = palette[Math.floor(blockRng() * palette.length)];
+      if (isTransparent(color)) break;
+
+      if (cellType === 'arc') {
+        const innerCorner = innerY === 0
+          ? (innerX === 0 ? 2 : 3)  // TL→BR, TR→BL
+          : (innerX === 0 ? 1 : 0); // BL→TR, BR→TL
+        drawArcSplit(parent, ix, iy, iw, ih, color, null, innerCorner);
+      } else if (cellType === 'vsplit') {
+        // Inner side is the LEFT half for right-column cells, RIGHT
+        // half for left-column cells (always facing block centre).
+        const fillRight = innerX === 0;
+        parent.appendChild(el('rect', {
+          x: fillRight ? ix + iw / 2 : ix,
+          y: iy, width: iw / 2, height: ih, fill: color,
+        }));
+      } else if (cellType === 'hsplit') {
+        const fillBottom = innerY === 0;
+        parent.appendChild(el('rect', {
+          x: ix, y: fillBottom ? iy + ih / 2 : iy,
+          width: iw, height: ih / 2, fill: color,
+        }));
+      } else if (cellType === 'full') {
+        parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: color }));
+      }
       break;
     }
     case 'arc-split': {
