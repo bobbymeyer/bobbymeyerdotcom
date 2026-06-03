@@ -314,6 +314,12 @@ const SAMPLES = {
         fill: { kind: 'solid', color: '#f3eedd', mode: 'fixed' },
       },
       {
+        // Thin vertical "fuse" down each column centre, connecting the
+        // bars — the firecracker string.
+        grid: { cols: 6, rows: 1, gutterX: 0.9, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#e0954a', mode: 'fixed' },
+      },
+      {
         grid: {
           cols: 6, rows: 14,
           gutterX: 0.16, gutterY: 0.5,
