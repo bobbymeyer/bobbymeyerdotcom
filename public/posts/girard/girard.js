@@ -791,6 +791,25 @@ const SAMPLES = {
       },
     ],
   },
+  'Graph': {
+    // Girard "Graph": thin olive line-art — vertical dividers, ladder
+    // grids and stacked chevron arrows in vertical bands, on off-white.
+    palette: ['#8a9a4a'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#eef0ea', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 12, rows: 12, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'graph', stroke: '#8a9a4a', strokeWidth: 0.012,
+          // flat grid, then a zigzag band of chevrons, flat, chevrons.
+          offsets: [0, 0, 0.6, 0, 0.6, 0, 0, 0, 0.6, 0, 0.6, 0],
+        },
+      },
+    ],
+  },
   'Hexagons': {
     // Girard "Hexagons": a thin blue honeycomb outline on linen.
     palette: ['#3a4aa0'],
@@ -3043,6 +3062,27 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       drawWrapped(parent, layerBounds?.w, layerBounds?.h, draw);
       break;
     }
+    case 'graph': {
+      // Girard "Graph": a thin line-art grid whose column nodes are
+      // pulled up or down. Vertical dividers stay straight; the
+      // horizontal rungs tilt between each column's offset, so where the
+      // offsets zigzag the rungs become stacked chevrons, and where they
+      // are equal they stay a flat grid. `offsets` is per column
+      // (fraction of a row), cycled — keep ends equal so it tiles.
+      const stroke = fill.stroke || palette[0] || '#8a9a4a';
+      const sw = (fill.strokeWidth ?? 0.012) * Math.min(iw, ih);
+      const offsets = fill.offsets && fill.offsets.length ? fill.offsets : [0, 0.5, 0, -0.5];
+      const P = offsets.length;
+      const offL = offsets[mod(ci, P)];
+      const offR = offsets[mod(ci + 1, P)];
+      const L = (x1, y1, x2, y2) => parent.appendChild(el('line', {
+        x1: ix + x1 * iw, y1: iy + y1 * ih, x2: ix + x2 * iw, y2: iy + y2 * ih,
+        stroke, 'stroke-width': sw, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+      }));
+      L(0, 0, 0, 1);                            // vertical divider
+      L(0, offL, 1, offR);                      // rung, tilted by the node offsets
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -3409,7 +3449,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -3431,6 +3471,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'multiform', density: 0.82 };
     } else if (fillKind.value === 'fruit') {
       layer.fill = { kind: 'fruit', mode: 'random', density: 0.78, size: 1, leafChance: 0.28, stalk: '#4f4a22', leaf: '#7d9a40' };
+    } else if (fillKind.value === 'graph') {
+      layer.fill = { kind: 'graph', stroke: '#8a9a4a', strokeWidth: 0.012, offsets: [0, 0, 0.6, 0, 0.6, 0, 0, 0, 0.6, 0, 0.6, 0] };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -3626,6 +3668,16 @@ function buildConfigForm(host, layer, onChange) {
   } else if (layer.fill.kind === 'multiform') {
     const dn = addCtrl('density', 'number', layer.fill.density ?? 0.82, { min: 0, max: 1, step: 0.05 });
     dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
+  } else if (layer.fill.kind === 'graph') {
+    addColorCtrl('line', layer.fill.stroke || '#8a9a4a', (v) => { layer.fill.stroke = v; onChange(); });
+    const sw = addCtrl('line width', 'number', layer.fill.strokeWidth ?? 0.012, { min: 0.003, max: 0.05, step: 0.002 });
+    sw.addEventListener('input', () => { layer.fill.strokeWidth = Number(sw.value); onChange(); });
+    const off = addCtrl('offsets', 'text', (layer.fill.offsets || []).join(', '), {});
+    off.placeholder = '0, 0, 0.6, 0, 0.6, 0';
+    off.addEventListener('input', () => {
+      const list = off.value.split(',').map(s => Number(s.trim())).filter(n => isFinite(n));
+      if (list.length) { layer.fill.offsets = list; onChange(); }
+    });
   } else if (layer.fill.kind === 'fruit') {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'random', { options: ['random', 'cell'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); });
