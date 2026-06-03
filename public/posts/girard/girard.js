@@ -457,7 +457,7 @@ const SAMPLES = {
           gutterX: 0.1, gutterY: 0.34,
         },
         blendMode: 'multiply', opacity: 0.85,
-        fill: { kind: 'solid', mode: 'random', density: 0.72 },
+        fill: { kind: 'solid', mode: 'cell', density: 0.72 },
         vary: {
           scale:  { type: 'random', min: 0.82, max: 1.05 },
           jitter: { type: 'random', min: -0.05, max: 0.05 },
@@ -488,7 +488,7 @@ const SAMPLES = {
         fill: {
           kind: 'shape',
           shape: { kind: 'triangle', size: 0.74, offsetX: 0.12, offsetY: 0.34 },
-          mode: 'random', density: 0.7,
+          mode: 'cell', density: 0.7,
         },
         vary: {
           scale:  { type: 'random', min: 0.78, max: 1.12 },
@@ -1642,6 +1642,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         ? palette[paletteIndex(fill.mode)]
         : fill.mode === 'random'
         ? palette[Math.floor(rng() * palette.length)]
+        : fill.mode === 'cell'
+        ? palette[Math.floor(cellRng(ci, ri, 0x9E37)() * palette.length)]
         : (fill.color || '#888');
       if (isTransparent(color)) break;
       // Optional per-cell jitter / scale — lets a "solid" layer break
@@ -1682,6 +1684,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         ? palette[paletteIndex(fill.mode)]
         : fill.mode === 'random'
         ? palette[Math.floor(rng() * palette.length)]
+        : fill.mode === 'cell'
+        ? palette[Math.floor(cellRng(ci, ri, 0x9E37)() * palette.length)]
         : (layer.vary?.color?.type === 'palette'
             ? palette[Math.floor(rng() * palette.length)]
             : (fill.color || palette[0]));
@@ -3032,7 +3036,7 @@ function buildConfigForm(host, layer, onChange) {
   });
 
   if (layer.fill.kind === 'solid') {
-    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker', 'random'] });
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker', 'random', 'cell'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'fixed') === 'fixed') {
       addColorCtrl('color', layer.fill.color || '#8a8a8a', (v) => { layer.fill.color = v; onChange(); });
@@ -3145,7 +3149,7 @@ function buildConfigForm(host, layer, onChange) {
         onChange();
       });
     }
-    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['fixed', 'palette-cycle', 'checker', 'random'] });
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['fixed', 'palette-cycle', 'checker', 'random', 'cell'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'palette-cycle') === 'fixed') {
       addColorCtrl('color', layer.fill.color || '#8a8a8a', (v) => { layer.fill.color = v; onChange(); });
