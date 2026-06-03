@@ -574,6 +574,37 @@ const SAMPLES = {
       },
     ],
   },
+  'Mexidot': {
+    // Girard "Mexidot": olive vertical stripes alternating with white
+    // bands filled by a column of stacked blue horizontal dashes, thin
+    // white gaps between. Aligned colWeights on both layers.
+    palette: ['#6d80c2'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#ece7d6', mode: 'fixed' },
+      },
+      {
+        grid: {
+          cols: 4, rows: 1, colWeights: [1.3, 0.3, 3.4, 0.3],
+          offset: { x: 0, y: 0 }, offsetMode: 'none',
+        },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['#979a51', 'transparent', 'transparent', 'transparent'],
+      },
+      {
+        grid: {
+          cols: 4, rows: 22, colWeights: [1.3, 0.3, 3.4, 0.3],
+          offset: { x: 0, y: 0 }, offsetMode: 'none',
+        },
+        fill: {
+          kind: 'glyph', weight: 0.5,
+          inks: ['#6d80c2'],
+          columns: ['blank', 'blank', 'hdash', 'blank'],
+        },
+      },
+    ],
+  },
   'Miller Stripe': {
     // Girard "Miller Stripe": a blue-violet ground with a clustered group
     // of thin red / cream vertical stripes, wide purple between. Solid
@@ -2721,6 +2752,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         case 'lbracket': R(0, 0, t, 1); R(0, 0, 0.5, t); R(0, e, 0.5, t); break;
         case 'rbracket': R(e, 0, t, 1); R(0.5, 0, 0.5, t); R(0.5, e, 0.5, t); break;
         case 'vdash':    R(m, 0.16, t, 0.68); break;
+        case 'hdash':    R(0.06, 0.22, 0.88, 0.56); break;
         case 'block':    R(0.16, 0.14, 0.68, 0.72); break;
         case 'diamond': {
           const cx2 = ix + iw / 2, cy2 = iy + ih / 2, r = dim * 0.56;
