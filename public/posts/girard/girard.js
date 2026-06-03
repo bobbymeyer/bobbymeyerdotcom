@@ -647,6 +647,31 @@ const SAMPLES = {
       },
     ],
   },
+  'June': {
+    // Girard "June": a wildflower meadow — thin teal grass blades with
+    // needle-leaves and seed pods, strewn with little red five-petal
+    // flowers on a cream ground.
+    palette: ['#e0566a'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#efeade', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 11, rows: 7, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: { kind: 'grass', color: '#3f7a8c', thickness: 0.009, height: 1.15, podChance: 0.42 },
+      },
+      {
+        grid: { cols: 6, rows: 7, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: {
+          kind: 'shape',
+          shape: { kind: 'blossom', size: 0.34, petals: 5, petal: 0.27, spread: 0.32, centerColor: '#ffffff', centerSize: 0.12 },
+          mode: 'fixed', color: '#e0566a', density: 0.5,
+        },
+        vary: { jitter: { type: 'random', min: -0.32, max: 0.32 } },
+      },
+    ],
+  },
   'Jax': {
     // Girard "Jax": a tiny ditsy of green four-dot clovers on a dusty
     // pink linen ground, set on a dense half-drop grid.
@@ -1598,6 +1623,19 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         fill,
         ...sAttrs,
       });
+    }
+    case 'blossom': {
+      // A simple flower: n round petals in a ring with a centre dot.
+      const g = el('g', {});
+      const n = Math.max(4, shape.petals | 0 || 5);
+      const pr = dim * (shape.petal ?? 0.26);
+      const off = dim * (shape.spread ?? 0.3);
+      for (let i = 0; i < n; i++) {
+        const a = (2 * Math.PI * i) / n - Math.PI / 2;
+        g.appendChild(el('circle', { cx: Math.cos(a) * off, cy: Math.sin(a) * off, r: pr, fill }));
+      }
+      g.appendChild(el('circle', { cx: 0, cy: 0, r: dim * (shape.centerSize ?? 0.13), fill: shape.centerColor || '#ffffff' }));
+      return g;
     }
     case 'jacks': {
       // Four small dots joined by a thin cross (a clover / "jacks" pip).
@@ -3147,6 +3185,48 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       L(0, offL, 1, offR);                      // rung, tilted by the node offsets
       break;
     }
+    case 'grass': {
+      // Girard "June": thin meadow blades. Each cell grows one near-
+      // vertical stem with a few paired needle-leaves and, sometimes, a
+      // lens "seed pod" at the tip. Angles vary so blades cross. Lines
+      // are collected then wrap-painted for a seamless tile.
+      const salt = layerBounds?.salt ?? 1;
+      const crng = cellRng(ci, ri, salt);
+      const color = fill.color || palette[0] || '#3f7a8c';
+      const sw = (fill.thickness ?? 0.01) * Math.min(iw, ih);
+      const rootX = ix + iw / 2 + (crng() * 2 - 1) * iw * 0.45;
+      const baseY = iy + ih * 1.02;
+      const ang = -Math.PI / 2 + (crng() * 2 - 1) * 0.3;
+      const len = ih * (fill.height ?? 1.0) * (0.6 + crng() * 0.7);
+      const dx = Math.cos(ang), dy = Math.sin(ang);
+      const tipX = rootX + dx * len, tipY = baseY + dy * len;
+      const lines = [[rootX, baseY, tipX, tipY]];
+      const nn = 2 + Math.floor(crng() * 3);
+      for (let k = 0; k < nn; k++) {
+        const f = 0.3 + (k / Math.max(1, nn)) * 0.55 + crng() * 0.06;
+        const px = rootX + dx * len * f, py = baseY + dy * len * f;
+        const nlen = len * 0.1 * (0.7 + crng() * 0.6);
+        for (const s of [-1, 1]) {
+          const na = ang - s * (0.55 + crng() * 0.15);
+          lines.push([px, py, px + Math.cos(na) * nlen, py + Math.sin(na) * nlen]);
+        }
+      }
+      const pod = crng() < (fill.podChance ?? 0.4);
+      const podLen = len * 0.07, podW = sw * 2.4;
+      const podDeg = (ang * 180 / Math.PI + 90).toFixed(1);
+      drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, ox, oy) => {
+        for (const [x1, y1, x2, y2] of lines) host.appendChild(el('line', {
+          x1: x1 + ox, y1: y1 + oy, x2: x2 + ox, y2: y2 + oy,
+          stroke: color, 'stroke-width': sw, 'stroke-linecap': 'round',
+        }));
+        if (pod) {
+          const g = el('g', { transform: `translate(${(tipX + ox).toFixed(1)} ${(tipY + oy).toFixed(1)}) rotate(${podDeg})` });
+          g.appendChild(el('ellipse', { cx: 0, cy: -podLen, rx: podW, ry: podLen, fill: color }));
+          host.appendChild(g);
+        }
+      });
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -3513,7 +3593,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -3537,6 +3617,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'fruit', mode: 'random', density: 0.78, size: 1, leafChance: 0.28, stalk: '#4f4a22', leaf: '#7d9a40' };
     } else if (fillKind.value === 'graph') {
       layer.fill = { kind: 'graph', stroke: '#8a9a4a', strokeWidth: 0.012, offsets: [0, 0, 0.6, 0, 0.6, 0, 0, 0, 0.6, 0, 0.6, 0] };
+    } else if (fillKind.value === 'grass') {
+      layer.fill = { kind: 'grass', color: '#3f7a8c', thickness: 0.01, height: 1.05, podChance: 0.4 };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -3574,7 +3656,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'onion', 'flower', 'barbell', 'plus', 'cross', 'quadDots', 'jacks'],
+      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'onion', 'flower', 'blossom', 'barbell', 'plus', 'cross', 'quadDots', 'jacks'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
@@ -3649,6 +3731,11 @@ function buildConfigForm(host, layer, onChange) {
         layer.fill.shape = { ...(layer.fill.shape || { kind: 'lens' }), ratio: Number(rt.value) };
         onChange();
       });
+    }
+    if (layer.fill.shape?.kind === 'blossom') {
+      const bp = addCtrl('petals', 'number', layer.fill.shape?.petals ?? 5, { min: 4, max: 12, step: 1 });
+      bp.addEventListener('input', () => { layer.fill.shape = { ...(layer.fill.shape || { kind: 'blossom' }), petals: Number(bp.value) | 0 }; onChange(); });
+      addColorCtrl('center', layer.fill.shape?.centerColor ?? '#ffffff', (v) => { layer.fill.shape = { ...(layer.fill.shape || { kind: 'blossom' }), centerColor: v }; onChange(); });
     }
     if (layer.fill.shape?.kind === 'star') {
       const pts = addCtrl('points', 'number', layer.fill.shape?.numPoints ?? 5, { min: 3, max: 16, step: 1 });
@@ -3732,6 +3819,14 @@ function buildConfigForm(host, layer, onChange) {
   } else if (layer.fill.kind === 'multiform') {
     const dn = addCtrl('density', 'number', layer.fill.density ?? 0.82, { min: 0, max: 1, step: 0.05 });
     dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
+  } else if (layer.fill.kind === 'grass') {
+    addColorCtrl('blade', layer.fill.color || '#3f7a8c', (v) => { layer.fill.color = v; onChange(); });
+    const th = addCtrl('thickness', 'number', layer.fill.thickness ?? 0.01, { min: 0.003, max: 0.04, step: 0.002 });
+    th.addEventListener('input', () => { layer.fill.thickness = Number(th.value); onChange(); });
+    const ht = addCtrl('height', 'number', layer.fill.height ?? 1.05, { min: 0.4, max: 1.6, step: 0.05 });
+    ht.addEventListener('input', () => { layer.fill.height = Number(ht.value); onChange(); });
+    const pc = addCtrl('pod chance', 'number', layer.fill.podChance ?? 0.4, { min: 0, max: 1, step: 0.05 });
+    pc.addEventListener('input', () => { layer.fill.podChance = Number(pc.value); onChange(); });
   } else if (layer.fill.kind === 'graph') {
     addColorCtrl('line', layer.fill.stroke || '#8a9a4a', (v) => { layer.fill.stroke = v; onChange(); });
     const sw = addCtrl('line width', 'number', layer.fill.strokeWidth ?? 0.012, { min: 0.003, max: 0.05, step: 0.002 });
