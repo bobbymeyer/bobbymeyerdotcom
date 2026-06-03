@@ -626,7 +626,7 @@ function loadSample(name, current, clear) {
   const usesPalette = (l) => {
     const paletteModes = ['palette-cycle', 'checker', 'random'];
     return (l.fill?.kind === 'solid' && paletteModes.includes(l.fill?.mode))
-        || (l.fill?.kind === 'shape' && (paletteModes.includes(l.fill?.mode) || l.vary?.color?.type === 'palette'))
+        || (l.fill?.kind === 'shape' && (paletteModes.includes(l.fill?.mode) || l.vary?.color?.type === 'palette' || paletteModes.includes(l.fill?.shape?.strokeMode)))
         || (l.fill?.kind === 'split')
         || (l.fill?.kind === 'arc-split')
         || (l.fill?.kind === 'arc-block')
@@ -736,7 +736,7 @@ function shapeNode(shape, cw, rh, fill, ctx) {
   const dim = Math.min(cw, rh) * (shape.size ?? 0.6);
   // Optional stroke. strokeWidth is a fraction of the smaller cell
   // dim so outlines scale with the grid.
-  const sAttrs = strokeAttrs(shape.stroke, shape.strokeWidth, Math.min(cw, rh), '#000000');
+  const sAttrs = strokeAttrs(ctx?.stroke ?? shape.stroke, shape.strokeWidth, Math.min(cw, rh), '#000000');
 
   switch (shape.kind) {
     case 'circle':
@@ -1112,6 +1112,17 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const hasStroke = (shape.strokeWidth ?? 0) > 0;
       if (isTransparent(color) && !hasStroke) break;
       const fillColor = isTransparent(color) ? 'none' : color;
+      // Stroke colour can follow its own palette mode independently
+      // of the fill mode. Defaults to the shape's fixed stroke.
+      let strokeColor = shape.stroke;
+      if (hasStroke && palette.length > 0) {
+        const sMode = shape.strokeMode || 'fixed';
+        if (sMode === 'palette-cycle' || sMode === 'checker') {
+          strokeColor = palette[paletteIndex(sMode)];
+        } else if (sMode === 'random') {
+          strokeColor = palette[Math.floor(rng() * palette.length)];
+        }
+      }
       // Text shapes can cycle through an array; pick the index by
       // the same formula the colour mode uses, or randomly if
       // vary.color picks randomly.
@@ -1128,7 +1139,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const baseX = ix + iw / 2 + jx;
       const baseY = iy + ih / 2 + jy;
       drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, dx, dy) => {
-        const node = shapeNode(shape, iw, ih, fillColor, { textIndex, rng, palette, colorStart });
+        const node = shapeNode(shape, iw, ih, fillColor, { textIndex, rng, palette, colorStart, stroke: strokeColor });
         node.setAttribute(
           'transform',
           `translate(${baseX + dx} ${baseY + dy}) rotate(${rot}) scale(${s})`,
@@ -2054,10 +2065,20 @@ function buildConfigForm(host, layer, onChange) {
       if (was !== (v > 0)) rebuild();
     });
     if ((layer.fill.shape?.strokeWidth ?? 0) > 0) {
-      addColorCtrl('stroke color', layer.fill.shape?.stroke ?? '#000000', (v) => {
-        layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), stroke: v };
-        onChange();
+      const sMode = addCtrl('stroke colour', 'select', layer.fill.shape?.strokeMode || 'fixed', {
+        options: ['fixed', 'palette-cycle', 'checker', 'random'],
       });
+      sMode.addEventListener('change', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), strokeMode: sMode.value };
+        onChange();
+        rebuild();
+      });
+      if ((layer.fill.shape?.strokeMode || 'fixed') === 'fixed') {
+        addColorCtrl('stroke color', layer.fill.shape?.stroke ?? '#000000', (v) => {
+          layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), stroke: v };
+          onChange();
+        });
+      }
     }
     const rot = addCtrl('rotate°', 'number', layer.fill.shape?.rotate ?? 0, { min: -180, max: 180, step: 5 });
     rot.addEventListener('input', () => {
