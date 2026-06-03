@@ -456,6 +456,22 @@ const SAMPLES = {
       },
     ],
   },
+  'Fruit': {
+    // The "Fruit Tree" fruits without the tree: a scatter of stalked
+    // mid-century fruit shapes in warm colours with the odd leaf, on a
+    // half-drop grid over cream.
+    palette: ['#e0463a', '#ef7d2e', '#f3c11f', '#d9a72a', '#d24a8e', '#e85a2a'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#faf6ec', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 6, rows: 7, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: { kind: 'fruit', mode: 'random', density: 0.78, size: 1, leafChance: 0.28, stalk: '#4f4a22', leaf: '#7d9a40' },
+      },
+    ],
+  },
   'Plusses': {
     // Girard "Plusses": a half-drop grid of rust plus signs on cream.
     palette: ['#bf6b32'],
@@ -1283,7 +1299,8 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'pinwheel')
         || (l.fill?.kind === 'twigs')
         || (l.fill?.kind === 'dashes' && l.fill?.mode === 'random')
-        || (l.fill?.kind === 'multiform');
+        || (l.fill?.kind === 'multiform')
+        || (l.fill?.kind === 'fruit');
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -2886,6 +2903,58 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       });
       break;
     }
+    case 'fruit': {
+      // Girard "Fruit Tree" — minus the tree. Scattered "fruits" from a
+      // mid-century vocabulary (circle, ellipse, rounded square, arch,
+      // half-disc) in warm colours, each with a short dark stalk and
+      // the odd green leaf. Per-cell PRNG + wrap painting tile cleanly.
+      const salt = layerBounds?.salt ?? 1;
+      const crng = cellRng(ci, ri, salt);
+      if (crng() > (fill.density ?? 0.72)) break;
+      const pal = palette.length ? palette : ['#e0463a', '#ef7d2e', '#f3c11f', '#d9a72a', '#d24a8e'];
+      const color = fill.mode === 'cell'
+        ? pal[Math.floor(cellRng(ci, ri, 0x9E37)() * pal.length)]
+        : pal[Math.floor(crng() * pal.length)];
+      if (isTransparent(color)) break;
+      const stalkColor = fill.stalk || '#4f4a22';
+      const leafColor = fill.leaf || '#7d9a40';
+      const baseR = Math.min(iw, ih) * 0.42 * (fill.size ?? 1) * (0.78 + crng() * 0.44);
+      const cx0 = ix + iw / 2 + (crng() * 2 - 1) * iw * 0.06;
+      const cy0 = iy + ih / 2 + (crng() * 2 - 1) * ih * 0.06;
+      const kinds = ['circle', 'ellipseW', 'ellipseT', 'roundsquare', 'arch', 'semicircle'];
+      const kind = kinds[Math.floor(crng() * kinds.length)];
+      const rot = (crng() * 2 - 1) * 8;
+      const side = crng() < 0.68 ? -1 : 1;          // stalk mostly from the top
+      const stalkOff = (crng() * 2 - 1) * baseR * 0.22;
+      const leafOn = crng() < (fill.leafChance ?? 0.26);
+      const leafSide = crng() < 0.5 ? -1 : 1;
+      const draw = (host, ox, oy) => {
+        const cx = cx0 + ox, cy = cy0 + oy;
+        const g = el('g', { transform: `rotate(${rot.toFixed(1)} ${cx} ${cy})` });
+        let bh = baseR;                              // half-height for stalk attach
+        if (kind === 'circle') g.appendChild(el('circle', { cx, cy, r: baseR, fill: color }));
+        else if (kind === 'ellipseW') { bh = baseR * 0.62; g.appendChild(el('ellipse', { cx, cy, rx: baseR, ry: bh, fill: color })); }
+        else if (kind === 'ellipseT') { g.appendChild(el('ellipse', { cx, cy, rx: baseR * 0.72, ry: baseR, fill: color })); }
+        else if (kind === 'roundsquare') { const s = baseR * 0.92; bh = s; g.appendChild(el('rect', { x: cx - s, y: cy - s, width: s * 2, height: s * 2, rx: s * 0.22, ry: s * 0.22, fill: color })); }
+        else if (kind === 'arch') { const w = baseR * 1.5, H = baseR * 1.9, r = w / 2; bh = H / 2; g.appendChild(el('path', { d: `M ${cx - w / 2},${cy + H / 2} L ${cx - w / 2},${cy - H / 2 + r} A ${r},${r} 0 0 1 ${cx + w / 2},${cy - H / 2 + r} L ${cx + w / 2},${cy + H / 2} Z`, fill: color })); }
+        else if (kind === 'semicircle') { const r = baseR * 1.1; bh = r * 0.55; g.appendChild(el('path', { d: `M ${cx - r},${cy + r * 0.2} A ${r},${r} 0 0 1 ${cx + r},${cy + r * 0.2} Z`, fill: color })); }
+        // Dark stalk: from the fruit edge inward.
+        const sx = cx + stalkOff;
+        g.appendChild(el('line', {
+          x1: sx, y1: cy + side * bh * 0.98, x2: sx, y2: cy + side * bh * 0.12,
+          stroke: stalkColor, 'stroke-width': baseR * 0.12, 'stroke-linecap': 'round',
+        }));
+        if (leafOn) {
+          const lx = sx + leafSide * baseR * 0.28, ly = cy + side * bh * 0.95;
+          const lg = el('g', { transform: `translate(${lx.toFixed(1)} ${ly.toFixed(1)}) rotate(${(leafSide * 42).toFixed(0)})` });
+          lg.appendChild(el('ellipse', { cx: 0, cy: 0, rx: baseR * 0.34, ry: baseR * 0.14, fill: leafColor }));
+          g.appendChild(lg);
+        }
+        host.appendChild(g);
+      };
+      drawWrapped(parent, layerBounds?.w, layerBounds?.h, draw);
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -3252,7 +3321,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -3272,6 +3341,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'dashes', mode: 'random', density: 0.42, width: 0.5 };
     } else if (fillKind.value === 'multiform') {
       layer.fill = { kind: 'multiform', density: 0.82 };
+    } else if (fillKind.value === 'fruit') {
+      layer.fill = { kind: 'fruit', mode: 'random', density: 0.78, size: 1, leafChance: 0.28, stalk: '#4f4a22', leaf: '#7d9a40' };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -3467,6 +3538,17 @@ function buildConfigForm(host, layer, onChange) {
   } else if (layer.fill.kind === 'multiform') {
     const dn = addCtrl('density', 'number', layer.fill.density ?? 0.82, { min: 0, max: 1, step: 0.05 });
     dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
+  } else if (layer.fill.kind === 'fruit') {
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'random', { options: ['random', 'cell'] });
+    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); });
+    const dn = addCtrl('density', 'number', layer.fill.density ?? 0.78, { min: 0, max: 1, step: 0.05 });
+    dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
+    const sz = addCtrl('size', 'number', layer.fill.size ?? 1, { min: 0.4, max: 1.6, step: 0.05 });
+    sz.addEventListener('input', () => { layer.fill.size = Number(sz.value); onChange(); });
+    const lc = addCtrl('leaf chance', 'number', layer.fill.leafChance ?? 0.26, { min: 0, max: 1, step: 0.05 });
+    lc.addEventListener('input', () => { layer.fill.leafChance = Number(lc.value); onChange(); });
+    addColorCtrl('stalk', layer.fill.stalk || '#4f4a22', (v) => { layer.fill.stalk = v; onChange(); });
+    addColorCtrl('leaf', layer.fill.leaf || '#7d9a40', (v) => { layer.fill.leaf = v; onChange(); });
   } else if (layer.fill.kind === 'honeycomb') {
     addColorCtrl('line', layer.fill.stroke || '#3a4aa0', (v) => { layer.fill.stroke = v; onChange(); });
     const sw = addCtrl('line width', 'number', layer.fill.strokeWidth ?? 0.03, { min: 0.005, max: 0.12, step: 0.005 });
