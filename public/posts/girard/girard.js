@@ -822,6 +822,26 @@ const SAMPLES = {
       },
     ],
   },
+  'Broken Lines': {
+    // Girard "Broken Lines": thick dark dashes on linen, each tilted per
+    // column so adjacent columns lean opposite ways — the Graph idea but
+    // with the lines broken into separate bars. Some columns sit flat.
+    palette: ['#3a4150'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#cdc2ac', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 8, rows: 10, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'graph', broken: true, stroke: '#3a4150',
+          barWidth: 0.32, margin: 0.08,
+          tilts: [0.5, -0.5, 0.5, -0.5, 0, 0, 0.5, -0.5],
+        },
+      },
+    ],
+  },
   'Graph': {
     // Girard "Graph": thin olive line-art — vertical dividers, ladder
     // grids and stacked chevron arrows in vertical bands, on off-white.
@@ -3107,10 +3127,21 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const P = offsets.length;
       const offL = offsets[mod(ci, P)];
       const offR = offsets[mod(ci + 1, P)];
-      const L = (x1, y1, x2, y2) => parent.appendChild(el('line', {
+      const L = (x1, y1, x2, y2, w) => parent.appendChild(el('line', {
         x1: ix + x1 * iw, y1: iy + y1 * ih, x2: ix + x2 * iw, y2: iy + y2 * ih,
-        stroke, 'stroke-width': sw, 'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+        stroke, 'stroke-width': w ?? sw, 'stroke-linecap': fill.broken ? 'butt' : 'round', 'stroke-linejoin': 'round',
       }));
+      if (fill.broken) {
+        // Broken Lines: a thick, centred bar per cell tilted per column
+        // (no verticals, gaps between cells) — the Graph nodes but with
+        // the connecting lines cut into separate dashes.
+        const tilts = fill.tilts && fill.tilts.length ? fill.tilts : [0.45, -0.45];
+        const tilt = tilts[mod(ci, tilts.length)];
+        const m = fill.margin ?? 0.13;
+        const bw = (fill.barWidth ?? 0.22) * ih;
+        L(m, 0.5 - tilt / 2, 1 - m, 0.5 + tilt / 2, bw);
+        break;
+      }
       L(0, 0, 0, 1);                            // vertical divider
       L(0, offL, 1, offR);                      // rung, tilted by the node offsets
       break;
