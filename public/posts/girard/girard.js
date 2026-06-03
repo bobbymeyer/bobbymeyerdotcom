@@ -662,13 +662,13 @@ const SAMPLES = {
         fill: { kind: 'grass', color: '#3f7a8c', thickness: 0.009, height: 1.15, podChance: 0.42 },
       },
       {
-        grid: { cols: 6, rows: 7, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        grid: { cols: 8, rows: 9, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
         fill: {
           kind: 'shape',
-          shape: { kind: 'blossom', size: 0.34, petals: 5, petal: 0.27, spread: 0.32, centerColor: '#ffffff', centerSize: 0.12 },
-          mode: 'fixed', color: '#e0566a', density: 0.5,
+          shape: { kind: 'blossom', size: 0.2, petals: 5, petal: 0.27, spread: 0.32, centerColor: '#ffffff', centerSize: 0.12 },
+          mode: 'fixed', color: '#e0566a', density: 0.45,
         },
-        vary: { jitter: { type: 'random', min: -0.32, max: 0.32 } },
+        vary: { jitter: { type: 'random', min: -0.36, max: 0.36 } },
       },
     ],
   },
