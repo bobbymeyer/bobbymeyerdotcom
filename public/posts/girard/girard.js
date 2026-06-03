@@ -506,16 +506,16 @@ const SAMPLES = {
         fill: { kind: 'solid', color: '#fbf8f1', mode: 'fixed' },
       },
       {
-        grid: { cols: 7, rows: 9, offset: { x: 0, y: 0.5 }, offsetMode: 'alternate-col' },
+        grid: { cols: 8, rows: 8, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         fill: {
-          kind: 'shape', shape: { kind: 'onion', size: 1.32, ratio: 1.05 },
+          kind: 'shape', shape: { kind: 'onion', size: 1.12, ratio: 1.22, bulge: 0.52 },
           mode: 'cell',
         },
       },
       {
-        grid: { cols: 7, rows: 9, offset: { x: 0, y: 0.5 }, offsetMode: 'alternate-col' },
+        grid: { cols: 8, rows: 8, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         fill: {
-          kind: 'shape', shape: { kind: 'onion', size: 0.6, ratio: 1.05 },
+          kind: 'shape', shape: { kind: 'onion', size: 0.5, ratio: 1.0, bulge: 0.52 },
           mode: 'cell',
         },
         palette: ['#9e241d', '#c0561a', '#972e58', '#7d1f49', '#a83322'],
