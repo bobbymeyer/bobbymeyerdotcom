@@ -1091,9 +1091,11 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
     }
     case 'shape': {
       const shape = fill.shape || { kind: 'circle', size: 0.6 };
-      let s = 1, rot = 0, jx = 0, jy = 0;
+      // Base rotation applies to every instance; vary.rotate (when on)
+      // adds a per-cell jitter on top.
+      let s = 1, rot = (shape.rotate ?? 0), jx = 0, jy = 0;
       if (layer.vary?.scale)  s   = evalMod(layer.vary.scale,  rng, col, row, 1);
-      if (layer.vary?.rotate) rot = evalMod(layer.vary.rotate, rng, col, row, 0);
+      if (layer.vary?.rotate) rot += evalMod(layer.vary.rotate, rng, col, row, 0);
       if (layer.vary?.jitter) {
         jx = evalMod(layer.vary.jitter, rng, col, row, 0) * iw;
         jy = evalMod(layer.vary.jitter, rng, col, row, 0) * ih;
@@ -2057,6 +2059,11 @@ function buildConfigForm(host, layer, onChange) {
         onChange();
       });
     }
+    const rot = addCtrl('rotate°', 'number', layer.fill.shape?.rotate ?? 0, { min: -180, max: 180, step: 5 });
+    rot.addEventListener('input', () => {
+      layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), rotate: Number(rot.value) };
+      onChange();
+    });
     if (layer.fill.shape?.kind === 'diamond') {
       const rg = addCtrl('rings', 'number', layer.fill.shape?.rings ?? 3, { min: 1, max: 8, step: 1 });
       rg.addEventListener('input', () => {
