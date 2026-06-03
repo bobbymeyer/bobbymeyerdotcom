@@ -837,7 +837,9 @@ const SAMPLES = {
         fill: {
           kind: 'graph', broken: true, stroke: '#3a4150',
           barWidth: 0.32, margin: 0.08,
-          tilts: [0.5, -0.5, 0.5, -0.5, 0, 0, 0.5, -0.5],
+          // node heights run flat then step: horizontal dashes at high /
+          // low, joined by tilted ones → lines break up and down.
+          offsets: [0.32, 0.32, 0.68, 0.68, 0.5, 0.5, 0.32, 0.68],
         },
       },
     ],
@@ -3132,14 +3134,13 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         stroke, 'stroke-width': w ?? sw, 'stroke-linecap': fill.broken ? 'butt' : 'round', 'stroke-linejoin': 'round',
       }));
       if (fill.broken) {
-        // Broken Lines: a thick, centred bar per cell tilted per column
-        // (no verticals, gaps between cells) — the Graph nodes but with
-        // the connecting lines cut into separate dashes.
-        const tilts = fill.tilts && fill.tilts.length ? fill.tilts : [0.45, -0.45];
-        const tilt = tilts[mod(ci, tilts.length)];
-        const m = fill.margin ?? 0.13;
-        const bw = (fill.barWidth ?? 0.22) * ih;
-        L(m, 0.5 - tilt / 2, 1 - m, 0.5 + tilt / 2, bw);
+        // Broken Lines: thick dashes that sit at the per-column node
+        // heights (offsets, 0..1) with gaps between — so where the
+        // offsets run flat the dashes are horizontal at a height, and
+        // where they step the dashes tilt: the line breaks up and down.
+        const m = fill.margin ?? 0.12;
+        const bw = (fill.barWidth ?? 0.24) * ih;
+        L(m, offL, 1 - m, offR, bw);
         break;
       }
       L(0, 0, 0, 1);                            // vertical divider
