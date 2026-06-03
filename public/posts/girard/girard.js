@@ -657,6 +657,36 @@ const SAMPLES = {
       },
     ],
   },
+  'Ribbons': {
+    // Girard "Ribbons" (1957): warm vertical stripes (gold, orange,
+    // rose, magenta, red) of varied width, with broad translucent
+    // horizontal ribbons woven across on a multiply blend — where the
+    // two cross the colour deepens into crimson and purple, just like
+    // the layered semi-sheer cotton of the original.
+    palette: ['#f0a93f', '#ef7d3a', '#de7ba0', '#c76a9e', '#d6453f'],
+    layers: [
+      {
+        grid: {
+          cols: 11, rows: 1,
+          colWeights: [5, 3, 6, 4, 3, 6, 4, 5, 3, 6, 4],
+          offset: { x: 0, y: 0 }, offsetMode: 'none',
+        },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['#f0a93f', '#ef7d3a', '#de7ba0', '#c76a9e', '#d6453f', '#ef8f6a'],
+      },
+      {
+        grid: {
+          cols: 3, rows: 4,
+          colWeights: [4, 3, 4], rowWeights: [4, 3, 5, 3],
+          offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row',
+        },
+        blendMode: 'multiply',
+        opacity: 0.7,
+        fill: { kind: 'solid', mode: 'random' },
+        palette: ['transparent', 'transparent', '#c0394f', '#8e4f86', '#d6453f', 'transparent'],
+      },
+    ],
+  },
   'Rayamax stripe': {
     // Order: black, yellow, grey, pink, blue, white. Two small + one
     // large band on each side, repeating vertically.
