@@ -555,26 +555,19 @@ const SAMPLES = {
     ],
   },
   'Miller Stripe': {
-    // Girard "Miller Stripe": a woven blue-violet ground with a clustered
-    // group of thin red / cream vertical stripes, wide purple between.
-    // Warp-faced weave; purple weft gives the ground its woven texture.
-    palette: ['#c0494e', '#e8e2d4'],
+    // Girard "Miller Stripe": a blue-violet ground with a clustered group
+    // of thin red / cream vertical stripes, wide purple between. Solid
+    // vertical bands sized by colWeights.
+    palette: ['#585a93', '#e8e2d4', '#c0494e', '#e8e2d4', '#c0494e', '#e8e2d4'],
     layers: [
       {
-        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', color: '#585a93', mode: 'fixed' },
-      },
-      {
-        grid: { cols: 24, rows: 18, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: {
-          kind: 'weave', face: 'warp', warpN: 6, gap: 0.0, round: 0.12, noise: 0.08,
-          warp: [
-            ...band('#585a93', 9),
-            '#e8e2d4', '#c0494e', '#e8e2d4', '#c0494e', '#e8e2d4',
-            ...band('#585a93', 10),
-          ],
-          weft: ['#585a93'],
+        grid: {
+          cols: 6, rows: 1,
+          colWeights: [16, 1, 1.6, 1, 1.6, 1],
+          offset: { x: 0, y: 0 }, offsetMode: 'none',
         },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['#585a93', '#e8e2d4', '#c0494e', '#e8e2d4', '#c0494e', '#e8e2d4'],
       },
     ],
   },
