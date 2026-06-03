@@ -426,6 +426,18 @@ const SAMPLES = {
       },
     ],
   },
+  'Multiform': {
+    // Girard "Multiform": a dense sampler scatter of the whole shape
+    // vocabulary — flowers, circles, squares, diamonds, lenses, stars,
+    // barbells, crosses, dot-grids — in a soft folk palette on white.
+    palette: ['#6f8f3f', '#3a4a63', '#3f7fc0', '#f0b53a', '#e0768f', '#b69a82', '#9aa0a0'],
+    layers: [
+      {
+        grid: { cols: 9, rows: 12, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: { kind: 'multiform', density: 0.82 },
+      },
+    ],
+  },
   'Rain': {
     // Girard "Rain": a loose collage of translucent colour blocks with
     // up-pointing triangles scattered over them, all on a multiply
@@ -1074,7 +1086,8 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'manhattan' && paletteModes.includes(l.fill?.mode))
         || (l.fill?.kind === 'pinwheel')
         || (l.fill?.kind === 'twigs')
-        || (l.fill?.kind === 'dashes' && l.fill?.mode === 'random');
+        || (l.fill?.kind === 'dashes' && l.fill?.mode === 'random')
+        || (l.fill?.kind === 'multiform');
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -1242,6 +1255,36 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         fill,
         ...sAttrs,
       });
+    }
+    case 'barbell': {
+      // A bar with a round knob at each end (vertical by default).
+      const g = el('g', {});
+      const len = dim, bw = dim * 0.13, kr = dim * 0.2;
+      g.appendChild(el('rect', { x: -bw / 2, y: -len / 2, width: bw, height: len, fill, ...sAttrs }));
+      g.appendChild(el('circle', { cx: 0, cy: -len / 2, r: kr, fill, ...sAttrs }));
+      g.appendChild(el('circle', { cx: 0, cy: len / 2, r: kr, fill, ...sAttrs }));
+      return g;
+    }
+    case 'cross': {
+      // Fat rounded X (two crossing capsules).
+      const g = el('g', {});
+      const L = dim, w = dim * 0.28;
+      for (const a of [45, -45]) {
+        g.appendChild(el('rect', {
+          x: -L / 2, y: -w / 2, width: L, height: w, rx: w / 2, ry: w / 2,
+          fill, transform: `rotate(${a})`, ...sAttrs,
+        }));
+      }
+      return g;
+    }
+    case 'quadDots': {
+      // 2×2 grid of little squares.
+      const g = el('g', {});
+      const sq = dim * 0.36, gap = dim * 0.12, o = (sq + gap) / 2;
+      for (const px of [-o, o]) for (const py of [-o, o]) {
+        g.appendChild(el('rect', { x: px - sq / 2, y: py - sq / 2, width: sq, height: sq, fill, ...sAttrs }));
+      }
+      return g;
     }
     case 'flower': {
       // Scalloped disc: a central circle ringed by overlapping bump
@@ -2560,6 +2603,38 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       parent.appendChild(el('rect', { x, y: iy, width: w, height: ih, fill: mark }));
       break;
     }
+    case 'multiform': {
+      // Girard "Multiform": a sampler scatter — each cell picks a random
+      // motif from the shape vocabulary in a random palette colour, some
+      // filled, some outlined, with size / rotation / position jitter.
+      // Per-cell PRNG (wrapped index) + wrap painting keep it seamless.
+      const salt = layerBounds?.salt ?? 1;
+      const crng = cellRng(ci, ri, salt);
+      if (crng() > (fill.density ?? 0.82)) break;
+      const kinds = fill.shapes || [
+        'circle', 'square', 'flower', 'lens', 'diamond', 'star',
+        'barbell', 'cross', 'quadDots', 'triangle',
+      ];
+      const kind = kinds[Math.floor(crng() * kinds.length)];
+      const color = palette.length ? palette[Math.floor(crng() * palette.length)] : (fill.color || '#6f8f3f');
+      const shape = { kind, size: 0.5 + crng() * 0.4, petals: 12 + Math.floor(crng() * 6), rings: 1 };
+      // A few motifs read better rotated to vertical or horizontal.
+      let rot = 0;
+      if (kind === 'barbell' || kind === 'lens') rot = crng() < 0.5 ? 0 : 90;
+      // Outline (ring / open square) for a subset, sometimes.
+      let fillColor = color;
+      if ((kind === 'circle' || kind === 'square' || kind === 'diamond') && crng() < 0.32) {
+        shape.strokeWidth = 0.05; shape.stroke = color; fillColor = 'none';
+      }
+      const bx = ix + iw / 2 + (crng() * 2 - 1) * iw * 0.1;
+      const by = iy + ih / 2 + (crng() * 2 - 1) * ih * 0.1;
+      drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, dx, dy) => {
+        const node = shapeNode(shape, iw, ih, fillColor, { rng: crng, palette, colorStart: 0 });
+        node.setAttribute('transform', `translate(${bx + dx} ${by + dy}) rotate(${rot})`);
+        host.appendChild(node);
+      });
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -2885,7 +2960,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -2903,6 +2978,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'honeycomb', stroke: '#3a4aa0', strokeWidth: 0.03 };
     } else if (fillKind.value === 'dashes') {
       layer.fill = { kind: 'dashes', mode: 'random', density: 0.42, width: 0.5 };
+    } else if (fillKind.value === 'multiform') {
+      layer.fill = { kind: 'multiform', density: 0.82 };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -2940,7 +3017,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'flower'],
+      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'flower', 'barbell', 'cross', 'quadDots'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
@@ -3075,6 +3152,9 @@ function buildConfigForm(host, layer, onChange) {
     const sp = addCtrl('spin (¼ turn)', 'number', layer.fill.spin ?? 0, { min: 0, max: 3, step: 1 });
     sp.addEventListener('input', () => { layer.fill.spin = Number(sp.value) | 0; onChange(); });
     addColorCtrl('ground', layer.fill.ground ?? 'transparent', (v) => { layer.fill.ground = v; onChange(); });
+  } else if (layer.fill.kind === 'multiform') {
+    const dn = addCtrl('density', 'number', layer.fill.density ?? 0.82, { min: 0, max: 1, step: 0.05 });
+    dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
   } else if (layer.fill.kind === 'honeycomb') {
     addColorCtrl('line', layer.fill.stroke || '#3a4aa0', (v) => { layer.fill.stroke = v; onChange(); });
     const sw = addCtrl('line width', 'number', layer.fill.strokeWidth ?? 0.03, { min: 0.005, max: 0.12, step: 0.005 });
