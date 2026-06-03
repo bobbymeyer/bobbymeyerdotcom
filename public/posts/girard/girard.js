@@ -452,25 +452,41 @@ const SAMPLES = {
       {
         grid: {
           cols: 3, rows: 4, offset: { x: 0, y: 0 }, offsetMode: 'none',
-          gutterX: 0.12, gutterY: 0.32,
+          gutterX: 0.1, gutterY: 0.3,
         },
         blendMode: 'multiply', opacity: 0.85,
         fill: { kind: 'solid', mode: 'random', density: 0.72 },
         vary: {
-          scale:  { type: 'random', min: 0.7, max: 1.05 },
-          jitter: { type: 'random', min: -0.12, max: 0.12 },
+          scale:  { type: 'random', min: 0.62, max: 1.12 },
+          jitter: { type: 'random', min: -0.2, max: 0.2 },
+        },
+      },
+      {
+        // Cut-outs: paper-coloured triangles, opaque and normal blend,
+        // sitting on the blocks (below the colour triangles) so they
+        // knock white triangles out of the blocks.
+        grid: { cols: 3, rows: 4, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'shape', shape: { kind: 'triangle', size: 0.66 },
+          mode: 'fixed', color: '#f6f3ec', density: 0.4,
+        },
+        vary: {
+          scale:  { type: 'random', min: 0.7, max: 1.1 },
+          jitter: { type: 'random', min: -0.22, max: 0.22 },
+          rotate: { type: 'random', min: -8, max: 8 },
         },
       },
       {
         grid: { cols: 3, rows: 4, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
         blendMode: 'multiply', opacity: 0.85,
         fill: {
-          kind: 'shape', shape: { kind: 'triangle', size: 0.8 },
+          kind: 'shape', shape: { kind: 'triangle', size: 0.82 },
           mode: 'random', density: 0.66,
         },
         vary: {
-          scale:  { type: 'random', min: 0.7, max: 1.15 },
-          jitter: { type: 'random', min: -0.05, max: 0.32 },
+          scale:  { type: 'random', min: 0.65, max: 1.2 },
+          jitter: { type: 'random', min: -0.1, max: 0.36 },
+          rotate: { type: 'random', min: -12, max: 12 },
         },
       },
     ],
