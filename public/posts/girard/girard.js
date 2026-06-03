@@ -495,30 +495,25 @@ const SAMPLES = {
     ],
   },
   'Feathers': {
-    // Girard "Feathers": a half-drop diagonal lattice of onion / lens
-    // shapes in warm reds, oranges and magentas on white, each with a
-    // smaller darker core (the ikat blur). Both layers use 'cell'
-    // colour so the core is a deeper shade of its own petal.
-    palette: ['#d83a2f', '#ee7a2e', '#d24a7e', '#b0306a', '#e8593f'],
+    // Girard "Feathers": diamonds — rounded on the sides, sharp top and
+    // bottom (the onion shape) — on a grid, sized to OVERLAP their
+    // neighbours, drawn on a multiply blend. Where the translucent
+    // shapes cross, the colour deepens (the darker cores and ikat
+    // seams); small white diamonds remain at the interstices.
+    palette: ['#e0463a', '#ee7a3a', '#d24a7e', '#bf3a72', '#e85a44', '#d8395a'],
     layers: [
       {
         grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         fill: { kind: 'solid', color: '#fbf8f1', mode: 'fixed' },
       },
       {
-        grid: { cols: 8, rows: 8, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        grid: { cols: 7, rows: 8, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        blendMode: 'multiply',
+        opacity: 0.82,
         fill: {
-          kind: 'shape', shape: { kind: 'onion', size: 1.12, ratio: 1.22, bulge: 0.52 },
+          kind: 'shape', shape: { kind: 'onion', size: 1.46, ratio: 1.05, bulge: 0.55 },
           mode: 'cell',
         },
-      },
-      {
-        grid: { cols: 8, rows: 8, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: {
-          kind: 'shape', shape: { kind: 'onion', size: 0.5, ratio: 1.0, bulge: 0.52 },
-          mode: 'cell',
-        },
-        palette: ['#9e241d', '#c0561a', '#972e58', '#7d1f49', '#a83322'],
       },
     ],
   },
