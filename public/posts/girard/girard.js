@@ -425,9 +425,9 @@ const SAMPLES = {
         fill: { kind: 'solid', color: '#9a9ca0', mode: 'fixed' },
       },
       {
-        grid: { cols: 9, rows: 11, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        grid: { cols: 8, rows: 10, offset: { x: 0, y: 0 }, offsetMode: 'none', gutterX: 0.26, gutterY: 0.26 },
         fill: {
-          kind: 'glyph', weight: 0.16,
+          kind: 'glyph', weight: 0.22,
           inks: ['#2b3242', '#f1eee4'],
           glyphs: ['ibeam', 'hbeam', 'plus', 'lbracket', 'rbracket'],
         },
