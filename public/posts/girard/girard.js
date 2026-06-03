@@ -426,6 +426,36 @@ const SAMPLES = {
       },
     ],
   },
+  'Alphabet': {
+    // Girard "Alphabet": rows of big bold condensed letters and numbers
+    // in charcoal on linen. Each cell shows the next glyph from a flat
+    // 9×4 sequence (palette-cycle indexes col + row*cols). Uses the
+    // Google font "Anton" (loaded on demand).
+    palette: ['#2f3239'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#cabfa8', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 9, rows: 4, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'shape',
+          shape: {
+            kind: 'text', size: 1.15,
+            fontFamily: 'Anton', fontWeight: '400', fontStyle: 'normal',
+            text: [
+              '2', 'V', '5', 'L', 'R', '3', 'M', 'O', 'T',
+              'J', '8', 'N', 'C', '&', 'F', 'S', 'P', 'B',
+              '4', 'E', 'I', 'Z', 'Q', '1', 'W', 'A', 'H',
+              'D', 'X', '9', 'C', 'K', 'U', 'Y', '6', '7',
+            ],
+          },
+          mode: 'palette-cycle',
+        },
+      },
+    ],
+  },
   'Plusses': {
     // Girard "Plusses": a half-drop grid of rust plus signs on cream.
     palette: ['#bf6b32'],
@@ -1586,7 +1616,7 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         'text-anchor': 'middle',
         'dominant-baseline': 'central',
         ...sAttrs,
-        ...(sw > 0 ? { 'paint-order': 'stroke fill' } : {}),
+        ...((shape.strokeWidth ?? 0) > 0 ? { 'paint-order': 'stroke fill' } : {}),
       });
       node.textContent = t;
       return node;
@@ -2875,6 +2905,47 @@ function buildRepeatUnit(pattern, tileGroup) {
 }
 
 // ---------- Top-level SVG ----------
+// ---------- Google Fonts (loaded on demand) ----------
+const GOOGLE_FONTS = [
+  'Anton', 'Oswald', 'Archivo Black', 'Bebas Neue', 'Fjalla One',
+  'Staatliches', 'Passion One', 'Bungee', 'Abril Fatface', 'Rubik Mono One',
+  'Libre Franklin', 'Playfair Display',
+];
+const GENERIC_FONTS = ['sans-serif', 'serif', 'monospace'];
+const _loadedFonts = new Set();
+
+// Inject the Google Fonts stylesheet for `family` (once) and resolve
+// when the actual font faces are ready, so a re-render can use them.
+function ensureFont(family) {
+  if (!family || GENERIC_FONTS.includes(family)) return Promise.resolve();
+  if (!_loadedFonts.has(family)) {
+    _loadedFonts.add(family);
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, '+')}:wght@400;700;900&display=swap`;
+    document.head.appendChild(link);
+  }
+  if (document.fonts && document.fonts.load) {
+    return Promise.all([
+      document.fonts.load(`900 40px "${family}"`),
+      document.fonts.load(`700 40px "${family}"`),
+      document.fonts.load(`400 40px "${family}"`),
+    ]).catch(() => {});
+  }
+  return Promise.resolve();
+}
+
+// Every font family referenced by a text-shape layer in the pattern.
+function patternFonts(pattern) {
+  const set = new Set();
+  for (const l of pattern.layers || []) {
+    if (l.fill?.kind === 'shape' && l.fill.shape?.kind === 'text' && l.fill.shape.fontFamily) {
+      set.add(l.fill.shape.fontFamily);
+    }
+  }
+  return [...set];
+}
+
 function buildSvg(pattern) {
   const { w: tileW, h: tileH } = tileDims(pattern);
   const viewW = tileW * 3, viewH = tileH * 3;
@@ -3330,6 +3401,26 @@ function buildConfigForm(host, layer, onChange) {
         layer.fill.shape = { ...(layer.fill.shape || { kind: 'text' }), text: value };
         onChange();
       });
+      // Font family — generic plus a curated set of Google Fonts that
+      // are fetched on demand when chosen.
+      const fontOpts = [...GENERIC_FONTS, ...GOOGLE_FONTS];
+      const cur = layer.fill.shape?.fontFamily || 'sans-serif';
+      const font = addCtrl('font', 'select', fontOpts.includes(cur) ? cur : 'sans-serif', { options: fontOpts });
+      font.addEventListener('change', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'text' }), fontFamily: font.value };
+        ensureFont(font.value).then(onChange);
+        onChange();
+      });
+      const weight = addCtrl('weight', 'select', String(layer.fill.shape?.fontWeight ?? 'bold'), { options: ['400', '700', '900', 'bold'] });
+      weight.addEventListener('change', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'text' }), fontWeight: weight.value };
+        onChange();
+      });
+      const style = addCtrl('style', 'select', layer.fill.shape?.fontStyle ?? 'italic', { options: ['normal', 'italic'] });
+      style.addEventListener('change', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'text' }), fontStyle: style.value };
+        onChange();
+      });
     }
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['fixed', 'palette-cycle', 'checker', 'random', 'cell'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
@@ -3598,6 +3689,14 @@ function mount() {
   //                  select, where the surrounding DOM has to change.
   const rerenderSvg = () => {
     stage.replaceChildren(buildSvg(pattern));
+    // If any layer uses a web font, load it then redraw once it's ready
+    // (SVG text needs the face present to measure/paint correctly).
+    const fonts = patternFonts(pattern);
+    if (fonts.length) {
+      Promise.all(fonts.map(ensureFont)).then(() => {
+        stage.replaceChildren(buildSvg(pattern));
+      });
+    }
   };
   const layerHandlers = {
     select: (i) => { selected = i; rerenderUI(); },
