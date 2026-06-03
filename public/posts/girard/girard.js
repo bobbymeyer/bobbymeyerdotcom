@@ -43,6 +43,20 @@ function cellRng(col, row, salt, extra = 0) {
   return makeRng(((((col * 73856093) ^ (row * 19349663) ^ (salt >>> 0) ^ (extra * 0x9E3779B1)) >>> 0) || 1));
 }
 
+// Shade a #rrggbb colour toward white (amt > 0) or black (amt < 0),
+// |amt| in 0..1. Non-hex input is returned unchanged.
+function shadeHex(hex, amt) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const mix = (ch) => {
+    const t = amt < 0 ? 0 : 255;
+    return Math.round(ch + (t - ch) * Math.abs(amt));
+  };
+  const r = mix((n >> 16) & 255), g = mix((n >> 8) & 255), b = mix(n & 255);
+  return '#' + ((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1);
+}
+
 // Pick a random palette entry.
 function randColor(rng, palette) {
   return palette[Math.floor(rng() * palette.length)];
@@ -227,6 +241,10 @@ const defaultPattern = () => ({
 // palette / repeat overrides. Loading either replaces the current
 // pattern (default palette + repeat reset) or appends the sample's
 // layers on top of the existing pattern.
+// Repeat a colour n times — handy for building striped warp / weft
+// thread sequences for the weave samples.
+const band = (c, n) => Array(n).fill(c);
+
 const SAMPLES = {
   'starter dots': {
     palette: ['#f5e9d0', '#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50'],
@@ -405,6 +423,56 @@ const SAMPLES = {
       {
         grid: { cols: 6, rows: 6, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         fill: { kind: 'glyph', ink: '#21242b', paper: '#f3ede0', invert: 0.5, weight: 0.22 },
+      },
+    ],
+  },
+  'Jutestripe': {
+    // Girard "Jutestripe": a plain weave whose vertical warp threads
+    // are striped (navy / cream / tan) crossing a natural light weft.
+    // Inside each stripe the weft shows through on alternate crossings,
+    // giving the speckled woven texture.
+    palette: ['#2c303a', '#e8dec3', '#c2a878'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#1d2027', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 30, rows: 18, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'weave', face: 'warp', gap: 0.08, round: 0.28, noise: 0.13,
+          warp: [
+            ...band('#2c303a', 7), ...band('#e8dec3', 4), ...band('#c2a878', 4),
+            ...band('#2c303a', 7), ...band('#c2a878', 4), ...band('#e8dec3', 4),
+          ],
+          weft: ['#c2a878', '#e8dec3'],
+        },
+      },
+    ],
+  },
+  'Juteplaid': {
+    // Girard "Juteplaid": the same striped sequence on BOTH warp and
+    // weft, so the bands cross into a tartan — solid blocks where two
+    // like colours meet, woven checks where they differ.
+    palette: ['#2c303a', '#c2a878', '#e8dec3'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#1d2027', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 14, rows: 14, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'weave', gap: 0.08, round: 0.28, noise: 0.13,
+          warp: [
+            ...band('#2c303a', 5), ...band('#c2a878', 4),
+            ...band('#e8dec3', 2), ...band('#c2a878', 3),
+          ],
+          weft: [
+            ...band('#2c303a', 5), ...band('#c2a878', 4),
+            ...band('#e8dec3', 2), ...band('#c2a878', 3),
+          ],
+        },
       },
     ],
   },
@@ -2083,6 +2151,35 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       });
       break;
     }
+    case 'weave': {
+      // Plain over/under weave. warp = vertical thread colours (indexed
+      // by column), weft = horizontal thread colours (by row). At each
+      // crossing the warp is "on top" on one checker phase and the weft
+      // on the other, so colours interlace into the woven texture.
+      // Striped warp/weft give Jutestripe; striping both gives a plaid.
+      const warp = fill.warp && fill.warp.length ? fill.warp : palette;
+      const weft = fill.weft && fill.weft.length ? fill.weft : (fill.warp && fill.warp.length ? fill.warp : palette);
+      // Balanced = 50/50 checker. Warp-faced shows the vertical thread
+      // on 2 of every 3 crossings, so warp stripes stay dominant with
+      // the weft just speckling through (needs dims ÷3 to tile).
+      const over = (fill.face === 'warp')
+        ? mod(ci + ri, 3) !== 0
+        : mod(ci + ri, 2) === 0;
+      let color = over ? warp[mod(col, warp.length)] : weft[mod(row, weft.length)];
+      if (fill.noise) {
+        const crng = cellRng(ci, ri, layerBounds?.salt ?? 1);
+        color = shadeHex(color, (crng() * 2 - 1) * fill.noise);
+      }
+      if (isTransparent(color)) break;
+      const g2 = (fill.gap ?? 0.12);
+      const gx2 = iw * g2 / 2, gy2 = ih * g2 / 2;
+      const rr = Math.min(iw, ih) * (fill.round ?? 0.35);
+      parent.appendChild(el('rect', {
+        x: ix + gx2, y: iy + gy2, width: iw - 2 * gx2, height: ih - 2 * gy2,
+        rx: rr, ry: rr, fill: color,
+      }));
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -2408,7 +2505,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -2418,6 +2515,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'stones', color: '#efe9dc', gap: 0.18, round: 0.6, jitter: 0.08, sizeJitter: 0.22, roundJitter: 0.3 };
     } else if (fillKind.value === 'twigs') {
       layer.fill = { kind: 'twigs', thickness: 0.03, height: 0.92, twig: 0.78 };
+    } else if (fillKind.value === 'weave') {
+      layer.fill = { kind: 'weave', gap: 0.14, round: 0.4, noise: 0.13, warp: ['#2c303a', '#c2a878', '#e8dec3'], weft: ['#c2a878', '#e8dec3'] };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -2579,6 +2678,13 @@ function buildConfigForm(host, layer, onChange) {
     const sp = addCtrl('spin (¼ turn)', 'number', layer.fill.spin ?? 0, { min: 0, max: 3, step: 1 });
     sp.addEventListener('input', () => { layer.fill.spin = Number(sp.value) | 0; onChange(); });
     addColorCtrl('ground', layer.fill.ground ?? 'transparent', (v) => { layer.fill.ground = v; onChange(); });
+  } else if (layer.fill.kind === 'weave') {
+    const gp = addCtrl('thread gap', 'number', layer.fill.gap ?? 0.14, { min: 0, max: 0.4, step: 0.02 });
+    gp.addEventListener('input', () => { layer.fill.gap = Number(gp.value); onChange(); });
+    const rd = addCtrl('thread round', 'number', layer.fill.round ?? 0.4, { min: 0, max: 0.5, step: 0.05 });
+    rd.addEventListener('input', () => { layer.fill.round = Number(rd.value); onChange(); });
+    const nz = addCtrl('fibre noise', 'number', layer.fill.noise ?? 0.13, { min: 0, max: 0.4, step: 0.02 });
+    nz.addEventListener('input', () => { layer.fill.noise = Number(nz.value); onChange(); });
   } else if (layer.fill.kind === 'twigs') {
     const th = addCtrl('thickness', 'number', layer.fill.thickness ?? 0.03, { min: 0.008, max: 0.08, step: 0.004 });
     th.addEventListener('input', () => { layer.fill.thickness = Number(th.value); onChange(); });
