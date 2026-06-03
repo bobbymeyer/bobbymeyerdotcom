@@ -378,6 +378,24 @@ const SAMPLES = {
       },
     ],
   },
+  'Manhattan': {
+    // Girard "Manhattan" (1958): blueprint-blue ground scattered with
+    // small white "buildings" — bars, dotted grids, solid blocks,
+    // checkers and single pixels on a fine sub-lattice. A coarse plot
+    // grid with most plots left empty gives the loose city-from-above
+    // scatter. Roll the seed for a new skyline.
+    palette: ['#ffffff'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#2f5aa8', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 12, rows: 9, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'manhattan', mode: 'fixed', color: '#ffffff', density: 0.66, pixel: 0.16 },
+      },
+    ],
+  },
   'Pebbles': {
     // Dark ground; a toroidal Voronoi layer of rounded tan pebbles
     // with a thin dark gap between them. Roll the seed for a fresh
@@ -634,7 +652,8 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'triangles' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'))
         || (l.fill?.kind === 'voronoi' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'))
         || (l.fill?.kind === 'bloom')
-        || (l.fill?.kind === 'flower-seal');
+        || (l.fill?.kind === 'flower-seal')
+        || (l.fill?.kind === 'manhattan' && paletteModes.includes(l.fill?.mode));
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -1682,6 +1701,69 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       drawSplit(parent, ix, iy, iw, ih, colorA, colorB, dir);
       break;
     }
+    case 'manhattan': {
+      // Girard "Manhattan" (1958): a field scattered with small white
+      // "buildings" — clusters of pixel squares on a fine sub-lattice.
+      // Each grid cell is a building plot; most plots are empty. The
+      // module type (bars, dot-grids, solid blocks, checkers, single
+      // dots) and its size/position are picked from a per-cell PRNG
+      // keyed on the *wrapped* index, so the tile repeats seamlessly.
+      const salt = layerBounds?.salt ?? 1;
+      const crng = cellRng(ci, ri, salt);
+      const density = fill.density ?? 0.62;
+      if (crng() > density) break;
+
+      // Resolve the ink colour (white by default; can follow palette).
+      let ink = fill.color || palette[0] || '#ffffff';
+      if (palette.length > 0) {
+        if (fill.mode === 'palette-cycle' || fill.mode === 'checker') ink = palette[paletteIndex(fill.mode)];
+        else if (fill.mode === 'random') ink = palette[Math.floor(crng() * palette.length)];
+      }
+      if (isTransparent(ink)) break;
+
+      const pixel = fill.pixel ?? 0.13;           // pixel size, × cell
+      const u = Math.min(iw, ih) * pixel;
+      if (!(u > 0)) break;
+      const maxU = Math.max(2, Math.floor(1 / pixel)); // units per cell
+
+      const ri2 = (a, b) => a + Math.floor(crng() * (b - a + 1));
+      const pick = (items) => {
+        const tot = items.reduce((s, it) => s + it[0], 0);
+        let t = crng() * tot;
+        for (const it of items) { if ((t -= it[0]) <= 0) return it[1]; }
+        return items[items.length - 1][1];
+      };
+
+      // Each generator returns { cells:[[x,y],...], w, h } in pixel units.
+      const gens = {
+        dot:    () => ({ cells: [[0, 0]], w: 1, h: 1 }),
+        vbar:   () => { const h = ri2(3, maxU); const c = []; for (let y = 0; y < h; y++) c.push([0, y]); return { cells: c, w: 1, h }; },
+        vbars:  () => { const k = ri2(2, Math.min(4, Math.ceil(maxU / 2))); const h = ri2(3, maxU); const c = []; for (let i = 0; i < k; i++) for (let y = 0; y < h; y++) c.push([i * 2, y]); return { cells: c, w: 2 * k - 1, h }; },
+        dotGrid:() => { const gw = ri2(2, Math.min(4, Math.ceil(maxU / 2))); const gh = ri2(2, Math.min(4, Math.ceil(maxU / 2))); const c = []; for (let x = 0; x < gw; x++) for (let y = 0; y < gh; y++) c.push([x * 2, y * 2]); return { cells: c, w: 2 * gw - 1, h: 2 * gh - 1 }; },
+        block:  () => { const gw = ri2(2, Math.min(4, maxU)); const gh = ri2(2, Math.min(4, maxU)); const c = []; for (let x = 0; x < gw; x++) for (let y = 0; y < gh; y++) c.push([x, y]); return { cells: c, w: gw, h: gh }; },
+        checker:() => { const gw = ri2(3, Math.min(5, maxU)); const gh = ri2(3, Math.min(5, maxU)); const c = []; for (let x = 0; x < gw; x++) for (let y = 0; y < gh; y++) if ((x + y) % 2 === 0) c.push([x, y]); return { cells: c, w: gw, h: gh }; },
+        hbar:   () => { const w = ri2(3, maxU); const c = []; for (let x = 0; x < w; x++) c.push([x, 0]); return { cells: c, w, h: 1 }; },
+        hdots:  () => { const gw = ri2(2, Math.min(4, Math.ceil(maxU / 2))); const c = []; for (let x = 0; x < gw; x++) c.push([x * 2, 0]); return { cells: c, w: 2 * gw - 1, h: 1 }; },
+      };
+      const kind = pick([
+        [3, 'dot'], [2, 'vbar'], [2, 'vbars'], [4, 'dotGrid'],
+        [2, 'block'], [2, 'checker'], [1, 'hbar'], [2, 'hdots'],
+      ]);
+      const mod0 = gens[kind]();
+
+      // Random placement within the plot, clamped so the module stays
+      // inside the cell (modules never overflow → no cross-tile bleed).
+      const slackX = Math.max(0, iw - mod0.w * u);
+      const slackY = Math.max(0, ih - mod0.h * u);
+      const ox = ix + crng() * slackX;
+      const oy = iy + crng() * slackY;
+      for (const [px, py] of mod0.cells) {
+        parent.appendChild(el('rect', {
+          x: ox + px * u, y: oy + py * u, width: u, height: u, fill: ink,
+        }));
+      }
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -2007,7 +2089,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
@@ -2027,6 +2109,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'voronoi', mode: 'fixed', color: '#d8c79c', jitter: 0.4, gap: 0.08, round: 0.5 };
     } else if (fillKind.value === 'bloom') {
       layer.fill = { kind: 'bloom', bloom: 'circle', stems: 4, spread: 48, bloomSize: 0.16, points: 5, round: 0.5, distort: 0.15, stemColor: '#454545', stemWidth: 0.012 };
+    } else if (fillKind.value === 'manhattan') {
+      layer.fill = { kind: 'manhattan', mode: 'fixed', color: '#ffffff', density: 0.66, pixel: 0.16 };
     } else if (fillKind.value === 'flower-seal') {
       layer.fill = { kind: 'flower-seal', petals: 5, sealSize: 0.95, petalSize: 0.42, petalOffset: 0.55, centerSize: 0.45, dotSize: 0.18 };
     } else {
@@ -2152,6 +2236,16 @@ function buildConfigForm(host, layer, onChange) {
     if ((layer.fill.strokeWidth ?? 0) > 0) {
       addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
     }
+  } else if (layer.fill.kind === 'manhattan') {
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker', 'random'] });
+    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
+    if ((layer.fill.mode || 'fixed') === 'fixed') {
+      addColorCtrl('ink', layer.fill.color || '#ffffff', (v) => { layer.fill.color = v; onChange(); });
+    }
+    const den = addCtrl('density', 'number', layer.fill.density ?? 0.66, { min: 0, max: 1, step: 0.02 });
+    den.addEventListener('input', () => { layer.fill.density = Number(den.value); onChange(); });
+    const px = addCtrl('pixel (× cell)', 'number', layer.fill.pixel ?? 0.16, { min: 0.04, max: 0.5, step: 0.01 });
+    px.addEventListener('input', () => { layer.fill.pixel = Number(px.value); onChange(); });
   } else if (layer.fill.kind === 'flower-seal') {
     const punch = addCtrl('punch out', 'select', layer.fill.punch ? 'on' : 'off', { options: ['off', 'on'] });
     punch.addEventListener('change', () => { layer.fill.punch = punch.value === 'on'; onChange(); });
