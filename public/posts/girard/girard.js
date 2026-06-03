@@ -36,6 +36,24 @@ function makeRng(seed) {
 
 function mod(a, n) { return ((a % n) + n) % n; }
 
+// Deterministic per-cell PRNG. Hashes (col, row, salt, extra) so the
+// same cell reproduces under a fixed seed and wrapped cells (col/row
+// out of range) match their in-range twins via the caller's mod.
+function cellRng(col, row, salt, extra = 0) {
+  return makeRng(((((col * 73856093) ^ (row * 19349663) ^ (salt >>> 0) ^ (extra * 0x9E3779B1)) >>> 0) || 1));
+}
+
+// Pick a random palette entry.
+function randColor(rng, palette) {
+  return palette[Math.floor(rng() * palette.length)];
+}
+
+// Build stroke attributes when width > 0; width is a fraction of dim.
+function strokeAttrs(color, widthFrac, dim, fallback = '#000000') {
+  if (!(widthFrac > 0)) return {};
+  return { stroke: color || fallback, 'stroke-width': widthFrac * dim, 'stroke-linejoin': 'round' };
+}
+
 // ---------- Convex polygon helpers (for Voronoi cells) ----------
 // Sutherland-Hodgman clip: keep the side of the bisector nearer P.
 // M = midpoint of P,Q; dir = Q-P. Keep verts with dot(v-M, dir) <= 0.
@@ -649,15 +667,11 @@ function shapeNode(shape, cw, rh, fill, ctx) {
   const dim = Math.min(cw, rh) * (shape.size ?? 0.6);
   // Optional stroke. strokeWidth is a fraction of the smaller cell
   // dim so outlines scale with the grid.
-  const swFrac = shape.strokeWidth;
-  const sw = (swFrac != null && swFrac > 0) ? swFrac * Math.min(cw, rh) : 0;
-  const strokeAttrs = sw > 0
-    ? { stroke: shape.stroke || '#000000', 'stroke-width': sw, 'stroke-linejoin': 'round' }
-    : {};
+  const sAttrs = strokeAttrs(shape.stroke, shape.strokeWidth, Math.min(cw, rh), '#000000');
 
   switch (shape.kind) {
     case 'circle':
-      return el('circle', { r: dim / 2, fill, ...strokeAttrs });
+      return el('circle', { r: dim / 2, fill, ...sAttrs });
     case 'diamond': {
       // Concentric rhombi filling the cell, cycling the palette so
       // each cell nests several colours. Uses cw/rh directly so the
@@ -683,14 +697,14 @@ function shapeNode(shape, cw, rh, fill, ctx) {
     case 'square':
       return el('rect', {
         x: -dim / 2, y: -dim / 2, width: dim, height: dim, fill,
-        ...strokeAttrs,
+        ...sAttrs,
       });
     case 'triangle': {
       const r = dim / 2;
       return el('polygon', {
         points: `0,${-r} ${r * 0.866},${r * 0.5} ${-r * 0.866},${r * 0.5}`,
         fill,
-        ...strokeAttrs,
+        ...sAttrs,
       });
     }
     case 'quatrefoil': {
@@ -710,13 +724,13 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       for (const [sx, sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
         g.appendChild(el('circle', {
           cx: sx * off, cy: sy * off, r,
-          fill, ...strokeAttrs,
+          fill, ...sAttrs,
         }));
       }
       if (centerScale > 0) {
         g.appendChild(el('circle', {
           cx: 0, cy: 0, r: r * centerScale,
-          fill, ...strokeAttrs,
+          fill, ...sAttrs,
         }));
       }
       return g;
@@ -738,7 +752,7 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       return el('polygon', {
         points: verts.join(' '),
         fill,
-        ...strokeAttrs,
+        ...sAttrs,
       });
     }
     case 'text': {
@@ -755,7 +769,7 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         'font-size': dim,
         'text-anchor': 'middle',
         'dominant-baseline': 'central',
-        ...strokeAttrs,
+        ...sAttrs,
         ...(sw > 0 ? { 'paint-order': 'stroke fill' } : {}),
       });
       node.textContent = t;
@@ -1059,11 +1073,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const s = lw / tcols;
       const h = lh / strips;
 
-      const swFrac = fill.strokeWidth;
-      const sw = (swFrac != null && swFrac > 0) ? swFrac * Math.min(s, h) : 0;
-      const strokeAttrs = sw > 0
-        ? { stroke: fill.stroke || '#ffffff', 'stroke-width': sw, 'stroke-linejoin': 'round' }
-        : {};
+      const sAttrs = strokeAttrs(fill.stroke, fill.strokeWidth, Math.min(s, h), '#ffffff');
 
       const triSalt = ((rng() * 0xffffffff) >>> 0) | 1;
       // Each triangle gets its own colour; horizontal wrap pairs land
@@ -1079,11 +1089,11 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       };
 
       const drawTri = (points, color) => {
-        if (isTransparent(color) && !sw) return;
+        if (isTransparent(color) && !sAttrs.stroke) return;
         parent.appendChild(el('polygon', {
           points,
           fill: isTransparent(color) ? 'none' : color,
-          ...strokeAttrs,
+          ...sAttrs,
         }));
       };
 
@@ -1144,21 +1154,17 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         // mixed hash of (ii, jj, salt). Identical jitter on wrap
         // copies because ii / jj wrap mod cols / rows.
         const ii = mod(i, ncols), jj = mod(j, nrows);
-        const r = makeRng((ii * 73856093) ^ (jj * 19349663) ^ meshSalt);
+        const r = cellRng(ii, jj, meshSalt);
         const dx = (r() * 2 - 1) * jitterAmt * cellW;
         const dy = (r() * 2 - 1) * jitterAmt * cellH;
         return { x: ox + i * cellW + dx, y: oy + j * cellH + dy };
       };
-      const swFrac = fill.strokeWidth;
-      const sw = (swFrac != null && swFrac > 0) ? swFrac * Math.min(cellW, cellH) : 0;
-      const strokeAttrs = sw > 0
-        ? { stroke: fill.stroke || '#ffffff', 'stroke-width': sw, 'stroke-linejoin': 'round' }
-        : {};
+      const sAttrs = strokeAttrs(fill.stroke, fill.strokeWidth, Math.min(cellW, cellH), '#ffffff');
       const paint = (pa, pb, pc, colorIdx) => {
         const color = fill.mode === 'palette-cycle'
           ? palette[mod(colorIdx, palette.length)]
           : (fill.color || palette[0] || '#888');
-        if (isTransparent(color) && !sw) return;
+        if (isTransparent(color) && !sAttrs.stroke) return;
         // Paint the triangle at the 9 layer-canvas wraps so any
         // vertex pushed past an edge by jitter still tiles cleanly —
         // the pattern element clips off-tile portions and the
@@ -1169,7 +1175,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
             parent.appendChild(el('polygon', {
               points: `${pa.x + ox2},${pa.y + oy2} ${pb.x + ox2},${pb.y + oy2} ${pc.x + ox2},${pc.y + oy2}`,
               fill: isTransparent(color) ? 'none' : color,
-              ...strokeAttrs,
+              ...sAttrs,
             }));
           }
         }
@@ -1192,11 +1198,10 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // hand. Petal count, petal size, ring offset, and centre size
       // are all tunable.
       const salt = layerBounds?.salt ?? 1;
-      const cseed = (((col * 73856093) ^ (row * 19349663) ^ salt) >>> 0) || 1;
-      const crng = makeRng(cseed);
+      const crng = cellRng(col, row, salt);
 
-      const sealColor = palette[Math.floor(crng() * palette.length)];
-      const flowerColor = palette[Math.floor(crng() * palette.length)];
+      const sealColor = randColor(crng, palette);
+      const flowerColor = randColor(crng, palette);
 
       const cx = ix + iw / 2;
       const cy = iy + ih / 2;
@@ -1271,8 +1276,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // edge tile cleanly.
       const salt = layerBounds?.salt ?? 1;
       const lw = layerBounds?.w, lh = layerBounds?.h;
-      const cseed = (((col * 73856093) ^ (row * 19349663) ^ salt) >>> 0) || 1;
-      const crng = makeRng(cseed);
+      const crng = cellRng(col, row, salt);
 
       const stemColor = fill.stemColor || '#454545';
       const stemW = (fill.stemWidth ?? 0.012) * Math.min(iw, ih);
@@ -1332,7 +1336,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
             }));
           }
         }
-        const color = palette[Math.floor(crng() * palette.length)];
+        const color = randColor(crng, palette);
         if (isTransparent(color)) continue;
         const r = bloomR * (0.7 + crng() * 0.6);
         const poly = bloomPolygon(kind, r, pts, fill.depth ?? 0.5, distort, crng);
@@ -1374,7 +1378,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
 
       const siteAt = (c, r) => {
         const cc = mod(c, nc), rr = mod(r, nr);
-        const rng2 = makeRng((((cc * 73856093) ^ (rr * 19349663) ^ salt) >>> 0) || 1);
+        const rng2 = cellRng(cc, rr, salt);
         const jx = (rng2() * 2 - 1) * jitterAmt * cellW;
         const jy = (rng2() * 2 - 1) * jitterAmt * cellH;
         return [ox + (c + 0.5) * cellW + jx, oy + (r + 0.5) * cellH + jy];
@@ -1536,13 +1540,12 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const salt = layerBounds?.salt ?? 1;
 
       // Per-cell type (deterministic weighted random).
-      const cellSeed = (((col * 73856093) ^ (row * 19349663) ^ salt) >>> 0) || 1;
-      const cellRng = makeRng(cellSeed);
+      const crng = cellRng(col, row, salt);
       const types = ['blank', 'arc', 'vsplit', 'hsplit', 'full'];
       const weights = (Array.isArray(fill.weights) && fill.weights.length === types.length)
         ? fill.weights : [1, 3, 1, 1, 1];
       const total = weights.reduce((a, b) => a + Math.max(0, b), 0) || 1;
-      let pick = cellRng() * total, cellType = 'blank';
+      let pick = crng() * total, cellType = 'blank';
       for (let i = 0; i < types.length; i++) {
         pick -= Math.max(0, weights[i]);
         if (pick <= 0) { cellType = types[i]; break; }
@@ -1554,7 +1557,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const blockRow = Math.floor(row / 2);
       const blockSeed = (((blockCol * 73856093) ^ (blockRow * 19349663) ^ salt ^ 0x5bd1e995) >>> 0) || 1;
       const blockRng = makeRng(blockSeed);
-      const color = palette[Math.floor(blockRng() * palette.length)];
+      const color = randColor(blockRng, palette);
       if (isTransparent(color)) break;
 
       if (cellType === 'arc') {
@@ -1589,7 +1592,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // background rect. Two palette picks per cell — one for the
       // wedge, one for the ground — with transparent surfacing as
       // empty.
-      const pickRandom = () => palette[Math.floor(rng() * palette.length)];
+      const pickRandom = () => randColor(rng, palette);
       const colorWedge = pickRandom();
       const colorGround = pickRandom();
       const corner = Math.floor(rng() * 4);
@@ -1601,7 +1604,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // cell (random or per-cell mode), plus a random rotation in
       // four 90° steps. Transparent palette entries make some halves
       // — or whole cells — read as empty.
-      const pickRandom = () => palette[Math.floor(rng() * palette.length)];
+      const pickRandom = () => randColor(rng, palette);
       const colorA = pickRandom();
       const colorB = pickRandom();
       const dir = Math.floor(rng() * 4);
