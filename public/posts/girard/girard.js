@@ -439,7 +439,7 @@ const SAMPLES = {
         grid: { cols: 14, rows: 18, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
         fill: {
           kind: 'shape',
-          shape: { kind: 'jacks', size: 0.95, dot: 0.18, spread: 0.3, center: true },
+          shape: { kind: 'jacks', size: 0.95, dot: 0.17, spread: 0.3, bar: 0.09 },
           mode: 'fixed', color: '#3f9956',
         },
       },
@@ -1337,15 +1337,17 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       });
     }
     case 'jacks': {
-      // Four small separated dots in a plus (a clover / "jacks" pip),
-      // with an optional tiny centre dot.
+      // Four small dots joined by a thin cross (a clover / "jacks" pip).
       const g = el('g', {});
       const r = dim * (shape.dot ?? 0.17);
       const off = dim * (shape.spread ?? 0.3);
+      const bw = dim * (shape.bar ?? 0.09);
+      // Connecting cross through the centre, reaching the dots.
+      g.appendChild(el('rect', { x: -bw / 2, y: -off, width: bw, height: off * 2, fill }));
+      g.appendChild(el('rect', { x: -off, y: -bw / 2, width: off * 2, height: bw, fill }));
       for (const [dx, dy] of [[0, -off], [0, off], [-off, 0], [off, 0]]) {
         g.appendChild(el('circle', { cx: dx, cy: dy, r, fill, ...sAttrs }));
       }
-      if (shape.center) g.appendChild(el('circle', { cx: 0, cy: 0, r: r * 0.62, fill }));
       return g;
     }
     case 'barbell': {
