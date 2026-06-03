@@ -426,6 +426,26 @@ const SAMPLES = {
       },
     ],
   },
+  'Lincheck': {
+    // Girard "Lincheck": a windowpane check on white linen — faint
+    // plain vertical lines and prominent horizontal cross-stitch bands
+    // (little X's) on a softly textured ground.
+    palette: ['#9aa0a6'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f3f2ec', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 7, rows: 8, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'windowpane',
+          vColor: '#b7bbc0', hColor: '#9aa0a6',
+          vWidth: 0.016, hWidth: 0.018, amp: 0.04, jitter: 0.18,
+        },
+      },
+    ],
+  },
   'Lattice': {
     // Girard "Lattice": a fine gingham — the same blue / linen thread
     // sequence on warp and weft. Wide blue bands cross into solid slate
@@ -2199,6 +2219,44 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }));
       break;
     }
+    case 'windowpane': {
+      // Girard "Lincheck": a windowpane check. Each cell draws a plain
+      // thin vertical line on its left edge and a decorative horizontal
+      // band of cross-stitch X's (two opposing zigzags) on its top
+      // edge, so the lines join into a continuous grid that tiles.
+      const salt = layerBounds?.salt ?? 1;
+      const crng = cellRng(ci, ri, salt);
+      const vColor = fill.vColor || '#b7bbc0';
+      const hColor = fill.hColor || '#9aa0a6';
+      const vW = (fill.vWidth ?? 0.018) * iw;
+      const hW = (fill.hWidth ?? 0.02) * ih;
+      const jit = fill.jitter ?? 0.12;
+      // Plain vertical line (left edge), with a touch of position jitter.
+      const vx = ix + (crng() * 2 - 1) * jit * vW;
+      parent.appendChild(el('line', {
+        x1: vx, y1: iy, x2: vx, y2: iy + ih,
+        stroke: vColor, 'stroke-width': vW,
+      }));
+      // Horizontal cross-stitch band on the top edge: two opposing
+      // zigzags that cross into a row of X's. n forced even so the
+      // phase matches at both ends and joins the next cell cleanly.
+      const y0 = iy + (crng() * 2 - 1) * jit * hW;
+      const amp = ih * (fill.amp ?? 0.04);
+      let n = Math.max(2, Math.round(iw / (amp * 1.6)));
+      if (n % 2) n++;
+      const dx = iw / n;
+      let d1 = `M ${ix} ${y0 - amp}`;
+      let d2 = `M ${ix} ${y0 + amp}`;
+      for (let i = 1; i <= n; i++) {
+        const x = ix + i * dx;
+        d1 += ` L ${x} ${i % 2 ? y0 + amp : y0 - amp}`;
+        d2 += ` L ${x} ${i % 2 ? y0 - amp : y0 + amp}`;
+      }
+      for (const d of [d1, d2]) parent.appendChild(el('path', {
+        d, fill: 'none', stroke: hColor, 'stroke-width': hW,
+      }));
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -2524,7 +2582,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -2536,6 +2594,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'twigs', thickness: 0.03, height: 0.92, twig: 0.78 };
     } else if (fillKind.value === 'weave') {
       layer.fill = { kind: 'weave', gap: 0.14, round: 0.4, noise: 0.13, warp: ['#2c303a', '#c2a878', '#e8dec3'], weft: ['#c2a878', '#e8dec3'] };
+    } else if (fillKind.value === 'windowpane') {
+      layer.fill = { kind: 'windowpane', vColor: '#b7bbc0', hColor: '#9aa0a6', vWidth: 0.016, hWidth: 0.018, amp: 0.04, jitter: 0.18 };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -2697,6 +2757,17 @@ function buildConfigForm(host, layer, onChange) {
     const sp = addCtrl('spin (¼ turn)', 'number', layer.fill.spin ?? 0, { min: 0, max: 3, step: 1 });
     sp.addEventListener('input', () => { layer.fill.spin = Number(sp.value) | 0; onChange(); });
     addColorCtrl('ground', layer.fill.ground ?? 'transparent', (v) => { layer.fill.ground = v; onChange(); });
+  } else if (layer.fill.kind === 'windowpane') {
+    addColorCtrl('v line', layer.fill.vColor || '#b7bbc0', (v) => { layer.fill.vColor = v; onChange(); });
+    addColorCtrl('h stitch', layer.fill.hColor || '#9aa0a6', (v) => { layer.fill.hColor = v; onChange(); });
+    const vw = addCtrl('v width', 'number', layer.fill.vWidth ?? 0.016, { min: 0.004, max: 0.06, step: 0.002 });
+    vw.addEventListener('input', () => { layer.fill.vWidth = Number(vw.value); onChange(); });
+    const hw = addCtrl('h width', 'number', layer.fill.hWidth ?? 0.018, { min: 0.004, max: 0.06, step: 0.002 });
+    hw.addEventListener('input', () => { layer.fill.hWidth = Number(hw.value); onChange(); });
+    const am = addCtrl('stitch amp', 'number', layer.fill.amp ?? 0.04, { min: 0.01, max: 0.15, step: 0.005 });
+    am.addEventListener('input', () => { layer.fill.amp = Number(am.value); onChange(); });
+    const jt = addCtrl('jitter', 'number', layer.fill.jitter ?? 0.12, { min: 0, max: 0.5, step: 0.02 });
+    jt.addEventListener('input', () => { layer.fill.jitter = Number(jt.value); onChange(); });
   } else if (layer.fill.kind === 'weave') {
     const gp = addCtrl('thread gap', 'number', layer.fill.gap ?? 0.14, { min: 0, max: 0.4, step: 0.02 });
     gp.addEventListener('input', () => { layer.fill.gap = Number(gp.value); onChange(); });
