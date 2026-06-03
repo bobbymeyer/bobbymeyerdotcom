@@ -559,6 +559,35 @@ const SAMPLES = {
       },
     ],
   },
+  'Mexigrid': {
+    // Girard "Mexigrid": yellow vertical stripes and sparser coral
+    // horizontal stripes on warm linen — a loose window-pane plaid.
+    palette: ['#e8b04a', '#ee8a76'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#efe8d4', mode: 'fixed' },
+      },
+      {
+        grid: {
+          cols: 4, rows: 1,
+          colWeights: [10, 1, 10, 1],
+          offset: { x: 0, y: 0 }, offsetMode: 'none',
+        },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['transparent', '#e8b04a', 'transparent', '#e8b04a'],
+      },
+      {
+        grid: {
+          cols: 1, rows: 2,
+          rowWeights: [22, 1],
+          offset: { x: 0, y: 0 }, offsetMode: 'none',
+        },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['transparent', '#ee8a76'],
+      },
+    ],
+  },
   'Mexidot': {
     // Girard "Mexidot": olive vertical stripes alternating with white
     // bands filled by a column of stacked blue horizontal dashes, thin
