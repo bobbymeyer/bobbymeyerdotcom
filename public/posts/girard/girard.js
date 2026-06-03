@@ -408,6 +408,22 @@ const SAMPLES = {
       },
     ],
   },
+  'Twigs': {
+    // Girard "Twigs": a field of little L-system twigs — bending stems
+    // with feather-fan branches and a Y-fork on top, in mixed brown and
+    // blue on a warm cream ground. Roll the seed for a fresh thicket.
+    palette: ['#9c7350', '#8298ad'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#efe7d3', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 5, rows: 3, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: { kind: 'twigs', thickness: 0.045, height: 0.98, twig: 1.0 },
+      },
+    ],
+  },
   'Stones': {
     // Girard "Stones": cream rounded "tiles" of varied size and slight
     // jitter on a dark slate ground. Roll the seed for a new layout.
@@ -757,7 +773,8 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'bloom')
         || (l.fill?.kind === 'flower-seal')
         || (l.fill?.kind === 'manhattan' && paletteModes.includes(l.fill?.mode))
-        || (l.fill?.kind === 'pinwheel');
+        || (l.fill?.kind === 'pinwheel')
+        || (l.fill?.kind === 'twigs');
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -2009,6 +2026,63 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       });
       break;
     }
+    case 'twigs': {
+      // Girard "Twigs": a tiny L-system per cell. A near-vertical stem
+      // bends gently, sprouts feather-fan twiglets on alternating
+      // sides, and forks into a Y at the top. Stem and twig colours are
+      // each picked from the palette per plant, so some are one-colour
+      // and some mix brown / blue like the original. Segments are
+      // collected then wrap-painted for a seamless tile.
+      const salt = layerBounds?.salt ?? 1;
+      const crng = cellRng(ci, ri, salt);
+      const pal = palette.length ? palette : ['#9c7350', '#8298ad'];
+      const stemColor = pal[Math.floor(crng() * pal.length)];
+      const twigColor = pal[Math.floor(crng() * pal.length)];
+      const sw = (fill.thickness ?? 0.03) * iw;
+      const segs = [];
+      const root = {
+        x: ix + iw / 2 + (crng() * 2 - 1) * iw * 0.18,
+        y: iy + ih * 0.99,
+      };
+      const H = ih * (fill.height ?? 0.9) * (0.8 + crng() * 0.45);
+      const n = 5 + Math.floor(crng() * 3);
+      const step = H / n;
+      const twlen = step * (fill.twig ?? 0.78);
+      // Polar segment helper.
+      const seg = (x, y, ang, len, c, w) =>
+        segs.push({ x1: x, y1: y, x2: x + Math.cos(ang) * len, y2: y + Math.sin(ang) * len, c, w });
+      let cur = { ...root };
+      let dir = -Math.PI / 2;                  // up
+      for (let k = 0; k < n; k++) {
+        dir += (crng() * 2 - 1) * 0.16;         // gentle bend
+        const nx = cur.x + Math.cos(dir) * step;
+        const ny = cur.y + Math.sin(dir) * step;
+        const w = sw * (1 - 0.4 * k / n);       // taper toward the top
+        segs.push({ x1: cur.x, y1: cur.y, x2: nx, y2: ny, c: stemColor, w });
+        cur = { x: nx, y: ny };
+        if (k > 0 && k < n - 1) {
+          // Feather fan on alternating side, pointing up-and-out.
+          const side = k % 2 === 0 ? 1 : -1;
+          const base = -Math.PI / 2 + side * (0.5 + crng() * 0.25);
+          const prongs = 2 + (crng() < 0.5 ? 1 : 0);
+          for (let p = 0; p < prongs; p++) {
+            const a = base + (p - (prongs - 1) / 2) * 0.4;
+            seg(cur.x, cur.y, a, twlen * (0.7 + crng() * 0.5), twigColor, sw * 0.85);
+          }
+        }
+      }
+      // Top Y-fork in stem colour.
+      for (const s of [-1, 1]) {
+        seg(cur.x, cur.y, dir + s * (0.3 + crng() * 0.2), step * 0.85, stemColor, sw * 0.8);
+      }
+      drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, ox, oy) => {
+        for (const s of segs) host.appendChild(el('line', {
+          x1: s.x1 + ox, y1: s.y1 + oy, x2: s.x2 + ox, y2: s.y2 + oy,
+          stroke: s.c, 'stroke-width': s.w, 'stroke-linecap': 'round',
+        }));
+      });
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -2334,7 +2408,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -2342,6 +2416,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'glyph', ink: '#21242b', paper: '#f3ede0', invert: 0.5, weight: 0.22 };
     } else if (fillKind.value === 'stones') {
       layer.fill = { kind: 'stones', color: '#efe9dc', gap: 0.18, round: 0.6, jitter: 0.08, sizeJitter: 0.22, roundJitter: 0.3 };
+    } else if (fillKind.value === 'twigs') {
+      layer.fill = { kind: 'twigs', thickness: 0.03, height: 0.92, twig: 0.78 };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -2503,6 +2579,13 @@ function buildConfigForm(host, layer, onChange) {
     const sp = addCtrl('spin (¼ turn)', 'number', layer.fill.spin ?? 0, { min: 0, max: 3, step: 1 });
     sp.addEventListener('input', () => { layer.fill.spin = Number(sp.value) | 0; onChange(); });
     addColorCtrl('ground', layer.fill.ground ?? 'transparent', (v) => { layer.fill.ground = v; onChange(); });
+  } else if (layer.fill.kind === 'twigs') {
+    const th = addCtrl('thickness', 'number', layer.fill.thickness ?? 0.03, { min: 0.008, max: 0.08, step: 0.004 });
+    th.addEventListener('input', () => { layer.fill.thickness = Number(th.value); onChange(); });
+    const ht = addCtrl('height', 'number', layer.fill.height ?? 0.92, { min: 0.4, max: 1.2, step: 0.04 });
+    ht.addEventListener('input', () => { layer.fill.height = Number(ht.value); onChange(); });
+    const tw = addCtrl('twig length', 'number', layer.fill.twig ?? 0.78, { min: 0.3, max: 1.4, step: 0.05 });
+    tw.addEventListener('input', () => { layer.fill.twig = Number(tw.value); onChange(); });
   } else if (layer.fill.kind === 'stones') {
     addColorCtrl('stone', layer.fill.color || '#efe9dc', (v) => { layer.fill.color = v; onChange(); });
     const gap = addCtrl('gap', 'number', layer.fill.gap ?? 0.18, { min: 0, max: 0.45, step: 0.01 });
