@@ -426,6 +426,28 @@ const SAMPLES = {
       },
     ],
   },
+  'Small Squares': {
+    // Girard "Small Squares" (1952): little squares scattered on white,
+    // each a random pick from a cool palette (purple, indigo, teal,
+    // green, grey). A density below 1 leaves cells empty; light position
+    // and size jitter loosens the grid.
+    palette: ['#5b3a9e', '#3f4ea8', '#2aa3c0', '#4caf63', '#9a9a9a', '#5f5f66'],
+    layers: [
+      {
+        grid: { cols: 12, rows: 15, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'shape',
+          shape: { kind: 'square', size: 0.62 },
+          mode: 'random',
+          density: 0.5,
+        },
+        vary: {
+          scale:  { type: 'random', min: 0.82, max: 1.12 },
+          jitter: { type: 'random', min: -0.16, max: 0.16 },
+        },
+      },
+    ],
+  },
   'Lincheck': {
     // Girard "Lincheck": a windowpane check on white linen — faint
     // plain vertical lines and prominent horizontal cross-stitch bands
@@ -1366,6 +1388,12 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
     }
     case 'shape': {
       const shape = fill.shape || { kind: 'circle', size: 0.6 };
+      // Optional sparseness: skip a fraction of cells (positional PRNG
+      // so it tiles) for a scattered "some cells empty" look.
+      if (fill.density != null && fill.density < 1) {
+        const dr = cellRng(ci, ri, (layerBounds?.salt ?? 1) ^ 0x5151);
+        if (dr() > fill.density) break;
+      }
       // Base rotation applies to every instance; vary.rotate (when on)
       // adds a per-cell jitter on top.
       let s = 1, rot = (shape.rotate ?? 0), jx = 0, jy = 0;
@@ -2645,6 +2673,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), size: Number(size.value) };
       onChange();
     });
+    const dens = addCtrl('density', 'number', layer.fill.density ?? 1, { min: 0, max: 1, step: 0.05 });
+    dens.addEventListener('input', () => { layer.fill.density = Number(dens.value); onChange(); });
     const strokeW = addCtrl('stroke (× cell)', 'number', layer.fill.shape?.strokeWidth ?? 0, { min: 0, max: 0.3, step: 0.005 });
     strokeW.addEventListener('input', () => {
       const was = (layer.fill.shape?.strokeWidth ?? 0) > 0;
