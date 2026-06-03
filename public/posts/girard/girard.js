@@ -426,6 +426,45 @@ const SAMPLES = {
       },
     ],
   },
+  'Superstripe': {
+    // Girard "Superstripe": tall columns of stacked colour blocks with
+    // wide white channels between them. A big horizontal gutter makes
+    // the columns; varied row weights give blocks of different heights;
+    // an alternate-column vertical offset destaggers the stacks. Sparse
+    // white squares and diamonds accent some blocks.
+    palette: ['#c8402e', '#d2592f', '#5e7ea8', '#6f757b', '#e08a2e', '#d6a878'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f4f1e8', mode: 'fixed' },
+      },
+      {
+        grid: {
+          cols: 4, rows: 8, rowWeights: [3, 5, 2, 6, 3, 5, 2, 4],
+          gutterX: 0.5, gutterY: 0,
+          offset: { x: 0, y: 0.45 }, offsetMode: 'alternate-col',
+        },
+        fill: { kind: 'solid', mode: 'random' },
+      },
+      {
+        grid: {
+          cols: 4, rows: 8, rowWeights: [3, 5, 2, 6, 3, 5, 2, 4],
+          gutterX: 0.5, gutterY: 0,
+          offset: { x: 0, y: 0.45 }, offsetMode: 'alternate-col',
+        },
+        fill: { kind: 'shape', shape: { kind: 'square', size: 0.34 }, mode: 'fixed', color: '#f4f1e8', density: 0.16 },
+      },
+      {
+        grid: {
+          cols: 4, rows: 8, rowWeights: [3, 5, 2, 6, 3, 5, 2, 4],
+          gutterX: 0.5, gutterY: 0,
+          offset: { x: 0, y: 0.45 }, offsetMode: 'alternate-col',
+        },
+        fill: { kind: 'shape', shape: { kind: 'diamond', size: 0.42, rings: 1 }, mode: 'fixed', color: '#f4f1e8', density: 0.12 },
+        palette: ['#f4f1e8'],
+      },
+    ],
+  },
   'Multiform': {
     // Girard "Multiform": a dense sampler scatter of the whole shape
     // vocabulary — flowers, circles, squares, diamonds, lenses, stars,
