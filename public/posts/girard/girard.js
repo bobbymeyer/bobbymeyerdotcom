@@ -558,16 +558,17 @@ const SAMPLES = {
     // Girard "Miller Stripe": a blue-violet ground with a clustered group
     // of thin red / cream vertical stripes, wide purple between. Solid
     // vertical bands sized by colWeights.
-    palette: ['#585a93', '#e8e2d4', '#c0494e', '#e8e2d4', '#c0494e', '#e8e2d4'],
+    palette: ['#585a93', '#c0494e', '#e8e2d4', '#c0494e', '#e8e2d4', '#c0494e', '#e8e2d4', '#c0494e'],
     layers: [
       {
         grid: {
-          cols: 6, rows: 1,
-          colWeights: [16, 1, 1.6, 1, 1.6, 1],
+          cols: 8, rows: 1,
+          // big blue field, then 2-1-1-1-4-3-3 alternating red / cream.
+          colWeights: [18, 2, 1, 1, 1, 4, 3, 3],
           offset: { x: 0, y: 0 }, offsetMode: 'none',
         },
         fill: { kind: 'solid', mode: 'palette-cycle' },
-        palette: ['#585a93', '#e8e2d4', '#c0494e', '#e8e2d4', '#c0494e', '#e8e2d4'],
+        palette: ['#585a93', '#c0494e', '#e8e2d4', '#c0494e', '#e8e2d4', '#c0494e', '#e8e2d4', '#c0494e'],
       },
     ],
   },
