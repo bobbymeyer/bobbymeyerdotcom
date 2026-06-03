@@ -426,6 +426,55 @@ const SAMPLES = {
       },
     ],
   },
+  'Hexagons': {
+    // Girard "Hexagons": a thin blue honeycomb outline on linen.
+    palette: ['#3a4aa0'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#e7e3d6', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 4, rows: 4, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'honeycomb', stroke: '#3a4aa0', strokeWidth: 0.03 },
+      },
+    ],
+  },
+  'Lines': {
+    // Girard "Lines": a field of short vertical strokes of varied length,
+    // a redder orange marking on an orange ground — a loose barcode.
+    palette: ['#e8533a', '#d8492f'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f0913f', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 64, rows: 16, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'dashes', mode: 'random', density: 0.6, width: 0.85 },
+      },
+    ],
+  },
+  'Pepitas': {
+    // Girard "Pepitas": orange pointed ovals (pumpkin seeds) in an
+    // offset brick grid on a soft linen ground, with light size jitter.
+    palette: ['#d98a3d'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#ddd6c4', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 7, rows: 9, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: {
+          kind: 'shape',
+          shape: { kind: 'lens', size: 0.95, ratio: 0.5 },
+          mode: 'fixed', color: '#d98a3d',
+        },
+        vary: { scale: { type: 'random', min: 0.82, max: 1.12 } },
+      },
+    ],
+  },
   'Double Triangles': {
     // Girard "Double Triangles": a vertical-strip triangle tessellation
     // in a single green, the linen ground showing through as thick white
@@ -941,7 +990,8 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'flower-seal')
         || (l.fill?.kind === 'manhattan' && paletteModes.includes(l.fill?.mode))
         || (l.fill?.kind === 'pinwheel')
-        || (l.fill?.kind === 'twigs');
+        || (l.fill?.kind === 'twigs')
+        || (l.fill?.kind === 'dashes' && l.fill?.mode === 'random');
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -1106,6 +1156,17 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       const y0 = -h / 2, y1 = h / 2;
       return el('polygon', {
         points: `${-tx},${y0} ${tx},${y0} ${bx},${y1} ${-bx},${y1}`,
+        fill,
+        ...sAttrs,
+      });
+    }
+    case 'lens': {
+      // Vesica / pointed oval ("pepita"). Two quadratic curves bulging
+      // out from sharp points top and bottom. ratio = width / height.
+      const hy = dim / 2;
+      const hx = hy * (shape.ratio ?? 0.5);
+      return el('path', {
+        d: `M 0,${-hy} Q ${hx},0 0,${hy} Q ${-hx},0 0,${-hy} Z`,
         fill,
         ...sAttrs,
       });
@@ -2333,6 +2394,56 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }));
       break;
     }
+    case 'honeycomb': {
+      // Outlined flat-top hexagons (a honeycomb). Generated once across
+      // the whole layer (guarded to the 0,0 cell). Hexes are slightly
+      // stretched to fit cols × rows exactly so the lattice tiles; cols
+      // must be even for the column-offset phase to match at the seam.
+      const G = layerGeom(col, row, cw, rh, cols, rows, layerBounds);
+      if (!G) break;
+      const { lw, lh } = G;
+      const stroke = fill.stroke || palette[0] || '#3a4aa0';
+      const cx = lw / cols, cy = lh / rows;
+      const Rx = cx / 1.5;                       // flat-top horizontal radius
+      const hy = cy / 2;
+      const hexAt = (mx, my) => {
+        const p = [
+          [Rx, 0], [Rx / 2, hy], [-Rx / 2, hy],
+          [-Rx, 0], [-Rx / 2, -hy], [Rx / 2, -hy],
+        ].map(([dx, dy]) => `${(mx + dx).toFixed(2)},${(my + dy).toFixed(2)}`).join(' ');
+        parent.appendChild(el('polygon', {
+          points: p, fill: 'none', stroke,
+          'stroke-width': fill.strokeWidth ? fill.strokeWidth * cx : Math.max(1, cx * 0.04),
+          'stroke-linejoin': 'round',
+        }));
+      };
+      for (let i = -1; i <= cols; i++) {
+        for (let j = -1; j <= rows; j++) {
+          const mx = i * cx + cx / 2;
+          const my = j * cy + (i % 2 ? cy : cy / 2);
+          hexAt(mx, my);
+        }
+      }
+      break;
+    }
+    case 'dashes': {
+      // Field of short vertical strokes of varied length / position —
+      // a barcode-like texture. Per-cell PRNG (wrapped index) for a
+      // seamless tile; density leaves gaps, palette adds tone variation.
+      const salt = layerBounds?.salt ?? 1;
+      const crng = cellRng(ci, ri, salt);
+      if (crng() > (fill.density ?? 0.55)) break;
+      const mark = (fill.mode === 'random' && palette.length)
+        ? palette[Math.floor(crng() * palette.length)]
+        : (fill.color || palette[0] || '#d2624d');
+      if (isTransparent(mark)) break;
+      const w = iw * (fill.width ?? 0.4);
+      const hh = ih * (0.25 + crng() * 0.7);
+      const x = ix + (iw - w) / 2 + (crng() * 2 - 1) * iw * 0.18;
+      const y = iy + (ih - hh) / 2 + (crng() * 2 - 1) * ih * 0.15;
+      parent.appendChild(el('rect', { x, y, width: w, height: hh, fill: mark }));
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -2658,7 +2769,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -2672,6 +2783,10 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'weave', gap: 0.14, round: 0.4, noise: 0.13, warp: ['#2c303a', '#c2a878', '#e8dec3'], weft: ['#c2a878', '#e8dec3'] };
     } else if (fillKind.value === 'windowpane') {
       layer.fill = { kind: 'windowpane', vColor: '#b7bbc0', hColor: '#9aa0a6', vWidth: 0.016, hWidth: 0.018, amp: 0.04, jitter: 0.18 };
+    } else if (fillKind.value === 'honeycomb') {
+      layer.fill = { kind: 'honeycomb', stroke: '#3a4aa0', strokeWidth: 0.03 };
+    } else if (fillKind.value === 'dashes') {
+      layer.fill = { kind: 'dashes', mode: 'random', density: 0.42, width: 0.5 };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -2709,7 +2824,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike'],
+      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
@@ -2778,6 +2893,13 @@ function buildConfigForm(host, layer, onChange) {
         onChange();
       });
     }
+    if (layer.fill.shape?.kind === 'lens') {
+      const rt = addCtrl('ratio (w/h)', 'number', layer.fill.shape?.ratio ?? 0.5, { min: 0.1, max: 1.5, step: 0.05 });
+      rt.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'lens' }), ratio: Number(rt.value) };
+        onChange();
+      });
+    }
     if (layer.fill.shape?.kind === 'star') {
       const pts = addCtrl('points', 'number', layer.fill.shape?.numPoints ?? 5, { min: 3, max: 16, step: 1 });
       pts.addEventListener('input', () => {
@@ -2837,6 +2959,20 @@ function buildConfigForm(host, layer, onChange) {
     const sp = addCtrl('spin (¼ turn)', 'number', layer.fill.spin ?? 0, { min: 0, max: 3, step: 1 });
     sp.addEventListener('input', () => { layer.fill.spin = Number(sp.value) | 0; onChange(); });
     addColorCtrl('ground', layer.fill.ground ?? 'transparent', (v) => { layer.fill.ground = v; onChange(); });
+  } else if (layer.fill.kind === 'honeycomb') {
+    addColorCtrl('line', layer.fill.stroke || '#3a4aa0', (v) => { layer.fill.stroke = v; onChange(); });
+    const sw = addCtrl('line width', 'number', layer.fill.strokeWidth ?? 0.03, { min: 0.005, max: 0.12, step: 0.005 });
+    sw.addEventListener('input', () => { layer.fill.strokeWidth = Number(sw.value); onChange(); });
+  } else if (layer.fill.kind === 'dashes') {
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'random', { options: ['fixed', 'random'] });
+    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
+    if ((layer.fill.mode || 'random') === 'fixed') {
+      addColorCtrl('mark', layer.fill.color || '#d2624d', (v) => { layer.fill.color = v; onChange(); });
+    }
+    const dn = addCtrl('density', 'number', layer.fill.density ?? 0.5, { min: 0, max: 1, step: 0.05 });
+    dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
+    const wd = addCtrl('mark width', 'number', layer.fill.width ?? 0.4, { min: 0.1, max: 1, step: 0.05 });
+    wd.addEventListener('input', () => { layer.fill.width = Number(wd.value); onChange(); });
   } else if (layer.fill.kind === 'windowpane') {
     addColorCtrl('v line', layer.fill.vColor || '#b7bbc0', (v) => { layer.fill.vColor = v; onChange(); });
     addColorCtrl('h stitch', layer.fill.hColor || '#9aa0a6', (v) => { layer.fill.hColor = v; onChange(); });
