@@ -426,6 +426,25 @@ const SAMPLES = {
       },
     ],
   },
+  'Double Triangles': {
+    // Girard "Double Triangles": a vertical-strip triangle tessellation
+    // in a single green, the linen ground showing through as thick white
+    // grout lines (a fat white stroke on every triangle).
+    palette: ['#6f8f4e'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#efe9da', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 7, rows: 6, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'triangles', mode: 'fixed', orient: 'vertical',
+          color: '#6f8f4e', stroke: '#efe9da', strokeWidth: 0.06,
+        },
+      },
+    ],
+  },
   'Circles': {
     // Girard "Circles": a dense grid of large dots, nearly touching,
     // randomly red / royal blue / navy on a warm cream ground.
@@ -1483,8 +1502,18 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const G = layerGeom(col, row, cw, rh, tcols, strips, layerBounds);
       if (!G) break;
       const { lw, lh, ox, oy } = G;
-      const s = lw / tcols;
-      const h = lh / strips;
+      // "Vertical" orientation swaps the construction axes: strips run
+      // vertically and triangles point left / right (the Double
+      // Triangles look). The 'a' axis is the division axis (tcols),
+      // 'b' the strip axis; pt() maps (a,b) back to x,y.
+      const vertical = fill.orient === 'vertical';
+      const lengthA = vertical ? lh : lw;
+      const lengthB = vertical ? lw : lh;
+      const oa = vertical ? oy : ox;
+      const ob = vertical ? ox : oy;
+      const pt = vertical ? (a, b) => `${b},${a}` : (a, b) => `${a},${b}`;
+      const s = lengthA / tcols;
+      const h = lengthB / strips;
 
       const sAttrs = strokeAttrs(fill.stroke, fill.strokeWidth, Math.min(s, h), '#ffffff');
 
@@ -1511,31 +1540,31 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       };
 
       for (let r = 0; r < strips; r++) {
-        const y0 = oy + r * h;
-        const y1 = y0 + h;
+        const b0 = ob + r * h;
+        const b1 = b0 + h;
         const odd = r % 2 === 1;
         const off = odd ? s / 2 : 0;
         // Up triangles: tcols for odd strips, tcols+1 for even strips
         // — the c=tcols copy shares colour with c=0 via mod, supplying
-        // the horizontal wrap.
+        // the wrap along the division axis.
         const upCount = odd ? tcols : tcols + 1;
         for (let c = 0; c < upCount; c++) {
-          const cx = ox + c * s + off;
-          drawTri(`${cx - s/2},${y1} ${cx + s/2},${y1} ${cx},${y0}`, colorAt(r, c, 'up'));
+          const ca = oa + c * s + off;
+          drawTri(`${pt(ca - s/2, b1)} ${pt(ca + s/2, b1)} ${pt(ca, b0)}`, colorAt(r, c, 'up'));
         }
         if (odd) {
           for (let c = 0; c < tcols - 1; c++) {
-            const xL = ox + c * s + s/2;
-            drawTri(`${xL},${y0} ${xL + s},${y0} ${xL + s/2},${y1}`, colorAt(r, c, 'down'));
+            const aL = oa + c * s + s/2;
+            drawTri(`${pt(aL, b0)} ${pt(aL + s, b0)} ${pt(aL + s/2, b1)}`, colorAt(r, c, 'down'));
           }
           const wrapColor = colorAt(r, tcols - 1, 'down');
-          for (const xL of [ox + (tcols - 1) * s + s/2, ox - s/2]) {
-            drawTri(`${xL},${y0} ${xL + s},${y0} ${xL + s/2},${y1}`, wrapColor);
+          for (const aL of [oa + (tcols - 1) * s + s/2, oa - s/2]) {
+            drawTri(`${pt(aL, b0)} ${pt(aL + s, b0)} ${pt(aL + s/2, b1)}`, wrapColor);
           }
         } else {
           for (let c = 0; c < tcols; c++) {
-            const xL = ox + c * s;
-            drawTri(`${xL},${y0} ${xL + s},${y0} ${xL + s/2},${y1}`, colorAt(r, c, 'down'));
+            const aL = oa + c * s;
+            drawTri(`${pt(aL, b0)} ${pt(aL + s, b0)} ${pt(aL + s/2, b1)}`, colorAt(r, c, 'down'));
           }
         }
       }
@@ -2787,6 +2816,8 @@ function buildConfigForm(host, layer, onChange) {
   } else if (layer.fill.kind === 'triangles') {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'random', { options: ['fixed', 'palette-cycle', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
+    const orient = addCtrl('orient', 'select', layer.fill.orient || 'horizontal', { options: ['horizontal', 'vertical'] });
+    orient.addEventListener('change', () => { layer.fill.orient = orient.value; onChange(); });
     if ((layer.fill.mode || 'random') === 'fixed') {
       addColorCtrl('color', layer.fill.color || '#d24a45', (v) => { layer.fill.color = v; onChange(); });
     }
