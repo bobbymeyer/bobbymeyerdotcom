@@ -512,7 +512,7 @@ const SAMPLES = {
         blendPerCell: true,
         opacity: 0.9,
         fill: {
-          kind: 'shape', shape: { kind: 'onion', size: 1.46, ratio: 1.05, bulge: 0.55 },
+          kind: 'shape', shape: { kind: 'onion', size: 1.9, ratio: 1.12, bulge: 0.55 },
           mode: 'cell',
         },
       },
