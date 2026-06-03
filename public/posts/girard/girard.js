@@ -335,6 +335,49 @@ const SAMPLES = {
       },
     ],
   },
+  'One Way (solid)': {
+    // Cream ground; a grid of right-triangles, all the same
+    // orientation ("one way"), scattered with position + scale
+    // jitter. Solid tan fill.
+    palette: ['#d49a6a'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f5efe1', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 6, rows: 6, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'shape', shape: { kind: 'right-triangle', size: 0.85 }, mode: 'fixed', color: '#d49a6a' },
+        vary: {
+          scale:  { type: 'random', min: 0.55, max: 1.05 },
+          jitter: { type: 'random', min: -0.28, max: 0.28 },
+        },
+      },
+    ],
+  },
+  'One Way (outline)': {
+    // Same scatter, but the triangles are transparent with a thick
+    // green outline.
+    palette: ['#6cb24a'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f0efe7', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 6, rows: 6, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'shape',
+          shape: { kind: 'right-triangle', size: 0.85, strokeWidth: 0.045, stroke: '#6cb24a' },
+          mode: 'fixed', color: 'transparent',
+        },
+        vary: {
+          scale:  { type: 'random', min: 0.55, max: 1.05 },
+          jitter: { type: 'random', min: -0.28, max: 0.28 },
+        },
+      },
+    ],
+  },
   'Pebbles': {
     // Dark ground; a toroidal Voronoi layer of rounded tan pebbles
     // with a thin dark gap between them. Roll the seed for a fresh
@@ -733,6 +776,17 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         ...sAttrs,
       });
     }
+    case 'right-triangle': {
+      // Right-isoceles triangle, right angle at top-left, hypotenuse
+      // from top-right down to bottom-left. All instances share this
+      // orientation (the "one way" look); rotate via vary if wanted.
+      const r = dim / 2;
+      return el('polygon', {
+        points: `${-r},${-r} ${r},${-r} ${-r},${r}`,
+        fill,
+        ...sAttrs,
+      });
+    }
     case 'quatrefoil': {
       // 4 tangent circles forming a clover. r = off = dim/4 makes
       // the lobes touch at single points on the axes (sharp cusps).
@@ -1051,7 +1105,11 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         : (layer.vary?.color?.type === 'palette'
             ? palette[Math.floor(rng() * palette.length)]
             : (fill.color || palette[0]));
-      if (isTransparent(color)) break;
+      // A transparent fill is still drawn when the shape has a stroke
+      // (outline-only shapes); otherwise skip the cell entirely.
+      const hasStroke = (shape.strokeWidth ?? 0) > 0;
+      if (isTransparent(color) && !hasStroke) break;
+      const fillColor = isTransparent(color) ? 'none' : color;
       // Text shapes can cycle through an array; pick the index by
       // the same formula the colour mode uses, or randomly if
       // vary.color picks randomly.
@@ -1068,7 +1126,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const baseX = ix + iw / 2 + jx;
       const baseY = iy + ih / 2 + jy;
       drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, dx, dy) => {
-        const node = shapeNode(shape, iw, ih, color, { textIndex, rng, palette, colorStart });
+        const node = shapeNode(shape, iw, ih, fillColor, { textIndex, rng, palette, colorStart });
         node.setAttribute(
           'transform',
           `translate(${baseX + dx} ${baseY + dy}) rotate(${rot}) scale(${s})`,
@@ -1973,7 +2031,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'diamond', 'text', 'star', 'quatrefoil'],
+      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
