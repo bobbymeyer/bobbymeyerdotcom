@@ -426,6 +426,25 @@ const SAMPLES = {
       },
     ],
   },
+  'Circles': {
+    // Girard "Circles": a dense grid of large dots, nearly touching,
+    // randomly red / royal blue / navy on a warm cream ground.
+    palette: ['#d34b42', '#3f4f9e', '#1f2535'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#efe9da', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 9, rows: 11, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'shape',
+          shape: { kind: 'circle', size: 0.92 },
+          mode: 'random',
+        },
+      },
+    ],
+  },
   'Small Squares': {
     // Girard "Small Squares" (1952): little squares scattered on white,
     // each a random pick from a cool palette (purple, indigo, teal,
