@@ -639,31 +639,6 @@ const SAMPLES = {
       },
     ],
   },
-  'June': {
-    // Girard "June": a wildflower meadow — thin teal grass blades with
-    // needle-leaves and seed pods, strewn with little red five-petal
-    // flowers on a cream ground.
-    palette: ['#e0566a'],
-    layers: [
-      {
-        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', color: '#efeade', mode: 'fixed' },
-      },
-      {
-        grid: { cols: 11, rows: 7, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
-        fill: { kind: 'grass', color: '#3f7a8c', thickness: 0.009, height: 1.15, podChance: 0.42 },
-      },
-      {
-        grid: { cols: 8, rows: 9, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
-        fill: {
-          kind: 'shape',
-          shape: { kind: 'blossom', size: 0.2, petals: 5, petal: 0.27, spread: 0.32, centerColor: '#ffffff', centerSize: 0.12 },
-          mode: 'fixed', color: '#e0566a', density: 0.45,
-        },
-        vary: { jitter: { type: 'random', min: -0.36, max: 0.36 } },
-      },
-    ],
-  },
   'Jax': {
     // Girard "Jax": a tiny ditsy of green four-dot clovers on a dusty
     // pink linen ground, set on a dense half-drop grid.
@@ -3294,7 +3269,11 @@ function patternFonts(pattern) {
 
 function buildSvg(pattern) {
   const { w: tileW, h: tileH } = tileDims(pattern);
-  const viewW = tileW * 3, viewH = tileH * 3;
+  // Show one full centre tile plus only a fraction of the surrounding
+  // tiles for tiling context, rather than a full 3×3.
+  const frac = Math.max(0, Math.min(1, pattern.surroundFraction ?? 0.33));
+  const mx = frac * tileW, my = frac * tileH;
+  const viewW = tileW + 2 * mx, viewH = tileH + 2 * my;
   const root = el('svg', {
     xmlns: SVG_NS,
     viewBox: `0 0 ${viewW} ${viewH}`,
@@ -3308,6 +3287,8 @@ function buildSvg(pattern) {
   const patternId = 'girard-tile';
   const tilePattern = el('pattern', {
     id: patternId,
+    // Offset so a tile boundary lands at the centre tile's edges.
+    x: mx, y: my,
     width: unit.width,
     height: unit.height,
     patternUnits: 'userSpaceOnUse',
@@ -3319,18 +3300,18 @@ function buildSvg(pattern) {
     width: viewW, height: viewH,
     fill: `url(#${patternId})`,
   }));
+  // Veil dims the surrounding margins so the centre tile reads as the
+  // unit; the four border strips leave the centre tile clear.
   const veil = Math.max(0, Math.min(1, pattern.surroundVeil ?? 0.5));
-  if (veil > 0) {
-    for (let row = 0; row < 3; row++) {
-      for (let col = 0; col < 3; col++) {
-        if (row === 1 && col === 1) continue;
-        root.appendChild(el('rect', {
-          x: col * tileW, y: row * tileH,
-          width: tileW, height: tileH,
-          fill: '#ffffff',
-          opacity: veil,
-        }));
-      }
+  if (veil > 0 && frac > 0) {
+    const strips = [
+      [0, 0, viewW, my],                 // top
+      [0, my + tileH, viewW, my],        // bottom
+      [0, my, mx, tileH],                // left
+      [mx + tileW, my, mx, tileH],       // right
+    ];
+    for (const [x, y, w, h] of strips) {
+      root.appendChild(el('rect', { x, y, width: w, height: h, fill: '#ffffff', opacity: veil }));
     }
   }
 
