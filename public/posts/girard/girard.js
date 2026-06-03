@@ -314,18 +314,11 @@ const SAMPLES = {
         fill: { kind: 'solid', color: '#f3eedd', mode: 'fixed' },
       },
       {
-        // Thin vertical "fuse" down each column centre, connecting the
-        // bars — the firecracker string.
-        grid: { cols: 6, rows: 1, gutterX: 0.9, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', color: '#e0954a', mode: 'fixed' },
-      },
-      {
         grid: {
-          cols: 6, rows: 14,
-          gutterX: 0.16, gutterY: 0.5,
+          cols: 6, rows: 16,
           offset: { x: 0, y: 0.5 }, offsetMode: 'alternate-col',
         },
-        fill: { kind: 'solid', color: '#e0954a', mode: 'fixed' },
+        fill: { kind: 'firecracker', color: '#e0954a', fuse: 0.08, barWidth: 0.5, barLen: 0.4 },
       },
     ],
   },
@@ -3194,6 +3187,22 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       });
       break;
     }
+    case 'firecracker': {
+      // A vertical "fuse" down each column with horizontal bars hanging
+      // off ALTERNATING sides as they descend (fishbone). Bar height =
+      // its gap, so each side reads 50/50 and the two sides mirror.
+      const color = fill.color || palette[0] || '#e0954a';
+      const cx = ix + iw / 2;
+      const fuseW = (fill.fuse ?? 0.08) * iw;
+      parent.appendChild(el('rect', { x: cx - fuseW / 2, y: iy, width: fuseW, height: ih, fill: color }));
+      const side = mod(ri, 2) === 0 ? -1 : 1;     // alternate left / right
+      const barH = (fill.barWidth ?? 0.5) * ih;
+      const barLen = (fill.barLen ?? 0.4) * iw;
+      const by = iy + (ih - barH) / 2;
+      const bx = side < 0 ? cx - barLen : cx;
+      parent.appendChild(el('rect', { x: bx, y: by, width: barLen, height: barH, fill: color }));
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -3566,7 +3575,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass', 'firecracker'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -3592,6 +3601,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'graph', stroke: '#8a9a4a', strokeWidth: 0.012, offsets: [0, 0, 0.6, 0, 0.6, 0, 0, 0, 0.6, 0, 0.6, 0] };
     } else if (fillKind.value === 'grass') {
       layer.fill = { kind: 'grass', color: '#3f7a8c', thickness: 0.01, height: 1.05, podChance: 0.4 };
+    } else if (fillKind.value === 'firecracker') {
+      layer.fill = { kind: 'firecracker', color: '#e0954a', fuse: 0.08, barWidth: 0.5, barLen: 0.4 };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -3792,6 +3803,14 @@ function buildConfigForm(host, layer, onChange) {
   } else if (layer.fill.kind === 'multiform') {
     const dn = addCtrl('density', 'number', layer.fill.density ?? 0.82, { min: 0, max: 1, step: 0.05 });
     dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
+  } else if (layer.fill.kind === 'firecracker') {
+    addColorCtrl('color', layer.fill.color || '#e0954a', (v) => { layer.fill.color = v; onChange(); });
+    const fz = addCtrl('fuse', 'number', layer.fill.fuse ?? 0.08, { min: 0.02, max: 0.3, step: 0.01 });
+    fz.addEventListener('input', () => { layer.fill.fuse = Number(fz.value); onChange(); });
+    const bw = addCtrl('bar height', 'number', layer.fill.barWidth ?? 0.5, { min: 0.1, max: 1, step: 0.05 });
+    bw.addEventListener('input', () => { layer.fill.barWidth = Number(bw.value); onChange(); });
+    const bl = addCtrl('bar length', 'number', layer.fill.barLen ?? 0.4, { min: 0.1, max: 0.5, step: 0.02 });
+    bl.addEventListener('input', () => { layer.fill.barLen = Number(bl.value); onChange(); });
   } else if (layer.fill.kind === 'grass') {
     addColorCtrl('blade', layer.fill.color || '#3f7a8c', (v) => { layer.fill.color = v; onChange(); });
     const th = addCtrl('thickness', 'number', layer.fill.thickness ?? 0.01, { min: 0.003, max: 0.04, step: 0.002 });
