@@ -414,6 +414,26 @@ const SAMPLES = {
       },
     ],
   },
+  'Extrusions': {
+    // Girard "Extrusions": I-beams, plusses and brackets in navy and
+    // white scattered on a grey ground — the glyph fill in two-tone
+    // (inks) mode, restricted to those forms.
+    palette: ['#2b3242'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#9a9ca0', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 9, rows: 11, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'glyph', weight: 0.16,
+          inks: ['#2b3242', '#f1eee4'],
+          glyphs: ['ibeam', 'hbeam', 'plus', 'lbracket', 'rbracket'],
+        },
+      },
+    ],
+  },
   'Menu': {
     // Girard L'Etoile menu (1966): a modular black-and-white
     // "geometric alphabet" — each cell a bar-built glyph or a ring /
@@ -2635,11 +2655,17 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const crng = cellRng(ci, ri, salt);
       const ink = fill.ink || palette[0] || '#21242b';
       const paper = fill.paper || '#f3ede0';
-      const invert = crng() < (fill.invert ?? 0.5);
-      const bg = invert ? ink : paper;
-      const fg = invert ? paper : ink;
+      // With `inks` (an array), the cell ground is left transparent and
+      // the glyph is drawn in a random ink colour — for two-tone glyphs
+      // on a separate ground (Extrusions). Otherwise it's ink-on-paper
+      // with random inversion (the Menu look).
+      const inks = fill.inks;
+      const transparent = !!(inks && inks.length);
+      const invert = !transparent && crng() < (fill.invert ?? 0.5);
+      const bg = transparent ? 'none' : (invert ? ink : paper);
+      const fg = transparent ? inks[Math.floor(crng() * inks.length)] : (invert ? paper : ink);
       const t = fill.weight ?? 0.22;            // bar thickness, × cell
-      parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: bg }));
+      if (!transparent) parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: bg }));
       // R: filled rect in normalised cell coords (0..1).
       const R = (nx, ny, nw, nh) => parent.appendChild(el('rect', {
         x: ix + nx * iw, y: iy + ny * ih, width: nw * iw, height: nh * ih, fill: fg,
@@ -2653,6 +2679,10 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       ];
       const name = glyphs[Math.floor(crng() * glyphs.length)];
       switch (name) {
+        case 'plus':     R(m, 0, t, 1); R(0, m, 1, t); break;
+        case 'hbeam':    R(0, 0, t, 1); R(e, 0, t, 1); R(0, m, 1, t); break;
+        case 'lbracket': R(0, 0, t, 1); R(0, 0, 0.5, t); R(0, e, 0.5, t); break;
+        case 'rbracket': R(e, 0, t, 1); R(0.5, 0, 0.5, t); R(0.5, e, 0.5, t); break;
         case 'hbars': R(0, 0, 1, t); R(0, m, 1, t); R(0, e, 1, t); break;
         case 'vbars': R(0, 0, t, 1); R(m, 0, t, 1); R(e, 0, t, 1); break;
         case 'hpair': R(0, 0, 1, t); R(0, e, 1, t); break;
