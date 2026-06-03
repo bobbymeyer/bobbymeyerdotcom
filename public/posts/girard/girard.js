@@ -396,6 +396,18 @@ const SAMPLES = {
       },
     ],
   },
+  'Menu': {
+    // Girard L'Etoile menu (1966): a modular black-and-white
+    // "geometric alphabet" — each cell a bar-built glyph or a ring /
+    // disc, tiles randomly inverted. Roll the seed for a new layout.
+    palette: ['#21242b'],
+    layers: [
+      {
+        grid: { cols: 6, rows: 6, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'glyph', ink: '#21242b', paper: '#f3ede0', invert: 0.5, weight: 0.22 },
+      },
+    ],
+  },
   'Pinwheel': {
     // Girard "Pinwheel": 2×2 blocks of half-square triangles spiral
     // into pinwheels on a cream ground, blocks alternating red / green
@@ -1891,6 +1903,56 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       if (!isTransparent(color)) drawHalfTriangle(parent, ix, iy, iw, ih, color, corner);
       break;
     }
+    case 'glyph': {
+      // Girard L'Etoile menu (1966): a modular "geometric alphabet".
+      // Each cell carries one bar-built glyph (I-beam, comb, frame,
+      // U/L/T forms, stacked bars) or a ring / disc, drawn in ink on
+      // paper — and randomly inverted (white-on-black). Per-cell PRNG
+      // keyed on the wrapped index so it tiles seamlessly.
+      const salt = layerBounds?.salt ?? 1;
+      const crng = cellRng(ci, ri, salt);
+      const ink = fill.ink || palette[0] || '#21242b';
+      const paper = fill.paper || '#f3ede0';
+      const invert = crng() < (fill.invert ?? 0.5);
+      const bg = invert ? ink : paper;
+      const fg = invert ? paper : ink;
+      const t = fill.weight ?? 0.22;            // bar thickness, × cell
+      parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: bg }));
+      // R: filled rect in normalised cell coords (0..1).
+      const R = (nx, ny, nw, nh) => parent.appendChild(el('rect', {
+        x: ix + nx * iw, y: iy + ny * ih, width: nw * iw, height: nh * ih, fill: fg,
+      }));
+      const dim = Math.min(iw, ih);
+      const e = 1 - t;                          // far edge of a t-bar
+      const m = (1 - t) / 2;                     // centred bar offset
+      const glyphs = fill.glyphs || [
+        'hbars', 'vbars', 'ibeam', 'tbar', 'ubar', 'lbar',
+        'comb', 'frame', 'hpair', 'vpair', 'ring', 'disc', 'solid', 'blank',
+      ];
+      const name = glyphs[Math.floor(crng() * glyphs.length)];
+      switch (name) {
+        case 'hbars': R(0, 0, 1, t); R(0, m, 1, t); R(0, e, 1, t); break;
+        case 'vbars': R(0, 0, t, 1); R(m, 0, t, 1); R(e, 0, t, 1); break;
+        case 'hpair': R(0, 0, 1, t); R(0, e, 1, t); break;
+        case 'vpair': R(0, 0, t, 1); R(e, 0, t, 1); break;
+        case 'ibeam': R(0, 0, 1, t); R(0, e, 1, t); R(m, 0, t, 1); break;
+        case 'tbar':  R(0, 0, 1, t); R(m, t, t, e); break;
+        case 'ubar':  R(0, 0, t, 1); R(e, 0, t, 1); R(0, e, 1, t); break;
+        case 'lbar':  R(0, 0, t, 1); R(0, e, 1, t); break;
+        case 'comb':  R(0, 0, t, 1); R(t, 0, e, t); R(t, m, e, t); R(t, e, e, t); break;
+        case 'frame': R(0, 0, 1, t); R(0, e, 1, t); R(0, 0, t, 1); R(e, 0, t, 1); break;
+        case 'solid': R(0, 0, 1, 1); break;
+        case 'blank': break;
+        case 'disc':
+          parent.appendChild(el('circle', { cx: ix + iw / 2, cy: iy + ih / 2, r: dim * 0.42, fill: fg }));
+          break;
+        case 'ring':
+          parent.appendChild(el('circle', { cx: ix + iw / 2, cy: iy + ih / 2, r: dim * 0.42, fill: fg }));
+          parent.appendChild(el('circle', { cx: ix + iw / 2, cy: iy + ih / 2, r: dim * (0.42 - t * 0.62), fill: bg }));
+          break;
+      }
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -2216,10 +2278,12 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
+    } else if (fillKind.value === 'glyph') {
+      layer.fill = { kind: 'glyph', ink: '#21242b', paper: '#f3ede0', invert: 0.5, weight: 0.22 };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -2381,6 +2445,13 @@ function buildConfigForm(host, layer, onChange) {
     const sp = addCtrl('spin (¼ turn)', 'number', layer.fill.spin ?? 0, { min: 0, max: 3, step: 1 });
     sp.addEventListener('input', () => { layer.fill.spin = Number(sp.value) | 0; onChange(); });
     addColorCtrl('ground', layer.fill.ground ?? 'transparent', (v) => { layer.fill.ground = v; onChange(); });
+  } else if (layer.fill.kind === 'glyph') {
+    addColorCtrl('ink', layer.fill.ink || '#21242b', (v) => { layer.fill.ink = v; onChange(); });
+    addColorCtrl('paper', layer.fill.paper || '#f3ede0', (v) => { layer.fill.paper = v; onChange(); });
+    const inv = addCtrl('invert prob', 'number', layer.fill.invert ?? 0.5, { min: 0, max: 1, step: 0.05 });
+    inv.addEventListener('input', () => { layer.fill.invert = Number(inv.value); onChange(); });
+    const wt = addCtrl('bar weight', 'number', layer.fill.weight ?? 0.22, { min: 0.08, max: 0.4, step: 0.02 });
+    wt.addEventListener('input', () => { layer.fill.weight = Number(wt.value); onChange(); });
   } else if (layer.fill.kind === 'manhattan') {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
