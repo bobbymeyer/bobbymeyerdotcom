@@ -396,6 +396,32 @@ const SAMPLES = {
       },
     ],
   },
+  'Shower': {
+    // Girard "Shower" (1958): tall tapered streaks (wide at top,
+    // narrow at the bottom) scattered on a warm cream ground, each
+    // a random palette colour. Heavy scale jitter gives the mix of
+    // long and short "drops"; positional jitter keeps the grid from
+    // reading as a grid.
+    palette: ['#c44a2e', '#d96a3a', '#e98a5b', '#efb5a0', '#3946a0', '#2bb3b8', '#7a3a2a'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f3ede0', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 10, rows: 5, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: {
+          kind: 'shape',
+          shape: { kind: 'spike', size: 0.55, aspect: 3.2, taper: 0.25 },
+          mode: 'random',
+        },
+        vary: {
+          scale:  { type: 'random', min: 0.55, max: 1.25 },
+          jitter: { type: 'random', min: -0.35, max: 0.35 },
+        },
+      },
+    ],
+  },
   'Pebbles': {
     // Dark ground; a toroidal Voronoi layer of rounded tan pebbles
     // with a thin dark gap between them. Roll the seed for a fresh
@@ -802,6 +828,22 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       const r = dim / 2;
       return el('polygon', {
         points: `${-r},${-r} ${r},${-r} ${-r},${r}`,
+        fill,
+        ...sAttrs,
+      });
+    }
+    case 'spike': {
+      // Tapered trapezoid pointing down — wide at top, narrow at
+      // bottom. Like a rain streak. size sets the top width
+      // (× cell); aspect is height as a multiple of that width;
+      // taper is the bottom width as a fraction of the top.
+      const topW = dim;
+      const h = topW * (shape.aspect ?? 4);
+      const botW = topW * (shape.taper ?? 0.3);
+      const tx = topW / 2, bx = botW / 2;
+      const y0 = -h / 2, y1 = h / 2;
+      return el('polygon', {
+        points: `${-tx},${y0} ${tx},${y0} ${bx},${y1} ${-bx},${y1}`,
         fill,
         ...sAttrs,
       });
@@ -2128,7 +2170,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil'],
+      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
@@ -2180,6 +2222,18 @@ function buildConfigForm(host, layer, onChange) {
       const c = addCtrl('center (× lobe)', 'number', layer.fill.shape?.center ?? 1, { min: 0, max: 2, step: 0.05 });
       c.addEventListener('input', () => {
         layer.fill.shape = { ...(layer.fill.shape || { kind: 'quatrefoil' }), center: Number(c.value) };
+        onChange();
+      });
+    }
+    if (layer.fill.shape?.kind === 'spike') {
+      const asp = addCtrl('aspect (h/w)', 'number', layer.fill.shape?.aspect ?? 4, { min: 1, max: 12, step: 0.25 });
+      asp.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'spike' }), aspect: Number(asp.value) };
+        onChange();
+      });
+      const tap = addCtrl('taper (bot/top)', 'number', layer.fill.shape?.taper ?? 0.3, { min: 0, max: 1, step: 0.05 });
+      tap.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'spike' }), taper: Number(tap.value) };
         onChange();
       });
     }
