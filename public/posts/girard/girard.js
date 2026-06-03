@@ -396,6 +396,22 @@ const SAMPLES = {
       },
     ],
   },
+  'Pinwheel': {
+    // Girard "Pinwheel": 2×2 blocks of half-square triangles spiral
+    // into pinwheels on a cream ground, blocks alternating red / green
+    // in a checker. cols/rows are multiples of 4 so it tiles cleanly.
+    palette: ['#cf4b3e', '#5fae6b'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f3ede0', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 8, rows: 8, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'pinwheel' },
+      },
+    ],
+  },
   'Shower': {
     // Girard "Shower" (1958): tall tapered streaks (wide at top,
     // narrow at the bottom) scattered on a warm cream ground, each
@@ -679,7 +695,8 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'voronoi' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'))
         || (l.fill?.kind === 'bloom')
         || (l.fill?.kind === 'flower-seal')
-        || (l.fill?.kind === 'manhattan' && paletteModes.includes(l.fill?.mode));
+        || (l.fill?.kind === 'manhattan' && paletteModes.includes(l.fill?.mode))
+        || (l.fill?.kind === 'pinwheel');
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -1806,6 +1823,27 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }
       break;
     }
+    case 'pinwheel': {
+      // Girard "Pinwheel": each cell is one half-square triangle; a
+      // 2×2 block of them spirals into a pinwheel. The coloured half
+      // hugs the block centre, rotated 90° per quadrant for the spin.
+      // Blocks alternate two palette colours in a checker. Purely
+      // positional (mod) so it tiles when cols/rows are multiples of 4.
+      const lc = mod(col, 2), lr = mod(row, 2);
+      // Quadrant within the block, clockwise from top-left.
+      const p = lr === 0 ? (lc === 0 ? 0 : 1) : (lc === 1 ? 2 : 3);
+      // corners[p] picks the half-square-triangle (TL/TR/BR/BL) that
+      // hugs the block centre with consistent chirality. spin offsets.
+      const corners = fill.corners || [2, 1, 0, 3];
+      const corner = corners[mod(p + (fill.spin || 0), 4)];
+      const bc = Math.floor(col / 2), br = Math.floor(row / 2);
+      const color = palette[mod(bc + br, palette.length)] || fill.color || '#c0504d';
+      if (fill.ground && !isTransparent(fill.ground)) {
+        parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: fill.ground }));
+      }
+      if (!isTransparent(color)) drawHalfTriangle(parent, ix, iy, iw, ih, color, corner);
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -2131,9 +2169,11 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel'] });
   fillKind.addEventListener('change', () => {
-    if (fillKind.value === 'solid') {
+    if (fillKind.value === 'pinwheel') {
+      layer.fill = { kind: 'pinwheel', spin: 0 };
+    } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
       layer.fill = { kind: 'shape', shape: layer.fill.shape || { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' };
@@ -2290,6 +2330,10 @@ function buildConfigForm(host, layer, onChange) {
     if ((layer.fill.strokeWidth ?? 0) > 0) {
       addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
     }
+  } else if (layer.fill.kind === 'pinwheel') {
+    const sp = addCtrl('spin (¼ turn)', 'number', layer.fill.spin ?? 0, { min: 0, max: 3, step: 1 });
+    sp.addEventListener('input', () => { layer.fill.spin = Number(sp.value) | 0; onChange(); });
+    addColorCtrl('ground', layer.fill.ground ?? 'transparent', (v) => { layer.fill.ground = v; onChange(); });
   } else if (layer.fill.kind === 'manhattan') {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
