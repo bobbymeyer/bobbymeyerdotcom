@@ -450,43 +450,49 @@ const SAMPLES = {
         fill: { kind: 'solid', color: '#f6f3ec', mode: 'fixed' },
       },
       {
+        // Blocks: kept fairly steady so their bottom edge is a
+        // predictable anchor for the triangles below.
         grid: {
           cols: 3, rows: 4, offset: { x: 0, y: 0 }, offsetMode: 'none',
-          gutterX: 0.1, gutterY: 0.3,
+          gutterX: 0.1, gutterY: 0.34,
         },
         blendMode: 'multiply', opacity: 0.85,
         fill: { kind: 'solid', mode: 'random', density: 0.72 },
         vary: {
-          scale:  { type: 'random', min: 0.62, max: 1.12 },
-          jitter: { type: 'random', min: -0.2, max: 0.2 },
+          scale:  { type: 'random', min: 0.82, max: 1.05 },
+          jitter: { type: 'random', min: -0.05, max: 0.05 },
         },
       },
       {
-        // Cut-outs: paper-coloured triangles, opaque and normal blend,
-        // sitting on the blocks (below the colour triangles) so they
-        // knock white triangles out of the blocks.
+        // Cut-outs: paper triangles, opaque, anchored to bite into the
+        // block's bottom edge (offsetY straddles it) — they knock a
+        // white triangle out of the block.
         grid: { cols: 3, rows: 4, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         fill: {
-          kind: 'shape', shape: { kind: 'triangle', size: 0.66 },
-          mode: 'fixed', color: '#f6f3ec', density: 0.4,
+          kind: 'shape',
+          shape: { kind: 'triangle', size: 0.5, offsetX: -0.16, offsetY: 0.28 },
+          mode: 'fixed', color: '#f6f3ec', density: 0.42,
         },
         vary: {
-          scale:  { type: 'random', min: 0.7, max: 1.1 },
-          jitter: { type: 'random', min: -0.22, max: 0.22 },
-          rotate: { type: 'random', min: -8, max: 8 },
+          scale:  { type: 'random', min: 0.8, max: 1.1 },
+          rotate: { type: 'random', min: -6, max: 6 },
         },
       },
       {
-        grid: { cols: 3, rows: 4, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        // Colour triangles: anchored to straddle the block's bottom
+        // edge (top half over the block, point hanging below) — the
+        // pendant motif. offsetY keeps them crossing the edge, never
+        // fully inside or outside. Same grid as the blocks.
+        grid: { cols: 3, rows: 4, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         blendMode: 'multiply', opacity: 0.85,
         fill: {
-          kind: 'shape', shape: { kind: 'triangle', size: 0.82 },
-          mode: 'random', density: 0.66,
+          kind: 'shape',
+          shape: { kind: 'triangle', size: 0.74, offsetX: 0.12, offsetY: 0.34 },
+          mode: 'random', density: 0.7,
         },
         vary: {
-          scale:  { type: 'random', min: 0.65, max: 1.2 },
-          jitter: { type: 'random', min: -0.1, max: 0.36 },
-          rotate: { type: 'random', min: -12, max: 12 },
+          scale:  { type: 'random', min: 0.78, max: 1.12 },
+          rotate: { type: 'random', min: -9, max: 9 },
         },
       },
     ],
@@ -1708,8 +1714,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         : fill.mode === 'random'
         ? Math.floor(rng() * palette.length)
         : 0;
-      const baseX = ix + iw / 2 + jx;
-      const baseY = iy + ih / 2 + jy;
+      const baseX = ix + iw / 2 + jx + (shape.offsetX ?? 0) * iw;
+      const baseY = iy + ih / 2 + jy + (shape.offsetY ?? 0) * ih;
       drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, dx, dy) => {
         const node = shapeNode(shape, iw, ih, fillColor, { textIndex, rng, palette, colorStart, stroke: strokeColor });
         node.setAttribute(
