@@ -301,12 +301,13 @@ const SAMPLES = {
     ],
   },
   'Firecrackers': {
-    // Cream ground; a 1x3 row grid paints a thin orange top band (and
-    // leaves the lower rows transparent); a 32x3 row grid positions
-    // vertical tabs only in the middle row by addressing specific
-    // palette positions — top and bottom rows all transparent, middle
-    // row all orange, gutterX carves the gaps between tabs.
-    palette: ['#e0954a', '#f3eedd'],
+    // Cream ground; horizontal orange bars stacked in vertical columns.
+    // gutterY 0.5 makes each bar exactly half its cell, so bar = gap;
+    // an alternate-column half-drop offsets neighbours by half a period
+    // — so every orange bar lines up with a white gap next door and the
+    // negative space is congruent to the positive. gutterX leaves thin
+    // white channels between the columns.
+    palette: ['#e0954a'],
     layers: [
       {
         grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
@@ -314,26 +315,11 @@ const SAMPLES = {
       },
       {
         grid: {
-          cols: 1, rows: 3,
-          rowWeights: [1, 5, 8],
-          offset: { x: 0, y: 0 }, offsetMode: 'none',
+          cols: 6, rows: 14,
+          gutterX: 0.16, gutterY: 0.5,
+          offset: { x: 0, y: 0.5 }, offsetMode: 'alternate-col',
         },
-        fill: { kind: 'solid', mode: 'palette-cycle' },
-        palette: ['#e0954a', 'transparent', 'transparent'],
-      },
-      {
-        grid: {
-          cols: 32, rows: 3,
-          rowWeights: [1, 5, 8],
-          gutterX: 0.4,
-          offset: { x: 0, y: 0 }, offsetMode: 'none',
-        },
-        fill: { kind: 'solid', mode: 'palette-cycle' },
-        palette: [
-          ...Array(32).fill('transparent'),
-          ...Array(32).fill('#e0954a'),
-          ...Array(32).fill('transparent'),
-        ],
+        fill: { kind: 'solid', color: '#e0954a', mode: 'fixed' },
       },
     ],
   },
