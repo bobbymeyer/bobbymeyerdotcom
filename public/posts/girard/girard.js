@@ -212,6 +212,32 @@ const SAMPLES = {
       },
     ],
   },
+  'Diamonds': {
+    // Orange ground; a diamond grid (alternate-row half-offset so the
+    // rhombi pack into a harlequin lattice) of concentric nested
+    // diamonds. The orange shows between them via the cell gutter.
+    // Each cell starts at a random palette index so colours vary.
+    palette: ['#dd5b3e', '#b7a13f', '#b9863f', '#e08a3c'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#ef9a3d', mode: 'fixed' },
+      },
+      {
+        grid: {
+          cols: 7, rows: 9,
+          offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row',
+          gutterX: 0.12, gutterY: 0.12,
+        },
+        fill: {
+          kind: 'shape',
+          shape: { kind: 'diamond', rings: 3, size: 1 },
+          mode: 'random',
+        },
+        palette: ['#dd5b3e', '#b7a13f', '#b9863f', '#ef9a3d'],
+      },
+    ],
+  },
   'Firecrackers': {
     // Cream ground; a 1x3 row grid paints a thin orange top band (and
     // leaves the lower rows transparent); a 32x3 row grid positions
@@ -632,6 +658,28 @@ function shapeNode(shape, cw, rh, fill, ctx) {
   switch (shape.kind) {
     case 'circle':
       return el('circle', { r: dim / 2, fill, ...strokeAttrs });
+    case 'diamond': {
+      // Concentric rhombi filling the cell, cycling the palette so
+      // each cell nests several colours. Uses cw/rh directly so the
+      // diamond matches the cell aspect.
+      const g = el('g', {});
+      const rings = Math.max(1, shape.rings | 0 || 3);
+      const pal = (ctx && ctx.palette && ctx.palette.length) ? ctx.palette : [fill];
+      const start = ctx?.colorStart ?? 0;
+      const sizeF = shape.size ?? 1;
+      const hw = (cw / 2) * sizeF, hh = (rh / 2) * sizeF;
+      for (let k = 0; k < rings; k++) {
+        const f = 1 - k / rings;            // outer → inner
+        const w = hw * f, h = hh * f;
+        const c = pal[mod(start + k, pal.length)];
+        if (c == null || c === 'transparent' || c === 'none') continue;
+        g.appendChild(el('polygon', {
+          points: `0,${(-h).toFixed(2)} ${w.toFixed(2)},0 0,${h.toFixed(2)} ${(-w).toFixed(2)},0`,
+          fill: c,
+        }));
+      }
+      return g;
+    }
     case 'square':
       return el('rect', {
         x: -dim / 2, y: -dim / 2, width: dim, height: dim, fill,
@@ -970,17 +1018,20 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const textIndex = fill.mode === 'checker' ? mod(ci + ri, 1e9)
                       : fill.mode === 'palette-cycle' ? mod(ci + ri * cols, 1e9)
                       : (layer.vary?.color?.type === 'palette' ? Math.floor(rng() * 1e9) : 0);
-      // Paint the shape at the cell centre AND at the 8 layer-canvas
-      // wraps. Anything that would spill past the layer edge appears
-      // on the opposite edge — keeps shapes whose size or jitter
-      // exceeds the cell tiling seamlessly.
+      // Starting palette index for this cell (used by multi-colour
+      // shapes like diamond's concentric rings).
+      const colorStart = (fill.mode === 'palette-cycle' || fill.mode === 'checker')
+        ? paletteIndex(fill.mode)
+        : fill.mode === 'random'
+        ? Math.floor(rng() * palette.length)
+        : 0;
       const lw = layerBounds?.w, lh = layerBounds?.h;
       const baseX = ix + iw / 2 + jx;
       const baseY = iy + ih / 2 + jy;
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           if (!lw || !lh) { if (dx || dy) continue; }
-          const node = shapeNode(shape, iw, ih, color, { textIndex, rng });
+          const node = shapeNode(shape, iw, ih, color, { textIndex, rng, palette, colorStart });
           node.setAttribute(
             'transform',
             `translate(${baseX + dx * (lw || 0)} ${baseY + dy * (lh || 0)}) rotate(${rot}) scale(${s})`,
@@ -1919,7 +1970,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'text', 'star', 'quatrefoil'],
+      options: ['circle', 'square', 'triangle', 'diamond', 'text', 'star', 'quatrefoil'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
@@ -1942,6 +1993,13 @@ function buildConfigForm(host, layer, onChange) {
     if ((layer.fill.shape?.strokeWidth ?? 0) > 0) {
       addColorCtrl('stroke color', layer.fill.shape?.stroke ?? '#000000', (v) => {
         layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), stroke: v };
+        onChange();
+      });
+    }
+    if (layer.fill.shape?.kind === 'diamond') {
+      const rg = addCtrl('rings', 'number', layer.fill.shape?.rings ?? 3, { min: 1, max: 8, step: 1 });
+      rg.addEventListener('input', () => {
+        layer.fill.shape = { ...(layer.fill.shape || { kind: 'diamond' }), rings: Number(rg.value) | 0 };
         onChange();
       });
     }
