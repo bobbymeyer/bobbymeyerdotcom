@@ -426,6 +426,23 @@ const SAMPLES = {
       },
     ],
   },
+  'Plusses': {
+    // Girard "Plusses": a half-drop grid of rust plus signs on cream.
+    palette: ['#bf6b32'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#ece7d8', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 9, rows: 11, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: {
+          kind: 'shape', shape: { kind: 'plus', size: 0.62, arm: 0.34 },
+          mode: 'fixed', color: '#bf6b32',
+        },
+      },
+    ],
+  },
   'Giant Rectangles': {
     // Girard "Giant Rectangles": big warm colour blocks in staggered
     // columns, separated by thin cream grout (a small gutter on every
@@ -1430,6 +1447,14 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       g.appendChild(el('rect', { x: -bw / 2, y: -len / 2, width: bw, height: len, fill, ...sAttrs }));
       g.appendChild(el('circle', { cx: 0, cy: -len / 2, r: kr, fill, ...sAttrs }));
       g.appendChild(el('circle', { cx: 0, cy: len / 2, r: kr, fill, ...sAttrs }));
+      return g;
+    }
+    case 'plus': {
+      // A plus sign: vertical and horizontal bars with square ends.
+      const g = el('g', {});
+      const L = dim, w = dim * (shape.arm ?? 0.34);
+      g.appendChild(el('rect', { x: -w / 2, y: -L / 2, width: w, height: L, fill, ...sAttrs }));
+      g.appendChild(el('rect', { x: -L / 2, y: -w / 2, width: L, height: w, fill, ...sAttrs }));
       return g;
     }
     case 'cross': {
@@ -3200,7 +3225,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'onion', 'flower', 'barbell', 'cross', 'quadDots', 'jacks'],
+      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'onion', 'flower', 'barbell', 'plus', 'cross', 'quadDots', 'jacks'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
