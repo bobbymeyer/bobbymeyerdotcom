@@ -414,6 +414,26 @@ const SAMPLES = {
       },
     ],
   },
+  'Treads': {
+    // Girard "Treads": like Extrusions but the glyphs are grouped into
+    // vertical bands — diamonds, cups, dashes, I-beams, blocks — light
+    // pink on a coral-red ground.
+    palette: ['#f4bdb5'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#e0564f', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 10, rows: 13, offset: { x: 0, y: 0 }, offsetMode: 'none', gutterX: 0.12, gutterY: 0.14 },
+        fill: {
+          kind: 'glyph', weight: 0.2,
+          inks: ['#f4bdb5'],
+          columns: ['diamond', 'ubar', 'ubar', 'vdash', 'vdash', 'ibeam', 'ibeam', 'block', 'block', 'diamond'],
+        },
+      },
+    ],
+  },
   'Extrusions': {
     // Girard "Extrusions": I-beams, plusses and brackets in navy and
     // white scattered on a grey ground — the glyph fill in two-tone
@@ -2671,12 +2691,26 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         'hbars', 'vbars', 'ibeam', 'tbar', 'ubar', 'lbar',
         'comb', 'frame', 'hpair', 'vpair', 'ring', 'disc', 'solid', 'blank',
       ];
-      const name = glyphs[Math.floor(crng() * glyphs.length)];
+      // `columns` assigns a fixed glyph per grid column (cycled), so the
+      // glyphs group into vertical bands (Treads); otherwise random.
+      const name = fill.columns
+        ? fill.columns[mod(ci, fill.columns.length)]
+        : glyphs[Math.floor(crng() * glyphs.length)];
       switch (name) {
         case 'plus':     R(m, 0, t, 1); R(0, m, 1, t); break;
         case 'hbeam':    R(0, 0, t, 1); R(e, 0, t, 1); R(0, m, 1, t); break;
         case 'lbracket': R(0, 0, t, 1); R(0, 0, 0.5, t); R(0, e, 0.5, t); break;
         case 'rbracket': R(e, 0, t, 1); R(0.5, 0, 0.5, t); R(0.5, e, 0.5, t); break;
+        case 'vdash':    R(m, 0.16, t, 0.68); break;
+        case 'block':    R(0.16, 0.14, 0.68, 0.72); break;
+        case 'diamond': {
+          const cx2 = ix + iw / 2, cy2 = iy + ih / 2, r = dim * 0.56;
+          parent.appendChild(el('polygon', {
+            points: `${cx2},${cy2 - r} ${cx2 + r},${cy2} ${cx2},${cy2 + r} ${cx2 - r},${cy2}`,
+            fill: fg,
+          }));
+          break;
+        }
         case 'hbars': R(0, 0, 1, t); R(0, m, 1, t); R(0, e, 1, t); break;
         case 'vbars': R(0, 0, t, 1); R(m, 0, t, 1); R(e, 0, t, 1); break;
         case 'hpair': R(0, 0, 1, t); R(0, e, 1, t); break;
