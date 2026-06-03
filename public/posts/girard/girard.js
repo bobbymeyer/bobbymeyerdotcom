@@ -534,6 +534,30 @@ const SAMPLES = {
       },
     ],
   },
+  'Miller Stripe': {
+    // Girard "Miller Stripe": a woven blue-violet ground with a clustered
+    // group of thin red / cream vertical stripes, wide purple between.
+    // Warp-faced weave; purple weft gives the ground its woven texture.
+    palette: ['#c0494e', '#e8e2d4'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#585a93', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 24, rows: 18, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'weave', face: 'warp', warpN: 6, gap: 0.0, round: 0.12, noise: 0.08,
+          warp: [
+            ...band('#585a93', 9),
+            '#e8e2d4', '#c0494e', '#e8e2d4', '#c0494e', '#e8e2d4',
+            ...band('#585a93', 10),
+          ],
+          weft: ['#585a93'],
+        },
+      },
+    ],
+  },
   'Linomix': {
     // Girard "Linomix": a warp-faced weave of many narrow colour stripes
     // (orange, green, pink, red, blue, magenta, navy, brown) on a cream
@@ -2760,8 +2784,12 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // Balanced = 50/50 checker. Warp-faced shows the vertical thread
       // on 2 of every 3 crossings, so warp stripes stay dominant with
       // the weft just speckling through (needs dims ÷3 to tile).
+      // warpN controls warp dominance for a warp-faced weave: the warp
+      // shows on (warpN-1) of every warpN crossings (default 3 → 2/3).
+      // Higher = more solid warp stripes. Dims must be ÷ warpN to tile.
+      const warpN = fill.warpN || 3;
       const over = (fill.face === 'warp')
-        ? mod(ci + ri, 3) !== 0
+        ? mod(ci + ri, warpN) !== 0
         : mod(ci + ri, 2) === 0;
       const warpColor = warp[mod(col, warp.length)];
       // weftShade keeps the weft tone-on-tone: a darker shade of the
