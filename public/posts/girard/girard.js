@@ -426,6 +426,27 @@ const SAMPLES = {
       },
     ],
   },
+  'Giant Rectangles': {
+    // Girard "Giant Rectangles": big warm colour blocks in staggered
+    // columns, separated by thin cream grout (a small gutter on every
+    // side). Varied row weights + an alternate-column offset keep the
+    // block boundaries from lining up across columns.
+    palette: ['#e0584a', '#d24d86', '#dd86b0', '#ee8a5a', '#9a5a8e', '#e36a52'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#efe7d6', mode: 'fixed' },
+      },
+      {
+        grid: {
+          cols: 3, rows: 4, rowWeights: [2, 5, 3, 4],
+          gutterX: 0.035, gutterY: 0.045,
+          offset: { x: 0, y: 0.22 }, offsetMode: 'alternate-col',
+        },
+        fill: { kind: 'solid', mode: 'random' },
+      },
+    ],
+  },
   'Feathers': {
     // Girard "Feathers": a half-drop diagonal lattice of onion / lens
     // shapes in warm reds, oranges and magentas on white, each with a
