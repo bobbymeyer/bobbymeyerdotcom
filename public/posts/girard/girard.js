@@ -426,6 +426,25 @@ const SAMPLES = {
       },
     ],
   },
+  'Jax': {
+    // Girard "Jax": a tiny ditsy of green four-dot clovers on a dusty
+    // pink linen ground, set on a dense half-drop grid.
+    palette: ['#3f9956'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#dcc7c0', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 14, rows: 18, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: {
+          kind: 'shape',
+          shape: { kind: 'jacks', size: 0.95, dot: 0.18, spread: 0.3, center: true },
+          mode: 'fixed', color: '#3f9956',
+        },
+      },
+    ],
+  },
   'Superstripe': {
     // Girard "Superstripe": tall columns of stacked colour blocks with
     // wide white channels between them. A big horizontal gutter makes
@@ -1316,6 +1335,18 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         fill,
         ...sAttrs,
       });
+    }
+    case 'jacks': {
+      // Four small separated dots in a plus (a clover / "jacks" pip),
+      // with an optional tiny centre dot.
+      const g = el('g', {});
+      const r = dim * (shape.dot ?? 0.17);
+      const off = dim * (shape.spread ?? 0.3);
+      for (const [dx, dy] of [[0, -off], [0, off], [-off, 0], [off, 0]]) {
+        g.appendChild(el('circle', { cx: dx, cy: dy, r, fill, ...sAttrs }));
+      }
+      if (shape.center) g.appendChild(el('circle', { cx: 0, cy: 0, r: r * 0.62, fill }));
+      return g;
     }
     case 'barbell': {
       // A bar with a round knob at each end (vertical by default).
@@ -3082,7 +3113,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'flower', 'barbell', 'cross', 'quadDots'],
+      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'flower', 'barbell', 'cross', 'quadDots', 'jacks'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
