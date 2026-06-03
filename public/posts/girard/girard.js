@@ -1157,27 +1157,34 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const dotR = (fill.dotSize ?? 0.18) * sealR;
 
       if (fill.punch) {
-        // Seal disc with the flower (union of petals + centre)
-        // knocked out via a mask, so the layer beneath shows through.
-        // A mask unions overlapping shapes cleanly — evenodd would
-        // cancel the overlaps into a busy star. A small seal-coloured
-        // dot is stamped on the punched centre as a bullseye.
+        // Seal disc with the flower (union of petals + centre) knocked
+        // out via a mask. objectBoundingBox keeps the mask coords
+        // normalised relative to each masked circle, so the same mask
+        // matches every tile instance — userSpaceOnUse only worked at
+        // the original position and left the other tiles blank.
         if (isTransparent(sealColor) || sealR <= 0) break;
-        const maskId = `girard-seal-${mod(col, 9999)}-${mod(row, 9999)}-${salt & 0xffff}`;
+        const maskId = `gs-${mod(col, 9999)}-${mod(row, 9999)}-${salt & 0xffff}`;
+        const petalOffN = 0.5 * (fill.petalOffset ?? 0.55);
+        const petalRN = 0.5 * (fill.petalSize ?? 0.42);
+        const centerRN = 0.5 * (fill.centerSize ?? 0.45);
         const mask = el('mask', {
-          id: maskId, maskUnits: 'userSpaceOnUse',
-          x: cx - sealR, y: cy - sealR, width: sealR * 2, height: sealR * 2,
+          id: maskId,
+          maskUnits: 'objectBoundingBox',
+          maskContentUnits: 'objectBoundingBox',
+          x: 0, y: 0, width: 1, height: 1,
         });
-        // White = visible seal; black = holes (flower).
-        mask.appendChild(el('circle', { cx, cy, r: sealR, fill: '#fff' }));
+        mask.appendChild(el('circle', { cx: 0.5, cy: 0.5, r: 0.5, fill: '#fff' }));
         for (let i = 0; i < n; i++) {
           const a = (Math.PI * 2 * i) / n - Math.PI / 2;
           mask.appendChild(el('circle', {
-            cx: cx + Math.cos(a) * petalOff, cy: cy + Math.sin(a) * petalOff,
-            r: petalR, fill: '#000',
+            cx: 0.5 + Math.cos(a) * petalOffN,
+            cy: 0.5 + Math.sin(a) * petalOffN,
+            r: petalRN, fill: '#000',
           }));
         }
-        if (centerR > 0) mask.appendChild(el('circle', { cx, cy, r: centerR, fill: '#000' }));
+        if (centerRN > 0) {
+          mask.appendChild(el('circle', { cx: 0.5, cy: 0.5, r: centerRN, fill: '#000' }));
+        }
         parent.appendChild(mask);
         parent.appendChild(el('circle', { cx, cy, r: sealR, fill: sealColor, mask: `url(#${maskId})` }));
         if (dotR > 0) parent.appendChild(el('circle', { cx, cy, r: dotR, fill: sealColor }));
