@@ -446,7 +446,7 @@ const SAMPLES = {
       },
       {
         grid: { cols: 5, rows: 5, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
-        fill: { kind: 'flower-seal', punch: true, petals: 5, sealSize: 0.95, petalSize: 0.32, petalOffset: 0.55, centerSize: 0.3 },
+        fill: { kind: 'flower-seal', punch: true, petals: 5, sealSize: 0.95, petalSize: 0.42, petalOffset: 0.55, centerSize: 0.45, dotSize: 0.18 },
         palette: ['#c258a3', '#ef6a44', '#a9a039', '#7a2c6e'],
       },
     ],
@@ -1151,18 +1151,21 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const cy = iy + ih / 2;
       const sealR = (fill.sealSize ?? 0.95) * Math.min(iw, ih) / 2;
       const n = Math.max(3, fill.petals | 0 || 5);
-      const petalR = (fill.petalSize ?? 0.32) * sealR;
+      const petalR = (fill.petalSize ?? 0.42) * sealR;
       const petalOff = sealR * (fill.petalOffset ?? 0.55);
-      const centerR = (fill.centerSize ?? 0.3) * sealR;
+      const centerR = (fill.centerSize ?? 0.45) * sealR;
+      const dotR = (fill.dotSize ?? 0.18) * sealR;
 
       // SVG sub-path for a full circle (two arcs).
       const circ = (ccx, ccy, r) =>
         `M${(ccx - r).toFixed(2)},${ccy.toFixed(2)} a${r.toFixed(2)},${r.toFixed(2)} 0 1,0 ${(2 * r).toFixed(2)},0 a${r.toFixed(2)},${r.toFixed(2)} 0 1,0 ${(-2 * r).toFixed(2)},0Z`;
 
       if (fill.punch) {
-        // Single path: seal disc with the flower shapes subtracted as
-        // holes (fill-rule evenodd), so the layer beneath shows
-        // through the flower.
+        // Single path: seal disc with the flower (petals + centre
+        // completion circle) subtracted as holes via fill-rule
+        // evenodd, so the layer beneath shows through. A small
+        // seal-coloured dot is then stamped on top of the punched
+        // centre for the bullseye accent.
         if (isTransparent(sealColor) || sealR <= 0) break;
         let d = circ(cx, cy, sealR);
         for (let i = 0; i < n; i++) {
@@ -1171,6 +1174,9 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         }
         if (centerR > 0) d += circ(cx, cy, centerR);
         parent.appendChild(el('path', { d, fill: sealColor, 'fill-rule': 'evenodd' }));
+        if (dotR > 0) {
+          parent.appendChild(el('circle', { cx, cy, r: dotR, fill: sealColor }));
+        }
         break;
       }
 
@@ -1886,7 +1892,7 @@ function buildConfigForm(host, layer, onChange) {
     } else if (fillKind.value === 'bloom') {
       layer.fill = { kind: 'bloom', bloom: 'circle', stems: 4, spread: 48, bloomSize: 0.16, points: 5, round: 0.5, distort: 0.15, stemColor: '#454545', stemWidth: 0.012 };
     } else if (fillKind.value === 'flower-seal') {
-      layer.fill = { kind: 'flower-seal', petals: 5, sealSize: 0.95, petalSize: 0.32, petalOffset: 0.55, centerSize: 0.3 };
+      layer.fill = { kind: 'flower-seal', petals: 5, sealSize: 0.95, petalSize: 0.42, petalOffset: 0.55, centerSize: 0.45, dotSize: 0.18 };
     } else {
       layer.fill = { kind: 'triangles', mode: 'random', strokeWidth: 0.02, stroke: '#ffffff' };
     }
@@ -1999,8 +2005,10 @@ function buildConfigForm(host, layer, onChange) {
     ps.addEventListener('input', () => { layer.fill.petalSize = Number(ps.value); onChange(); });
     const po = addCtrl('petal offset (× seal)', 'number', layer.fill.petalOffset ?? 0.55, { min: 0.2, max: 0.9, step: 0.02 });
     po.addEventListener('input', () => { layer.fill.petalOffset = Number(po.value); onChange(); });
-    const cs = addCtrl('center size (× seal)', 'number', layer.fill.centerSize ?? 0.3, { min: 0, max: 0.6, step: 0.02 });
+    const cs = addCtrl('center size (× seal)', 'number', layer.fill.centerSize ?? 0.45, { min: 0, max: 0.8, step: 0.02 });
     cs.addEventListener('input', () => { layer.fill.centerSize = Number(cs.value); onChange(); });
+    const ds = addCtrl('dot size (× seal)', 'number', layer.fill.dotSize ?? 0.18, { min: 0, max: 0.5, step: 0.02 });
+    ds.addEventListener('input', () => { layer.fill.dotSize = Number(ds.value); onChange(); });
   } else if (layer.fill.kind === 'bloom') {
     const bk = addCtrl('bloom', 'select', layer.fill.bloom || 'circle', { options: ['circle', 'polygon', 'star'] });
     bk.addEventListener('change', () => { layer.fill.bloom = bk.value; onChange(); rebuild(); });
