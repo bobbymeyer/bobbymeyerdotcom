@@ -419,6 +419,29 @@ const SAMPLES = {
       },
     ],
   },
+  'Palio': {
+    // Girard "Palio": a sampler of self-complementary stripe bands — each
+    // a different boundary profile (Flame, Square Comb, Crown, Checker,
+    // Drop, Spear, Angle, Goo) where the white negative space is the
+    // colour shape inverted. One comb layer renders all eight bands.
+    palette: ['#c0413c'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f1ece0', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 8, rows: 1, gutterX: 0.14, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'comb',
+          profiles: ['flame', 'square', 'crown', 'checker', 'round', 'triangle', 'angle', 'round'],
+          colors: ['#c0413c', '#4a6fb0', '#e8b53f', '#2c3340', '#e07a4e', '#c2a878', '#7a6cb0', '#4a9e78'],
+          teeth: [14, 16, 11, 8, 13, 18, 11, 9],
+          amp: [0.34, 0.28, 0.34, 0, 0.4, 0.38, 0, 0.42],
+        },
+      },
+    ],
+  },
   'Extrusions': {
     // Girard "Extrusions": I-beams, plusses and brackets in navy and
     // white scattered on a grey ground — the glyph fill in two-tone
@@ -3232,6 +3255,92 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       parent.appendChild(el('rect', { x: bx, y: by, width: barLen, height: barH, fill: color }));
       break;
     }
+    case 'comb': {
+      // Self-complementary 50/50 band: a colour fills the left part of
+      // the band up to a periodic boundary x = b(y); the white ground is
+      // the congruent complement (shift by half a period swaps them).
+      // `profile` picks the boundary; per-column arrays let one layer
+      // render a whole striped sampler (Palio). profiles: square,
+      // triangle, round, crown, flame, checker, angle.
+      const nB = (fill.profiles && fill.profiles.length) || 1;
+      const idx = mod(ci, nB);
+      const at = (v, d) => Array.isArray(v) ? v[mod(idx, v.length)] : (v ?? d);
+      const profile = fill.profiles ? fill.profiles[idx] : (fill.profile || 'square');
+      const color = fill.colors ? fill.colors[mod(idx, fill.colors.length)] : (fill.color || palette[0] || '#888');
+      const teeth = Math.max(1, at(fill.teeth, 10));
+      const amp = at(fill.amp, 0.3);
+      const W = iw, H = ih, x0 = ix, y0 = iy;
+      const wide = W * (0.5 + amp), narrow = W * (0.5 - amp);
+      const T = H / teeth;
+      if (isTransparent(color)) break;
+
+      if (profile === 'checker') {
+        const s = W / 2;
+        const nr = Math.max(1, Math.round(H / s));
+        const sh = H / nr;
+        for (let r = 0; r < nr; r++) for (let c = 0; c < 2; c++) {
+          if ((r + c) % 2 === 0) parent.appendChild(el('rect', { x: x0 + c * s, y: y0 + r * sh, width: s, height: sh, fill: color }));
+        }
+        break;
+      }
+      if (profile === 'angle') {
+        const clipId = `cmb-${mod(ci, 9999)}-${(layerBounds?.salt || 1) & 0xffff}`;
+        const clip = el('clipPath', { id: clipId });
+        clip.appendChild(el('rect', { x: x0, y: y0, width: W, height: H }));
+        const g = el('g', { 'clip-path': `url(#${clipId})` });
+        const P = T;
+        for (let k = -Math.ceil(H / P) - 1; k < Math.ceil((W + H) / P) + 1; k++) {
+          const off = k * P;
+          g.appendChild(el('line', {
+            x1: x0 + off, y1: y0, x2: x0 + off + H, y2: y0 + H,
+            stroke: color, 'stroke-width': P / (2 * Math.SQRT2),
+          }));
+        }
+        parent.appendChild(el('defs', {}, [clip]));
+        parent.appendChild(g);
+        break;
+      }
+
+      const pts = [];
+      if (profile === 'square') {
+        for (let i = 0; i < teeth; i++) {
+          const yt = y0 + i * T;
+          pts.push([x0 + wide, yt], [x0 + wide, yt + T / 2], [x0 + narrow, yt + T / 2], [x0 + narrow, yt + T]);
+        }
+      } else if (profile === 'triangle' || profile === 'spear' || profile === 'crown') {
+        for (let i = 0; i < teeth; i++) {
+          const yt = y0 + i * T;
+          pts.push([x0 + narrow, yt], [x0 + wide, yt + T / 2], [x0 + narrow, yt + T]);
+        }
+      } else if (profile === 'round' || profile === 'drop' || profile === 'goo') {
+        const steps = teeth * 14;
+        for (let s = 0; s <= steps; s++) {
+          const y = H * s / steps;
+          pts.push([x0 + W * (0.5 + amp * Math.cos(2 * Math.PI * y / T)), y0 + y]);
+        }
+      } else if (profile === 'flame') {
+        // Asymmetric licking wave: quick rise, long curved fall.
+        const steps = teeth * 16;
+        for (let s = 0; s <= steps; s++) {
+          const y = H * s / steps;
+          const ph = (y / T) % 1;
+          const f = ph < 0.34 ? (ph / 0.34) : (1 - (ph - 0.34) / 0.66);
+          const ff = Math.max(0, f) * Math.max(0, f) * (3 - 2 * Math.max(0, f)); // smoothstep ease → rounded lick
+          pts.push([x0 + narrow + (wide - narrow) * ff, y0 + y]);
+        }
+      }
+      let d = `M ${x0} ${y0}`;
+      for (const [px, py] of pts) d += ` L ${px.toFixed(2)} ${py.toFixed(2)}`;
+      d += ` L ${x0} ${y0 + H} Z`;
+      parent.appendChild(el('path', { d, fill: color }));
+      if (profile === 'crown') {
+        // A dot in each valley (between the points) — the jewels.
+        for (let i = 0; i < teeth; i++) {
+          parent.appendChild(el('circle', { cx: x0 + wide * 0.62, cy: y0 + (i + 1) * T, r: W * 0.09, fill: color }));
+        }
+      }
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -3604,7 +3713,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass', 'firecracker'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass', 'firecracker', 'comb'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -3632,6 +3741,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'grass', color: '#3f7a8c', thickness: 0.01, height: 1.05, podChance: 0.4 };
     } else if (fillKind.value === 'firecracker') {
       layer.fill = { kind: 'firecracker', color: '#e0954a', fuse: 0.08, barWidth: 0.5, barLen: 0.4 };
+    } else if (fillKind.value === 'comb') {
+      layer.fill = { kind: 'comb', profile: 'square', color: '#4a6fb0', teeth: 14, amp: 0.3 };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -3832,6 +3943,14 @@ function buildConfigForm(host, layer, onChange) {
   } else if (layer.fill.kind === 'multiform') {
     const dn = addCtrl('density', 'number', layer.fill.density ?? 0.82, { min: 0, max: 1, step: 0.05 });
     dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
+  } else if (layer.fill.kind === 'comb' && !layer.fill.profiles) {
+    const pf = addCtrl('profile', 'select', layer.fill.profile || 'square', { options: ['square', 'triangle', 'round', 'crown', 'flame', 'checker', 'angle'] });
+    pf.addEventListener('change', () => { layer.fill.profile = pf.value; onChange(); });
+    addColorCtrl('color', layer.fill.color || '#4a6fb0', (v) => { layer.fill.color = v; onChange(); });
+    const tt = addCtrl('teeth', 'number', layer.fill.teeth ?? 14, { min: 2, max: 40, step: 1 });
+    tt.addEventListener('input', () => { layer.fill.teeth = Number(tt.value) | 0; onChange(); });
+    const ap = addCtrl('depth', 'number', layer.fill.amp ?? 0.3, { min: 0.05, max: 0.48, step: 0.02 });
+    ap.addEventListener('input', () => { layer.fill.amp = Number(ap.value); onChange(); });
   } else if (layer.fill.kind === 'firecracker') {
     addColorCtrl('color', layer.fill.color || '#e0954a', (v) => { layer.fill.color = v; onChange(); });
     const fz = addCtrl('fuse', 'number', layer.fill.fuse ?? 0.08, { min: 0.02, max: 0.3, step: 0.01 });
