@@ -408,6 +408,21 @@ const SAMPLES = {
       },
     ],
   },
+  'Stones': {
+    // Girard "Stones": cream rounded "tiles" of varied size and slight
+    // jitter on a dark slate ground. Roll the seed for a new layout.
+    palette: ['#efe9dc'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#3a4453', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 3, rows: 4, offset: { x: 0.3, y: 0 }, offsetMode: 'alternate-row' },
+        fill: { kind: 'stones', color: '#efe9dc', gap: 0.06, round: 0.75, jitter: 0.04, sizeJitter: 0.18, roundJitter: 0.35 },
+      },
+    ],
+  },
   'Pinwheel': {
     // Girard "Pinwheel": 2×2 blocks of half-square triangles spiral
     // into pinwheels on a cream ground, blocks alternating red / green
@@ -1953,6 +1968,47 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }
       break;
     }
+    case 'stones': {
+      // Girard "Stones": fat rounded rectangles of varied size on a
+      // dark ground, generous gaps between them. Each cell hosts one
+      // stone; per-cell jitter / scale / corner-radius variation breaks
+      // the grid. Stones are wrap-painted so the tile is seamless.
+      const salt = layerBounds?.salt ?? 1;
+      const crng = cellRng(ci, ri, salt);
+      const stone = fill.color || palette[0] || '#efe9dc';
+      if (isTransparent(stone)) break;
+      const gap = fill.gap ?? 0.18;                  // inset, × cell
+      const round = fill.round ?? 0.55;              // 0..1, × half-min
+      const sjit = fill.jitter ?? 0.08;              // pos jitter, × cell
+      const svar = fill.sizeJitter ?? 0.25;          // ± size, × cell
+      const rvar = fill.roundJitter ?? 0.25;         // ± corner, 0..1
+      // Per-stone parameters (deterministic).
+      const sx = 1 + (crng() * 2 - 1) * svar;
+      const sy = 1 + (crng() * 2 - 1) * svar;
+      const dx = (crng() * 2 - 1) * sjit * iw;
+      const dy = (crng() * 2 - 1) * sjit * ih;
+      const rA = Math.max(0, Math.min(1, round + (crng() * 2 - 1) * rvar));
+      const rB = Math.max(0, Math.min(1, round + (crng() * 2 - 1) * rvar));
+      const baseW = (iw - 2 * gap * iw) * sx;
+      const baseH = (ih - 2 * gap * ih) * sy;
+      if (!(baseW > 0 && baseH > 0)) break;
+      const half = Math.min(baseW, baseH) / 2;
+      const rx = rA * half;
+      const ry = rB * half;
+      const cx0 = ix + iw / 2 + dx;
+      const cy0 = iy + ih / 2 + dy;
+      drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, ox, oy) => {
+        host.appendChild(el('rect', {
+          x: cx0 - baseW / 2 + ox,
+          y: cy0 - baseH / 2 + oy,
+          width: baseW,
+          height: baseH,
+          rx, ry,
+          fill: stone,
+        }));
+      });
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -2278,12 +2334,14 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
     } else if (fillKind.value === 'glyph') {
       layer.fill = { kind: 'glyph', ink: '#21242b', paper: '#f3ede0', invert: 0.5, weight: 0.22 };
+    } else if (fillKind.value === 'stones') {
+      layer.fill = { kind: 'stones', color: '#efe9dc', gap: 0.18, round: 0.6, jitter: 0.08, sizeJitter: 0.22, roundJitter: 0.3 };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -2445,6 +2503,18 @@ function buildConfigForm(host, layer, onChange) {
     const sp = addCtrl('spin (¼ turn)', 'number', layer.fill.spin ?? 0, { min: 0, max: 3, step: 1 });
     sp.addEventListener('input', () => { layer.fill.spin = Number(sp.value) | 0; onChange(); });
     addColorCtrl('ground', layer.fill.ground ?? 'transparent', (v) => { layer.fill.ground = v; onChange(); });
+  } else if (layer.fill.kind === 'stones') {
+    addColorCtrl('stone', layer.fill.color || '#efe9dc', (v) => { layer.fill.color = v; onChange(); });
+    const gap = addCtrl('gap', 'number', layer.fill.gap ?? 0.18, { min: 0, max: 0.45, step: 0.01 });
+    gap.addEventListener('input', () => { layer.fill.gap = Number(gap.value); onChange(); });
+    const rd = addCtrl('round', 'number', layer.fill.round ?? 0.6, { min: 0, max: 1, step: 0.05 });
+    rd.addEventListener('input', () => { layer.fill.round = Number(rd.value); onChange(); });
+    const jt = addCtrl('jitter', 'number', layer.fill.jitter ?? 0.08, { min: 0, max: 0.3, step: 0.01 });
+    jt.addEventListener('input', () => { layer.fill.jitter = Number(jt.value); onChange(); });
+    const sj = addCtrl('size jitter', 'number', layer.fill.sizeJitter ?? 0.22, { min: 0, max: 0.5, step: 0.02 });
+    sj.addEventListener('input', () => { layer.fill.sizeJitter = Number(sj.value); onChange(); });
+    const rj = addCtrl('round jitter', 'number', layer.fill.roundJitter ?? 0.3, { min: 0, max: 0.5, step: 0.05 });
+    rj.addEventListener('input', () => { layer.fill.roundJitter = Number(rj.value); onChange(); });
   } else if (layer.fill.kind === 'glyph') {
     addColorCtrl('ink', layer.fill.ink || '#21242b', (v) => { layer.fill.ink = v; onChange(); });
     addColorCtrl('paper', layer.fill.paper || '#f3ede0', (v) => { layer.fill.paper = v; onChange(); });
