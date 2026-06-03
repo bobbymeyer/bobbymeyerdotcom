@@ -681,9 +681,13 @@ const SAMPLES = {
           offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row',
         },
         blendMode: 'multiply',
-        opacity: 0.7,
+        opacity: 0.75,
         fill: { kind: 'solid', mode: 'random' },
         palette: ['transparent', 'transparent', '#c0394f', '#8e4f86', '#d6453f', 'transparent'],
+        vary: {
+          scale:  { type: 'random', min: 0.78, max: 1.18 },
+          jitter: { type: 'random', min: -0.18, max: 0.18 },
+        },
       },
     ],
   },
@@ -1192,8 +1196,20 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         ? palette[Math.floor(rng() * palette.length)]
         : (fill.color || '#888');
       if (isTransparent(color)) break;
+      // Optional per-cell jitter / scale — lets a "solid" layer break
+      // its grid into a looser scatter of rectangles. jitter is
+      // independent on x/y; scale is uniform per cell.
+      let rx = ix, ry = iy, rw = iw, rh2 = ih;
+      if (layer.vary?.scale || layer.vary?.jitter) {
+        const s = layer.vary?.scale ? evalMod(layer.vary.scale, rng, col, row, 1) : 1;
+        const jx = layer.vary?.jitter ? evalMod(layer.vary.jitter, rng, col, row, 0) * iw : 0;
+        const jy = layer.vary?.jitter ? evalMod(layer.vary.jitter, rng, col, row, 0) * ih : 0;
+        rw = iw * s; rh2 = ih * s;
+        rx = ix + (iw - rw) / 2 + jx;
+        ry = iy + (ih - rh2) / 2 + jy;
+      }
       parent.appendChild(el('rect', {
-        x: ix, y: iy, width: iw, height: ih, fill: color,
+        x: rx, y: ry, width: rw, height: rh2, fill: color,
       }));
       break;
     }
