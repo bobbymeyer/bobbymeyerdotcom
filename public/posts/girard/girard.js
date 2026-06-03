@@ -426,6 +426,43 @@ const SAMPLES = {
       },
     ],
   },
+  'Rain': {
+    // Girard "Rain": a loose collage of translucent colour blocks with
+    // up-pointing triangles scattered over them, all on a multiply
+    // blend so the overlaps deepen into maroon and aubergine — like the
+    // layered semi-sheer cotton of the original. White ground.
+    palette: ['#e0473a', '#ef7d3a', '#4a78b8', '#3f3a8e', '#e07a93'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#f6f3ec', mode: 'fixed' },
+      },
+      {
+        grid: {
+          cols: 3, rows: 4, offset: { x: 0, y: 0 }, offsetMode: 'none',
+          gutterX: 0.12, gutterY: 0.32,
+        },
+        blendMode: 'multiply', opacity: 0.85,
+        fill: { kind: 'solid', mode: 'random', density: 0.72 },
+        vary: {
+          scale:  { type: 'random', min: 0.7, max: 1.05 },
+          jitter: { type: 'random', min: -0.12, max: 0.12 },
+        },
+      },
+      {
+        grid: { cols: 3, rows: 4, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        blendMode: 'multiply', opacity: 0.85,
+        fill: {
+          kind: 'shape', shape: { kind: 'triangle', size: 0.8 },
+          mode: 'random', density: 0.66,
+        },
+        vary: {
+          scale:  { type: 'random', min: 0.7, max: 1.15 },
+          jitter: { type: 'random', min: -0.05, max: 0.32 },
+        },
+      },
+    ],
+  },
   'Mikado': {
     // Girard "Mikado": a red / pink checkerboard, each square holding a
     // scalloped daisy (white on red, pink on pink — a checker offset
@@ -1530,6 +1567,12 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
 
   switch (fill.kind) {
     case 'solid': {
+      // Optional sparseness (positional PRNG so it tiles): scatter the
+      // blocks with gaps, like the shape fill's density.
+      if (fill.density != null && fill.density < 1) {
+        const dr = cellRng(ci, ri, (layerBounds?.salt ?? 1) ^ 0x5151);
+        if (dr() > fill.density) break;
+      }
       const color = (fill.mode === 'palette-cycle' || fill.mode === 'checker')
         ? palette[paletteIndex(fill.mode)]
         : fill.mode === 'random'
