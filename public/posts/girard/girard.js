@@ -446,8 +446,8 @@ const SAMPLES = {
       },
       {
         grid: { cols: 5, rows: 5, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
-        fill: { kind: 'flower-seal', petals: 5, sealSize: 0.95, petalSize: 0.32, petalOffset: 0.55, centerSize: 0.3 },
-        palette: ['#f1a061', '#e6b6db', '#c258a3', '#ef85a3', '#a9a039'],
+        fill: { kind: 'flower-seal', punch: true, petals: 5, sealSize: 0.95, petalSize: 0.32, petalOffset: 0.55, centerSize: 0.3 },
+        palette: ['#c258a3', '#ef6a44', '#a9a039', '#7a2c6e'],
       },
     ],
   },
@@ -1150,13 +1150,34 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const cx = ix + iw / 2;
       const cy = iy + ih / 2;
       const sealR = (fill.sealSize ?? 0.95) * Math.min(iw, ih) / 2;
+      const n = Math.max(3, fill.petals | 0 || 5);
+      const petalR = (fill.petalSize ?? 0.32) * sealR;
+      const petalOff = sealR * (fill.petalOffset ?? 0.55);
+      const centerR = (fill.centerSize ?? 0.3) * sealR;
+
+      // SVG sub-path for a full circle (two arcs).
+      const circ = (ccx, ccy, r) =>
+        `M${(ccx - r).toFixed(2)},${ccy.toFixed(2)} a${r.toFixed(2)},${r.toFixed(2)} 0 1,0 ${(2 * r).toFixed(2)},0 a${r.toFixed(2)},${r.toFixed(2)} 0 1,0 ${(-2 * r).toFixed(2)},0Z`;
+
+      if (fill.punch) {
+        // Single path: seal disc with the flower shapes subtracted as
+        // holes (fill-rule evenodd), so the layer beneath shows
+        // through the flower.
+        if (isTransparent(sealColor) || sealR <= 0) break;
+        let d = circ(cx, cy, sealR);
+        for (let i = 0; i < n; i++) {
+          const a = (Math.PI * 2 * i) / n - Math.PI / 2;
+          d += circ(cx + Math.cos(a) * petalOff, cy + Math.sin(a) * petalOff, petalR);
+        }
+        if (centerR > 0) d += circ(cx, cy, centerR);
+        parent.appendChild(el('path', { d, fill: sealColor, 'fill-rule': 'evenodd' }));
+        break;
+      }
+
       if (!isTransparent(sealColor) && sealR > 0) {
         parent.appendChild(el('circle', { cx, cy, r: sealR, fill: sealColor }));
       }
       if (!isTransparent(flowerColor) && sealR > 0) {
-        const n = Math.max(3, fill.petals | 0 || 5);
-        const petalR = (fill.petalSize ?? 0.32) * sealR;
-        const petalOff = sealR * (fill.petalOffset ?? 0.55);
         for (let i = 0; i < n; i++) {
           const a = (Math.PI * 2 * i) / n - Math.PI / 2;
           parent.appendChild(el('circle', {
@@ -1166,7 +1187,6 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
             fill: flowerColor,
           }));
         }
-        const centerR = (fill.centerSize ?? 0.3) * sealR;
         if (centerR > 0) {
           parent.appendChild(el('circle', { cx, cy, r: centerR, fill: flowerColor }));
         }
@@ -1969,6 +1989,8 @@ function buildConfigForm(host, layer, onChange) {
       addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
     }
   } else if (layer.fill.kind === 'flower-seal') {
+    const punch = addCtrl('punch out', 'select', layer.fill.punch ? 'on' : 'off', { options: ['off', 'on'] });
+    punch.addEventListener('change', () => { layer.fill.punch = punch.value === 'on'; onChange(); });
     const pet = addCtrl('petals', 'number', layer.fill.petals ?? 5, { min: 3, max: 12, step: 1 });
     pet.addEventListener('input', () => { layer.fill.petals = Number(pet.value) | 0; onChange(); });
     const ss = addCtrl('seal size (× cell)', 'number', layer.fill.sealSize ?? 0.95, { min: 0.2, max: 1.2, step: 0.05 });
