@@ -1878,9 +1878,10 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const lc = mod(col, 2), lr = mod(row, 2);
       // Quadrant within the block, clockwise from top-left.
       const p = lr === 0 ? (lc === 0 ? 0 : 1) : (lc === 1 ? 2 : 3);
-      // corners[p] picks the half-square-triangle (TL/TR/BR/BL) that
-      // hugs the block centre with consistent chirality. spin offsets.
-      const corners = fill.corners || [2, 1, 0, 3];
+      // corners[p] picks the half-square-triangle (TL/TR/BR/BL) whose
+      // colour hugs the block centre — all four same-colour blades meet
+      // at the centre point and spiral. spin offsets the rotation.
+      const corners = fill.corners || [3, 0, 1, 2];
       const corner = corners[mod(p + (fill.spin || 0), 4)];
       const bc = Math.floor(col / 2), br = Math.floor(row / 2);
       const color = palette[mod(bc + br, palette.length)] || fill.color || '#c0504d';
