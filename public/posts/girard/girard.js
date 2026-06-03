@@ -426,6 +426,34 @@ const SAMPLES = {
       },
     ],
   },
+  'Feathers': {
+    // Girard "Feathers": a half-drop diagonal lattice of onion / lens
+    // shapes in warm reds, oranges and magentas on white, each with a
+    // smaller darker core (the ikat blur). Both layers use 'cell'
+    // colour so the core is a deeper shade of its own petal.
+    palette: ['#d83a2f', '#ee7a2e', '#d24a7e', '#b0306a', '#e8593f'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#fbf8f1', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 7, rows: 9, offset: { x: 0, y: 0.5 }, offsetMode: 'alternate-col' },
+        fill: {
+          kind: 'shape', shape: { kind: 'onion', size: 1.32, ratio: 1.05 },
+          mode: 'cell',
+        },
+      },
+      {
+        grid: { cols: 7, rows: 9, offset: { x: 0, y: 0.5 }, offsetMode: 'alternate-col' },
+        fill: {
+          kind: 'shape', shape: { kind: 'onion', size: 0.6, ratio: 1.05 },
+          mode: 'cell',
+        },
+        palette: ['#9e241d', '#c0561a', '#972e58', '#7d1f49', '#a83322'],
+      },
+    ],
+  },
   'Linomix': {
     // Girard "Linomix": a warp-faced weave of many narrow colour stripes
     // (orange, green, pink, red, blue, magenta, navy, brown) on a cream
@@ -1425,6 +1453,18 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         }));
       }
       return g;
+    }
+    case 'onion': {
+      // Fat pointed oval ("feather"): sharp points top and bottom with a
+      // bulging round body (cubic curves), much wider than the lens.
+      const hy = dim / 2;
+      const hx = hy * (shape.ratio ?? 1.0);
+      const cy = hy * (shape.bulge ?? 0.62);
+      return el('path', {
+        d: `M 0,${-hy} C ${hx},${-cy} ${hx},${cy} 0,${hy} C ${-hx},${cy} ${-hx},${-cy} 0,${-hy} Z`,
+        fill,
+        ...sAttrs,
+      });
     }
     case 'lens': {
       // Vesica / pointed oval ("pepita"). Two quadratic curves bulging
@@ -3139,7 +3179,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'flower', 'barbell', 'cross', 'quadDots', 'jacks'],
+      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'onion', 'flower', 'barbell', 'cross', 'quadDots', 'jacks'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
