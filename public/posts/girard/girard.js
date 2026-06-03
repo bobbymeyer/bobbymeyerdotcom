@@ -426,6 +426,30 @@ const SAMPLES = {
       },
     ],
   },
+  'Linomix': {
+    // Girard "Linomix": a warp-faced weave of many narrow colour stripes
+    // (orange, green, pink, red, blue, magenta, navy, brown) on a cream
+    // weft, which speckles through as the little woven dashes.
+    palette: ['#e8902f', '#5fa86a', '#e87fa0', '#d2503f', '#6fb0d8', '#b03a6a', '#3a3f5c', '#9c6b4a'],
+    layers: [
+      {
+        grid: { cols: 36, rows: 24, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'weave', face: 'warp', gap: 0.06, round: 0.2, noise: 0.12,
+          warp: [
+            ...band('#9c6b4a', 2), ...band('#e9e0c8', 1), ...band('#e8902f', 2), ...band('#e9e0c8', 1),
+            ...band('#3a3f5c', 2), ...band('#e9e0c8', 1), ...band('#5fa86a', 1), ...band('#e9e0c8', 1),
+            ...band('#e87fa0', 2), ...band('#e9e0c8', 1), ...band('#d2503f', 2), ...band('#e9e0c8', 2),
+            ...band('#e87fa0', 1), ...band('#e9e0c8', 1), ...band('#6fb0d8', 2), ...band('#e9e0c8', 1),
+            ...band('#3a3f5c', 2), ...band('#e9e0c8', 1), ...band('#b03a6a', 1), ...band('#e9e0c8', 1),
+            ...band('#9c6b4a', 2), ...band('#e9e0c8', 1), ...band('#6fb0d8', 1), ...band('#e9e0c8', 1),
+            ...band('#e8902f', 1), ...band('#5fa86a', 1), ...band('#e9e0c8', 1),
+          ],
+          weft: ['#e9e0c8'],
+        },
+      },
+    ],
+  },
   'Jax': {
     // Girard "Jax": a tiny ditsy of green four-dot clovers on a dusty
     // pink linen ground, set on a dense half-drop grid.
