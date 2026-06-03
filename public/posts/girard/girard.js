@@ -509,7 +509,8 @@ const SAMPLES = {
       {
         grid: { cols: 7, rows: 8, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         blendMode: 'multiply',
-        opacity: 0.82,
+        blendPerCell: true,
+        opacity: 0.9,
         fill: {
           kind: 'shape', shape: { kind: 'onion', size: 1.46, ratio: 1.05, bulge: 0.55 },
           mode: 'cell',
@@ -1646,7 +1647,12 @@ function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
   const group = el('g');
   const blend = layer.blendMode && layer.blendMode !== 'normal' ? `mix-blend-mode: ${layer.blendMode};` : '';
   const op = layer.opacity != null && layer.opacity < 1 ? `opacity: ${layer.opacity};` : '';
-  if (blend || op) group.setAttribute('style', blend + op);
+  // blendPerCell: apply the blend (and opacity) to each drawn element
+  // rather than the group, so the cells blend with EACH OTHER (and the
+  // layers below), not just collectively against the backdrop. Used for
+  // overlapping-shape effects like Feathers.
+  const perCell = !!layer.blendPerCell;
+  if (!perCell && (blend || op)) group.setAttribute('style', blend + op);
   parent.appendChild(group);
 
   const palette = layer.palette && layer.palette.length ? layer.palette : parentPalette;
@@ -1700,6 +1706,18 @@ function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
           x + xStarts[col], y - rh + offset.y * rh, cw, rh,
           col, lastRow, nCols, nRows, rng, palette, layerBounds);
       }
+    }
+  }
+
+  // Apply per-cell blend / opacity to each drawn element so overlapping
+  // cells multiply each other (not just the group against the backdrop).
+  if (perCell && (blend || op)) {
+    const kids = group.childNodes || group.children || [];
+    for (let k = 0; k < kids.length; k++) {
+      const c = kids[k];
+      if (!c.setAttribute) continue;
+      const prev = (c.getAttribute && c.getAttribute('style')) || '';
+      c.setAttribute('style', prev + blend + op);
     }
   }
 }
