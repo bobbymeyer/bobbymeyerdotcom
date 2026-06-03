@@ -426,6 +426,52 @@ const SAMPLES = {
       },
     ],
   },
+  'Mikado': {
+    // Girard "Mikado": a red / pink checkerboard, each square holding a
+    // scalloped daisy (white on red, pink on pink — a checker offset
+    // from the ground) with a little yellow square at its heart.
+    palette: ['#e04b3f', '#e88aa4'],
+    layers: [
+      {
+        grid: { cols: 4, rows: 4, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', mode: 'checker' },
+        palette: ['#e04b3f', '#e88aa4'],
+      },
+      {
+        grid: { cols: 4, rows: 4, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'shape',
+          shape: { kind: 'flower', size: 1.05, petals: 16, center: true, centerSize: 0.13, centerColor: '#f2b933' },
+          mode: 'checker',
+        },
+        palette: ['#f6f1e7', '#f4b8c9'],
+      },
+    ],
+  },
+  'Jacobs Coat': {
+    // Girard "Jacobs Coat": a warp-faced weave of many-coloured vertical
+    // stripes (pink, blue, orange, navy, maroon, coral) with a dark weft
+    // speckling horizontal woven texture into every band.
+    palette: ['#e0728c', '#2f6fb0', '#ef8f3a', '#27314f', '#9c3b3f', '#e2574c'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#2a2030', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 39, rows: 18, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'weave', face: 'warp', gap: 0.0, round: 0.12, noise: 0.05, weftShade: 0.28,
+          warp: [
+            ...band('#e0728c', 5), ...band('#27314f', 2), ...band('#2f6fb0', 6),
+            ...band('#ef8f3a', 3), ...band('#27314f', 2), ...band('#ef8f3a', 4),
+            ...band('#9c3b3f', 3), ...band('#ef8f3a', 3), ...band('#27314f', 2),
+            ...band('#e2574c', 4), ...band('#27314f', 2), ...band('#ef8f3a', 3),
+          ],
+        },
+      },
+    ],
+  },
   'Hexagons': {
     // Girard "Hexagons": a thin blue honeycomb outline on linen.
     palette: ['#3a4aa0'],
@@ -1159,6 +1205,28 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         fill,
         ...sAttrs,
       });
+    }
+    case 'flower': {
+      // Scalloped disc: a central circle ringed by overlapping bump
+      // circles (same fill) that union into a daisy / cog edge, with an
+      // optional small square at the centre (a different colour).
+      const g = el('g', {});
+      const n = Math.max(6, shape.petals | 0 || 16);
+      const R = dim * 0.34;
+      const pr = dim * 0.105;
+      g.appendChild(el('circle', { r: R, fill, ...sAttrs }));
+      for (let i = 0; i < n; i++) {
+        const a = (2 * Math.PI * i) / n;
+        g.appendChild(el('circle', { cx: Math.cos(a) * R, cy: Math.sin(a) * R, r: pr, fill }));
+      }
+      if (shape.center) {
+        const cs = dim * (shape.centerSize ?? 0.14);
+        g.appendChild(el('rect', {
+          x: -cs / 2, y: -cs / 2, width: cs, height: cs,
+          fill: shape.centerColor || '#f2b933',
+        }));
+      }
+      return g;
     }
     case 'lens': {
       // Vesica / pointed oval ("pepita"). Two quadratic curves bulging
@@ -2341,7 +2409,13 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const over = (fill.face === 'warp')
         ? mod(ci + ri, 3) !== 0
         : mod(ci + ri, 2) === 0;
-      let color = over ? warp[mod(col, warp.length)] : weft[mod(row, weft.length)];
+      const warpColor = warp[mod(col, warp.length)];
+      // weftShade keeps the weft tone-on-tone: a darker shade of the
+      // warp colour right here, so stripes stay solid with just a woven
+      // ribbing rather than a contrasting checker.
+      let color = over ? warpColor
+        : (fill.weftShade != null ? shadeHex(warpColor, -fill.weftShade)
+                                  : weft[mod(row, weft.length)]);
       if (fill.noise) {
         const crng = cellRng(ci, ri, layerBounds?.salt ?? 1);
         color = shadeHex(color, (crng() * 2 - 1) * fill.noise);
@@ -2824,7 +2898,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens'],
+      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'flower'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
