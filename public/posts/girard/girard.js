@@ -426,6 +426,31 @@ const SAMPLES = {
       },
     ],
   },
+  'Flower seals': {
+    // Cream base; 4-band horizontal stripes (peach / lavender /
+    // magenta / pink) repeating vertically; a 5x5 flower-seal grid
+    // with alternate-row x-offset 0.5 (so seals sit on the stripe
+    // seams). Two-colour palette draws a seal + flower pair per
+    // cell, randomly picking from peach / magenta / pink / lavender.
+    palette: ['#f1a061', '#e6b6db', '#c258a3', '#ef85a3', '#a9a039'],
+    aspect: 1,
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#fbf3e2', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 1, rows: 4, rowWeights: [1, 1, 1, 1], offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', mode: 'palette-cycle' },
+        palette: ['#f1a061', '#e6b6db', '#c258a3', '#ef85a3'],
+      },
+      {
+        grid: { cols: 5, rows: 5, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
+        fill: { kind: 'flower-seal', petals: 5, sealSize: 0.95, petalSize: 0.32, petalOffset: 0.55, centerSize: 0.3 },
+        palette: ['#f1a061', '#e6b6db', '#c258a3', '#ef85a3', '#a9a039'],
+      },
+    ],
+  },
   'Geometric cross': {
     // White ground; one 3x3 grid weighted [9,2,9] in both axes
     // paints the cross — the four corners are transparent so the
@@ -495,7 +520,8 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'mesh' && l.fill?.mode === 'palette-cycle')
         || (l.fill?.kind === 'triangles' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'))
         || (l.fill?.kind === 'voronoi' && (l.fill?.mode === 'palette-cycle' || l.fill?.mode === 'random'))
-        || (l.fill?.kind === 'bloom');
+        || (l.fill?.kind === 'bloom')
+        || (l.fill?.kind === 'flower-seal');
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -1104,6 +1130,45 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
           // Two triangles split along the / diagonal.
           paint(p00, p10, p01, (c + r * ncols) * 2);
           paint(p10, p11, p01, (c + r * ncols) * 2 + 1);
+        }
+      }
+      break;
+    }
+    case 'flower-seal': {
+      // A disc ("seal") with a circular-petal flower laid on top.
+      // Both colours are drawn from the palette (random per cell) so
+      // you can balance the flower against an underlying stripe by
+      // hand. Petal count, petal size, ring offset, and centre size
+      // are all tunable.
+      const salt = layerBounds?.salt ?? 1;
+      const cseed = (((col * 73856093) ^ (row * 19349663) ^ salt) >>> 0) || 1;
+      const crng = makeRng(cseed);
+
+      const sealColor = palette[Math.floor(crng() * palette.length)];
+      const flowerColor = palette[Math.floor(crng() * palette.length)];
+
+      const cx = ix + iw / 2;
+      const cy = iy + ih / 2;
+      const sealR = (fill.sealSize ?? 0.95) * Math.min(iw, ih) / 2;
+      if (!isTransparent(sealColor) && sealR > 0) {
+        parent.appendChild(el('circle', { cx, cy, r: sealR, fill: sealColor }));
+      }
+      if (!isTransparent(flowerColor) && sealR > 0) {
+        const n = Math.max(3, fill.petals | 0 || 5);
+        const petalR = (fill.petalSize ?? 0.32) * sealR;
+        const petalOff = sealR * (fill.petalOffset ?? 0.55);
+        for (let i = 0; i < n; i++) {
+          const a = (Math.PI * 2 * i) / n - Math.PI / 2;
+          parent.appendChild(el('circle', {
+            cx: cx + Math.cos(a) * petalOff,
+            cy: cy + Math.sin(a) * petalOff,
+            r: petalR,
+            fill: flowerColor,
+          }));
+        }
+        const centerR = (fill.centerSize ?? 0.3) * sealR;
+        if (centerR > 0) {
+          parent.appendChild(el('circle', { cx, cy, r: centerR, fill: flowerColor }));
         }
       }
       break;
@@ -1780,7 +1845,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'maze'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
@@ -1800,6 +1865,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'voronoi', mode: 'fixed', color: '#d8c79c', jitter: 0.4, gap: 0.08, round: 0.5 };
     } else if (fillKind.value === 'bloom') {
       layer.fill = { kind: 'bloom', bloom: 'circle', stems: 4, spread: 48, bloomSize: 0.16, points: 5, round: 0.5, distort: 0.15, stemColor: '#454545', stemWidth: 0.012 };
+    } else if (fillKind.value === 'flower-seal') {
+      layer.fill = { kind: 'flower-seal', petals: 5, sealSize: 0.95, petalSize: 0.32, petalOffset: 0.55, centerSize: 0.3 };
     } else {
       layer.fill = { kind: 'triangles', mode: 'random', strokeWidth: 0.02, stroke: '#ffffff' };
     }
@@ -1901,6 +1968,17 @@ function buildConfigForm(host, layer, onChange) {
     if ((layer.fill.strokeWidth ?? 0) > 0) {
       addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
     }
+  } else if (layer.fill.kind === 'flower-seal') {
+    const pet = addCtrl('petals', 'number', layer.fill.petals ?? 5, { min: 3, max: 12, step: 1 });
+    pet.addEventListener('input', () => { layer.fill.petals = Number(pet.value) | 0; onChange(); });
+    const ss = addCtrl('seal size (× cell)', 'number', layer.fill.sealSize ?? 0.95, { min: 0.2, max: 1.2, step: 0.05 });
+    ss.addEventListener('input', () => { layer.fill.sealSize = Number(ss.value); onChange(); });
+    const ps = addCtrl('petal size (× seal)', 'number', layer.fill.petalSize ?? 0.32, { min: 0.1, max: 0.6, step: 0.02 });
+    ps.addEventListener('input', () => { layer.fill.petalSize = Number(ps.value); onChange(); });
+    const po = addCtrl('petal offset (× seal)', 'number', layer.fill.petalOffset ?? 0.55, { min: 0.2, max: 0.9, step: 0.02 });
+    po.addEventListener('input', () => { layer.fill.petalOffset = Number(po.value); onChange(); });
+    const cs = addCtrl('center size (× seal)', 'number', layer.fill.centerSize ?? 0.3, { min: 0, max: 0.6, step: 0.02 });
+    cs.addEventListener('input', () => { layer.fill.centerSize = Number(cs.value); onChange(); });
   } else if (layer.fill.kind === 'bloom') {
     const bk = addCtrl('bloom', 'select', layer.fill.bloom || 'circle', { options: ['circle', 'polygon', 'star'] });
     bk.addEventListener('change', () => { layer.fill.bloom = bk.value; onChange(); rebuild(); });
