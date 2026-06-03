@@ -426,6 +426,25 @@ const SAMPLES = {
       },
     ],
   },
+  'Lattice': {
+    // Girard "Lattice": a fine gingham — the same blue / linen thread
+    // sequence on warp and weft. Wide blue bands cross into solid slate
+    // squares, with a single light thread channel between them.
+    palette: ['#41505f', '#d2cab4'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#d2cab4', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 22, rows: 28, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: {
+          kind: 'weave', gap: 0.3, round: 0.16, noise: 0.1,
+          warp: ['#41505f'], weft: ['#41505f'],
+        },
+      },
+    ],
+  },
   'Jutestripe': {
     // Girard "Jutestripe": a plain weave whose vertical warp threads
     // are striped (navy / cream / tan) crossing a natural light weft.
