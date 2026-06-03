@@ -496,8 +496,8 @@ const SAMPLES = {
         fill: { kind: 'solid', color: '#f0913f', mode: 'fixed' },
       },
       {
-        grid: { cols: 64, rows: 16, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'dashes', mode: 'random', density: 0.6, width: 0.85 },
+        grid: { cols: 90, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'dashes', mode: 'random', density: 0.46, width: 0.55 },
       },
     ],
   },
@@ -2501,9 +2501,10 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       break;
     }
     case 'dashes': {
-      // Field of short vertical strokes of varied length / position —
-      // a barcode-like texture. Per-cell PRNG (wrapped index) for a
-      // seamless tile; density leaves gaps, palette adds tone variation.
+      // Field of full-height vertical lines (uniform height; use a fine
+      // column grid). Width varies only a little, and adjacent filled
+      // columns pack into thicker "duplicate" bars — a loose barcode.
+      // Per-cell PRNG (wrapped index) keeps the tile seamless.
       const salt = layerBounds?.salt ?? 1;
       const crng = cellRng(ci, ri, salt);
       if (crng() > (fill.density ?? 0.55)) break;
@@ -2511,11 +2512,9 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         ? palette[Math.floor(crng() * palette.length)]
         : (fill.color || palette[0] || '#d2624d');
       if (isTransparent(mark)) break;
-      const w = iw * (fill.width ?? 0.4);
-      const hh = ih * (0.25 + crng() * 0.7);
-      const x = ix + (iw - w) / 2 + (crng() * 2 - 1) * iw * 0.18;
-      const y = iy + (ih - hh) / 2 + (crng() * 2 - 1) * ih * 0.15;
-      parent.appendChild(el('rect', { x, y, width: w, height: hh, fill: mark }));
+      const w = iw * (fill.width ?? 0.5) * (0.8 + crng() * 0.5);
+      const x = ix + (iw - w) / 2;
+      parent.appendChild(el('rect', { x, y: iy, width: w, height: ih, fill: mark }));
       break;
     }
     case 'layer': {
