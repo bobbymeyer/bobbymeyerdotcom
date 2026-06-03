@@ -2924,8 +2924,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const kinds = ['circle', 'ellipseW', 'ellipseT', 'roundsquare', 'arch', 'semicircle'];
       const kind = kinds[Math.floor(crng() * kinds.length)];
       const rot = (crng() * 2 - 1) * 8;
-      const side = crng() < 0.68 ? -1 : 1;          // stalk mostly from the top
-      const stalkOff = (crng() * 2 - 1) * baseR * 0.22;
+      const stalkOff = (crng() * 2 - 1) * baseR * 0.18;
+      const stalkAngle = -Math.PI / 2 + (crng() * 2 - 1) * 0.22; // up, ± ~13°
       const leafOn = crng() < (fill.leafChance ?? 0.26);
       const leafSide = crng() < 0.5 ? -1 : 1;
       const draw = (host, ox, oy) => {
@@ -2938,16 +2938,18 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         else if (kind === 'roundsquare') { const s = baseR * 0.92; bh = s; g.appendChild(el('rect', { x: cx - s, y: cy - s, width: s * 2, height: s * 2, rx: s * 0.22, ry: s * 0.22, fill: color })); }
         else if (kind === 'arch') { const w = baseR * 1.5, H = baseR * 1.9, r = w / 2; bh = H / 2; g.appendChild(el('path', { d: `M ${cx - w / 2},${cy + H / 2} L ${cx - w / 2},${cy - H / 2 + r} A ${r},${r} 0 0 1 ${cx + w / 2},${cy - H / 2 + r} L ${cx + w / 2},${cy + H / 2} Z`, fill: color })); }
         else if (kind === 'semicircle') { const r = baseR * 1.1; bh = r * 0.55; g.appendChild(el('path', { d: `M ${cx - r},${cy + r * 0.2} A ${r},${r} 0 0 1 ${cx + r},${cy + r * 0.2} Z`, fill: color })); }
-        // Dark stalk: from the fruit edge inward.
-        const sx = cx + stalkOff;
+        // Short dark stalk poking from the top, angled slightly.
+        const ax = cx + stalkOff, ay = cy - bh * 0.5;
+        const slen = bh * 0.62;
         g.appendChild(el('line', {
-          x1: sx, y1: cy + side * bh * 0.98, x2: sx, y2: cy + side * bh * 0.12,
-          stroke: stalkColor, 'stroke-width': baseR * 0.12, 'stroke-linecap': 'round',
+          x1: ax, y1: ay,
+          x2: ax + Math.cos(stalkAngle) * slen, y2: ay + Math.sin(stalkAngle) * slen,
+          stroke: stalkColor, 'stroke-width': baseR * 0.09, 'stroke-linecap': 'round',
         }));
         if (leafOn) {
-          const lx = sx + leafSide * baseR * 0.28, ly = cy + side * bh * 0.95;
+          const lx = ax + leafSide * baseR * 0.24, ly = cy - bh * 0.82;
           const lg = el('g', { transform: `translate(${lx.toFixed(1)} ${ly.toFixed(1)}) rotate(${(leafSide * 42).toFixed(0)})` });
-          lg.appendChild(el('ellipse', { cx: 0, cy: 0, rx: baseR * 0.34, ry: baseR * 0.14, fill: leafColor }));
+          lg.appendChild(el('ellipse', { cx: 0, cy: 0, rx: baseR * 0.32, ry: baseR * 0.13, fill: leafColor }));
           g.appendChild(lg);
         }
         host.appendChild(g);
