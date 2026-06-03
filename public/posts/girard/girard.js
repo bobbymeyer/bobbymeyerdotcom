@@ -54,6 +54,32 @@ function strokeAttrs(color, widthFrac, dim, fallback = '#000000') {
   return { stroke: color || fallback, 'stroke-width': widthFrac * dim, 'stroke-linejoin': 'round' };
 }
 
+// Whole-layer generators (mesh / triangles / voronoi / maze) all need
+// the layer's pixel rect, per-cell dims, and salt. Returns null if the
+// caller isn't at the (0,0) cell — they short-circuit then.
+function layerGeom(col, row, cw, rh, nc, nr, layerBounds) {
+  if (col !== 0 || row !== 0) return null;
+  const lw = layerBounds?.w ?? cw * nc;
+  const lh = layerBounds?.h ?? rh * nr;
+  const ox = layerBounds?.x ?? 0;
+  const oy = layerBounds?.y ?? 0;
+  return {
+    lw, lh, ox, oy,
+    cellW: lw / nc, cellH: lh / nr,
+    salt: layerBounds?.salt ?? 1,
+  };
+}
+
+// Paint `fn` at the cell centre and at the 8 layer-canvas wrap
+// offsets — anything spilling past an edge appears on the opposite
+// edge so shapes tile cleanly.
+function drawWrapped(parent, lw, lh, fn) {
+  if (!lw || !lh) { fn(parent, 0, 0); return; }
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) fn(parent, dx * lw, dy * lh);
+  }
+}
+
 // ---------- Convex polygon helpers (for Voronoi cells) ----------
 // Sutherland-Hodgman clip: keep the side of the bisector nearer P.
 // M = midpoint of P,Q; dir = Q-P. Keep verts with dot(v-M, dir) <= 0.
@@ -1039,20 +1065,16 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         : fill.mode === 'random'
         ? Math.floor(rng() * palette.length)
         : 0;
-      const lw = layerBounds?.w, lh = layerBounds?.h;
       const baseX = ix + iw / 2 + jx;
       const baseY = iy + ih / 2 + jy;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if (!lw || !lh) { if (dx || dy) continue; }
-          const node = shapeNode(shape, iw, ih, color, { textIndex, rng, palette, colorStart });
-          node.setAttribute(
-            'transform',
-            `translate(${baseX + dx * (lw || 0)} ${baseY + dy * (lh || 0)}) rotate(${rot}) scale(${s})`,
-          );
-          parent.appendChild(node);
-        }
-      }
+      drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, dx, dy) => {
+        const node = shapeNode(shape, iw, ih, color, { textIndex, rng, palette, colorStart });
+        node.setAttribute(
+          'transform',
+          `translate(${baseX + dx} ${baseY + dy}) rotate(${rot}) scale(${s})`,
+        );
+        host.appendChild(node);
+      });
       break;
     }
     case 'triangles': {
@@ -1063,13 +1085,11 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // down at strip r+1, col c' (where c' depends on parity) share a
       // base edge; both pull from the same hash so vertical seams match
       // across tiles.
-      if (col !== 0 || row !== 0) break;
       const tcols = cols;
       const strips = Math.max(2, rows - (rows % 2));
-      const lw = layerBounds?.w ?? cw * cols;
-      const lh = layerBounds?.h ?? rh * rows;
-      const ox = layerBounds?.x ?? 0;
-      const oy = layerBounds?.y ?? 0;
+      const G = layerGeom(col, row, cw, rh, tcols, strips, layerBounds);
+      if (!G) break;
+      const { lw, lh, ox, oy } = G;
       const s = lw / tcols;
       const h = lh / strips;
 
@@ -1139,12 +1159,9 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // dispatcher calls placeCellRect once per cell, so guard: only
       // generate the mesh on the (0,0) cell, draw it across the layer
       // bounds in one pass.
-      if (col !== 0 || row !== 0) break;
-      const lw = layerBounds?.w ?? (cw * ncols);
-      const lh = layerBounds?.h ?? (rh * nrows);
-      const ox = layerBounds?.x ?? 0;
-      const oy = layerBounds?.y ?? 0;
-      const cellW = lw / ncols, cellH = lh / nrows;
+      const G = layerGeom(col, row, cw, rh, ncols, nrows, layerBounds);
+      if (!G) break;
+      const { lw, lh, ox, oy, cellW, cellH } = G;
       // Draw a per-layer salt off the layer's RNG so the same layer
       // re-rolls when the pattern seed changes, while the per-point
       // hash stays deterministic within one render.
@@ -1169,16 +1186,13 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         // vertex pushed past an edge by jitter still tiles cleanly —
         // the pattern element clips off-tile portions and the
         // neighbouring tile draws the matching wrap copy.
-        for (let dy = -1; dy <= 1; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const ox2 = dx * lw, oy2 = dy * lh;
-            parent.appendChild(el('polygon', {
-              points: `${pa.x + ox2},${pa.y + oy2} ${pb.x + ox2},${pb.y + oy2} ${pc.x + ox2},${pc.y + oy2}`,
-              fill: isTransparent(color) ? 'none' : color,
-              ...sAttrs,
-            }));
-          }
-        }
+        drawWrapped(parent, lw, lh, (host, ox2, oy2) => {
+          host.appendChild(el('polygon', {
+            points: `${pa.x + ox2},${pa.y + oy2} ${pb.x + ox2},${pb.y + oy2} ${pc.x + ox2},${pc.y + oy2}`,
+            fill: isTransparent(color) ? 'none' : color,
+            ...sAttrs,
+          }));
+        });
       };
       for (let r = 0; r < nrows; r++) {
         for (let c = 0; c < ncols; c++) {
@@ -1346,15 +1360,11 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         }));
       }
 
-      const wx = lw || 0, wy = lh || 0;
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if ((dx || dy) && (!wx || !wy)) continue;
-          const node = flower.cloneNode(true);
-          if (dx || dy) node.setAttribute('transform', `translate(${dx * wx} ${dy * wy})`);
-          parent.appendChild(node);
-        }
-      }
+      drawWrapped(parent, lw, lh, (host, dx, dy) => {
+        const node = flower.cloneNode(true);
+        if (dx || dy) node.setAttribute('transform', `translate(${dx} ${dy})`);
+        host.appendChild(node);
+      });
       break;
     }
     case 'voronoi': {
@@ -1364,14 +1374,10 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // bisectors of nearby sites, then inset by a gap and corner-
       // rounded. Drawn at the 9 layer wraps so edge cells complete
       // across the seam.
-      if (col !== 0 || row !== 0) break;
       const nc = cols, nr = rows;
-      const lw = layerBounds?.w ?? cw * nc;
-      const lh = layerBounds?.h ?? rh * nr;
-      const ox = layerBounds?.x ?? 0;
-      const oy = layerBounds?.y ?? 0;
-      const cellW = lw / nc, cellH = lh / nr;
-      const salt = layerBounds?.salt ?? 1;
+      const G = layerGeom(col, row, cw, rh, nc, nr, layerBounds);
+      if (!G) break;
+      const { lw, lh, ox, oy, cellW, cellH, salt } = G;
       const jitterAmt = Math.max(0, Math.min(0.5, fill.jitter ?? 0.4));
       const gap = (fill.gap ?? 0.08) * Math.min(cellW, cellH);
       const round = fill.round ?? 0.5;
@@ -1412,13 +1418,11 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
             : (fill.color || palette[0] || '#d8c79c');
           if (isTransparent(color)) continue;
           const dPath = polyPath(pebble, round);
-          for (let wy = -1; wy <= 1; wy++) {
-            for (let wx = -1; wx <= 1; wx++) {
-              const node = el('path', { d: dPath, fill: color });
-              if (wx || wy) node.setAttribute('transform', `translate(${wx * lw} ${wy * lh})`);
-              parent.appendChild(node);
-            }
-          }
+          drawWrapped(parent, lw, lh, (host, dx, dy) => {
+            const node = el('path', { d: dPath, fill: color });
+            if (dx || dy) node.setAttribute('transform', `translate(${dx} ${dy})`);
+            host.appendChild(node);
+          });
         }
       }
       break;
@@ -1428,14 +1432,10 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // so it tiles seamlessly: adjacency wraps in both axes. Walls
       // for every non-passage edge are drawn as thick strokes; wrap
       // walls are mirrored to the opposite edge.
-      if (col !== 0 || row !== 0) break;
       const nc = cols, nr = rows;
-      const lw = layerBounds?.w ?? cw * nc;
-      const lh = layerBounds?.h ?? rh * nr;
-      const ox = layerBounds?.x ?? 0;
-      const oy = layerBounds?.y ?? 0;
-      const cellW = lw / nc, cellH = lh / nr;
-      const salt = layerBounds?.salt ?? 1;
+      const G = layerGeom(col, row, cw, rh, nc, nr, layerBounds);
+      if (!G) break;
+      const { lw, lh, ox, oy, cellW, cellH, salt } = G;
       const mr = makeRng(salt);
 
       // Walls present by default; carving removes them.
