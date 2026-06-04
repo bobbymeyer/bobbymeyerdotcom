@@ -369,15 +369,51 @@ h4.config-section {
 .palette-swatches {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   align-items: flex-start;
+  width: 100%;
 }
 
-.palette-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+/* Palette table: small dense data table. The swatch column is a real
+   native colour input (the click-to-pick swatch); R/G/B/A and CMYK
+   columns are number inputs with their labels lifted into the header. */
+.palette-table {
+  width: 100%;
+  border-collapse: collapse;
 }
+.palette-table th {
+  font: 700 10px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.1em;
+  color: #888;
+  text-align: left;
+  padding: 0 4px 4px;
+}
+.palette-table td {
+  padding: 2px 2px;
+  vertical-align: middle;
+}
+.palette-table td input[type='number'] {
+  width: 100%;
+  padding: 3px 4px;
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  border: 1px solid #ccc;
+  background: #fff;
+  box-sizing: border-box;
+  text-align: left;
+}
+.palette-color-picker {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #ccc;
+  background: none;
+  cursor: pointer;
+}
+/* Drop the inner padding/border the browser inserts around the
+   <input type='color'> swatch so the colour fills the box. */
+.palette-color-picker::-webkit-color-swatch-wrapper { padding: 0; }
+.palette-color-picker::-webkit-color-swatch { border: none; }
+.palette-color-picker::-moz-color-swatch { border: none; }
 
 .palette-rm {
   font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;

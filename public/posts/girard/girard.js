@@ -4115,30 +4115,122 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
     const renderSwatches = () => {
       wrap.replaceChildren();
       const list = layer.palette || [];
-      list.forEach((color, i) => {
-        const row = document.createElement('div');
-        row.className = 'palette-row';
-        row.appendChild(createColorWidget(color, (v) => {
-          // Read layer.palette live so concurrent edits from other
-          // swatches aren't reverted to a stale captured copy.
-          const next = [...(layer.palette || [])];
-          next[i] = v;
-          layer.palette = next;
-          onChange();
-        }));
-        const rm = document.createElement('button');
-        rm.type = 'button';
-        rm.className = 'palette-rm';
-        rm.textContent = '×';
-        rm.title = 'remove colour';
-        rm.addEventListener('click', () => {
-          layer.palette = (layer.palette || []).filter((_, j) => j !== i);
-          renderSwatches();
-          onChange();
+
+      const update = (i, hex, alpha) => {
+        const c = parseColor(list[i]);
+        const next = parseColor(hex);
+        next.a = alpha != null ? alpha : c.a;
+        const arr = [...(layer.palette || [])];
+        arr[i] = formatColor(next);
+        layer.palette = arr;
+        onChange();
+        renderSwatches();
+      };
+      const hexOf = (c) => {
+        const x = parseColor(c);
+        return '#' + [x.r, x.g, x.b].map(v => Math.max(0, Math.min(255, v | 0)).toString(16).padStart(2, '0')).join('');
+      };
+
+      if (list.length) {
+        const table = document.createElement('table');
+        table.className = 'palette-table';
+        // Header row — column labels (R G B A, plus C M Y K in CMYK mode).
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        const cols = ['', 'R', 'G', 'B', 'A'];
+        if (colorMode === 'cmyk') cols.push('C', 'M', 'Y', 'K');
+        cols.push('');
+        for (const label of cols) {
+          const th = document.createElement('th');
+          th.textContent = label;
+          headRow.appendChild(th);
+        }
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        // Body — one row per palette entry.
+        const tbody = document.createElement('tbody');
+        list.forEach((color, i) => {
+          const rgba = parseColor(color);
+          const tr = document.createElement('tr');
+
+          // Swatch is a real <input type="color"> so the native picker opens.
+          const swatchTd = document.createElement('td');
+          const picker = document.createElement('input');
+          picker.type = 'color';
+          picker.className = 'palette-color-picker';
+          picker.value = hexOf(color);
+          picker.addEventListener('input', () => update(i, picker.value, null));
+          swatchTd.appendChild(picker);
+          tr.appendChild(swatchTd);
+
+          // R / G / B / A number inputs.
+          for (const axis of ['r', 'g', 'b', 'a']) {
+            const td = document.createElement('td');
+            const inp = document.createElement('input');
+            inp.type = 'number';
+            inp.min = 0;
+            inp.max = axis === 'a' ? 1 : 255;
+            inp.step = axis === 'a' ? 0.05 : 1;
+            inp.value = axis === 'a' ? rgba.a : rgba[axis];
+            inp.addEventListener('input', () => {
+              const v = Number(inp.value);
+              const clamped = axis === 'a' ? Math.max(0, Math.min(1, v)) : Math.max(0, Math.min(255, v));
+              const next = { ...rgba, [axis]: clamped };
+              const arr = [...(layer.palette || [])];
+              arr[i] = formatColor(next);
+              layer.palette = arr;
+              onChange();
+              renderSwatches();
+            });
+            td.appendChild(inp);
+            tr.appendChild(td);
+          }
+
+          // C / M / Y / K readouts when project is in CMYK mode.
+          if (colorMode === 'cmyk') {
+            const cmyk = hexToCmyk(formatColor(rgba));
+            for (const axis of ['c', 'm', 'y', 'k']) {
+              const td = document.createElement('td');
+              const inp = document.createElement('input');
+              inp.type = 'number';
+              inp.min = 0; inp.max = 100; inp.step = 1;
+              inp.value = Math.round(cmyk[axis] * 100);
+              inp.addEventListener('input', () => {
+                cmyk[axis] = Math.max(0, Math.min(100, Number(inp.value) || 0)) / 100;
+                const { r, g, b } = cmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
+                const arr = [...(layer.palette || [])];
+                arr[i] = formatColor({ r, g, b, a: rgba.a });
+                layer.palette = arr;
+                onChange();
+                renderSwatches();
+              });
+              td.appendChild(inp);
+              tr.appendChild(td);
+            }
+          }
+
+          // Remove button.
+          const rmTd = document.createElement('td');
+          const rm = document.createElement('button');
+          rm.type = 'button';
+          rm.className = 'palette-rm';
+          rm.textContent = '×';
+          rm.title = 'remove colour';
+          rm.addEventListener('click', () => {
+            layer.palette = (layer.palette || []).filter((_, j) => j !== i);
+            renderSwatches();
+            onChange();
+          });
+          rmTd.appendChild(rm);
+          tr.appendChild(rmTd);
+
+          tbody.appendChild(tr);
         });
-        row.appendChild(rm);
-        wrap.appendChild(row);
-      });
+        table.appendChild(tbody);
+        wrap.appendChild(table);
+      }
+
       const add = document.createElement('button');
       add.type = 'button';
       add.className = 'swatch-add';
