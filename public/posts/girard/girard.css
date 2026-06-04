@@ -8,34 +8,35 @@
   color: #1a1a1a;
 }
 
-/* Desktop: break out of the post's max-w-3xl container and lay the tool
-   out as composition | stage | layers. The negative-margin trick pulls
-   the tool back to the viewport edges; the inner grid then sizes the
-   stage as a square taking the remaining width minus two side panels. */
+/* Desktop: break out of the post's max-w-3xl container and lay the
+   tool as a 5-column × 2-row grid. Outer 1fr columns absorb leftover
+   space (margin auto). Row 1 is the title/label row (auto height,
+   bottom-aligned); row 2 is the control/preview row. */
 @media (min-width: 1100px) {
   #girard {
-    /* Break out of the post's max-w-3xl container into a 5-column grid:
-       outer 1fr columns absorb leftover space (margin auto), the
-       inner three columns sit at 1u project-settings, 3u stage, 1u
-       layer-settings. */
     width: 100vw;
     margin-left: calc(50% - 50vw);
     margin-right: calc(50% - 50vw);
     display: grid;
     grid-template-columns: 1fr 1fr 3fr 1fr 1fr;
-    align-items: start;
-    gap: 32px;
+    grid-template-rows: auto 1fr;
+    gap: 32px 32px;
   }
-  #girard-composition { grid-column: 2; }
+  /* Row 1: title + section labels, bottom-aligned. */
+  #girard-title             { grid-row: 1; grid-column: 3; align-self: end; }
+  #girard-composition-label { grid-row: 1; grid-column: 2; align-self: end; }
+  #girard-layers-label      { grid-row: 1; grid-column: 4; align-self: end; }
+  /* Row 2: panels and stage, top-aligned. */
+  #girard-composition { grid-row: 2; grid-column: 2; align-self: start; }
   #girard-stage {
-    grid-column: 3;
+    grid-row: 2; grid-column: 3;
     aspect-ratio: 1 / 1;
     width: 100%;
-    max-width: 100%;
     height: auto;
     margin: 0;
+    align-self: start;
   }
-  #girard-layers      { grid-column: 4; }
+  #girard-layers      { grid-row: 2; grid-column: 4; align-self: start; }
 }
 
 #girard-stage {
@@ -65,24 +66,42 @@
   gap: 16px;
 }
 
-#girard-composition header {
-  margin-bottom: 4px;
+/* In-grid title block (title + version superscript + subtitle). The
+   parts bottom-align so the subtitle sits next to the title baseline,
+   mirroring the post-template header on other posts.
+   Selectors chain #girard to outrank .prose-content :global(...). */
+#girard #girard-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 24px;
 }
-
-#girard-composition header h2 {
-  font-family: inherit;
-  font-size: 14px;
+#girard #girard-title h1 {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(2rem, 3vw, 3rem);
   font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1;
   margin: 0;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  color: #000;
 }
-
-#girard-composition header h2 small {
-  font-size: 10px;
-  color: #888;
+#girard #girard-title .girard-version {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.625rem;
+  font-weight: 400;
+  color: rgba(0, 0, 0, 0.5);
   margin-left: 6px;
+  vertical-align: super;
+  letter-spacing: 0;
 }
+#girard #girard-title .girard-subtitle {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.6;
+  color: rgba(0, 0, 0, 0.7);
+}
+#girard .panel-heading { margin: 0; }
 
 .ctrl-row {
   display: flex;
@@ -93,14 +112,34 @@
 }
 
 /* An inline ctrl pairs an input with a trailing button. The label
-   span stacks on top; the row underneath holds them side-by-side. */
+   span stacks on top; the row underneath holds them side-by-side. The
+   input grows (max-width); the button is content-sized (min-width). */
 .ctrl-inline-row {
   display: flex;
   gap: 8px;
   align-items: stretch;
+  width: 100%;
 }
-.ctrl-inline-row > :first-child { flex: 1; min-width: 0; }
-.ctrl-inline-btn { flex: 0 0 auto; padding-left: 14px; padding-right: 14px; }
+.ctrl-inline-row > input,
+.ctrl-inline-row > select {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+}
+.ctrl-inline-btn {
+  flex: 0 0 auto;
+  width: auto;
+  cursor: pointer;
+  background: #1a1a1a;
+  color: #fff;
+  border: none;
+  padding: 8px 14px;
+  font: inherit;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  text-align: left;
+}
+.ctrl-inline-btn:hover { background: #444; }
 .ctrl-inline-btn[aria-pressed="true"] { background: #444; outline: 1px solid #ddd; }
 
 /* In the desktop side panels, controls stack into a single column so a
@@ -119,7 +158,8 @@
   #girard-layers .ctrl { min-width: 0; width: 100%; }
 
   /* Stretch the actual form elements so they fill the full panel width
-     instead of being content-sized inside the column. */
+     instead of being content-sized inside the column. Inline-row
+     children (input + button pairs) opt out — handled below. */
   .girard-panel .ctrl input,
   .girard-panel .ctrl select,
   .girard-panel button.ctrl {
@@ -127,40 +167,19 @@
     box-sizing: border-box;
   }
 
-  /* Panel bodies stay top-aligned with the stage; lift JUST the
-     section labels into the empty space above so their bottoms align
-     with the post title's bottom. Sum of margin-top + margin-bottom
-     (= -24) is kept constant so the panel body stays put. */
-  #girard-composition > .panel-heading,
-  #girard-layers .layer-panel-header h3 {
-    margin-top: -45px;
-    margin-bottom: 21px;
-    align-self: start;        /* keep section labels left-aligned */
-  }
-  #girard-layers .layer-panel-header { display: contents; }
-
   /* Roomier spacing inside the panels. */
   #girard-composition .ctrl-row { gap: 16px; }
-  #girard-layer-panel { gap: 14px; }
   #girard-layer-config { gap: 16px; padding: 16px; }
 }
 
-#girard-layer-panel {
+#girard-layer-panel,
+#girard-layers {
   width: 100%;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 8px;
 }
 
-.layer-panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.layer-panel-header h3,
 .panel-heading {
   font: inherit;
   font-weight: 700;

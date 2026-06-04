@@ -25,6 +25,9 @@ const posts = defineCollection({
     // Optional version tag rendered as a tiny superscript on the title
     // (e.g. "0.01a" → girard^0.01a). Useful for tool-style posts.
     version: z.string().optional(),
+    // Posts that render their own title (e.g. tools that pull the title
+    // into a custom layout) set this true to skip the page header.
+    hide_header: z.boolean().default(false),
   }),
 });
 

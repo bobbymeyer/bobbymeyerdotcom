@@ -1,6 +1,7 @@
 ---
 title: "girard"
 version: "0.01a"
+hide_header: true
 date: 2026-05-28 10:00:00 -0800
 summary: a tool for building infinitely repeatable patterns
 custom_css: girard
@@ -16,14 +17,20 @@ tags:
 - pattern
 ---
 <div id='girard'>
+  <div id='girard-title'>
+    <h1>girard<sup class='girard-version'>v0.01a</sup></h1>
+    <p class='girard-subtitle'>a tool for building infinitely repeatable patterns</p>
+  </div>
+  <h3 id='girard-composition-label' class='panel-heading'>project settings</h3>
+  <h3 id='girard-layers-label' class='panel-heading'>layers</h3>
+
   <aside id='girard-composition' class='girard-panel'>
-    <h3 class='panel-heading'>project settings</h3>
     <div class='ctrl-row'>
       <div class='ctrl ctrl-inline'>
         <span>seed</span>
         <div class='ctrl-inline-row'>
           <input id='girard-seed' type='number' value='1' min='0' max='99999' />
-          <button id='girard-roll' class='ctrl ctrl-inline-btn'>roll</button>
+          <button id='girard-roll' class='ctrl-inline-btn'>roll</button>
         </div>
       </div>
       <label class='ctrl'>
@@ -42,36 +49,33 @@ tags:
         <span>surround veil</span>
         <div class='ctrl-inline-row'>
           <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.2' />
-          <button id='girard-veil-preview' class='ctrl ctrl-inline-btn' aria-pressed='false'>preview</button>
+          <button id='girard-veil-preview' class='ctrl-inline-btn' aria-pressed='false'>preview</button>
         </div>
       </div>
       <div class='ctrl ctrl-inline'>
         <span>sample</span>
         <div class='ctrl-inline-row'>
           <select id='girard-sample'></select>
-          <button id='girard-load-sample' class='ctrl ctrl-inline-btn'>load</button>
+          <button id='girard-load-sample' class='ctrl-inline-btn'>load</button>
         </div>
       </div>
     </div>
   </aside>
+
   <div id='girard-stage'></div>
+
   <aside id='girard-layers' class='girard-panel'>
-    <div id='girard-layer-panel'>
-      <div class='layer-panel-header'>
-        <h3>layers</h3>
-        <select id='girard-add-layer'>
-          <option value=''>+ add layer…</option>
-          <option value='solid'>solid</option>
-          <option value='h-stripes'>horizontal stripes</option>
-          <option value='v-stripes'>vertical stripes</option>
-          <option value='brick'>brick</option>
-          <option value='checker'>checker</option>
-          <option value='dots'>dots</option>
-          <option value='random'>random shapes</option>
-        </select>
-      </div>
-      <ul id='girard-layer-list'></ul>
-      <div id='girard-layer-config'></div>
-    </div>
+    <select id='girard-add-layer'>
+      <option value=''>+ add layer…</option>
+      <option value='solid'>solid</option>
+      <option value='h-stripes'>horizontal stripes</option>
+      <option value='v-stripes'>vertical stripes</option>
+      <option value='brick'>brick</option>
+      <option value='checker'>checker</option>
+      <option value='dots'>dots</option>
+      <option value='random'>random shapes</option>
+    </select>
+    <ul id='girard-layer-list'></ul>
+    <div id='girard-layer-config'></div>
   </aside>
 </div>
