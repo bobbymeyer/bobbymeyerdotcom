@@ -60,13 +60,43 @@ tags:
         </div>
       </div>
     </div>
+    <h4 class='panel-subheading'>colour</h4>
+    <div class='ctrl-row'>
+      <label class='ctrl'>
+        <span>mode</span>
+        <select id='girard-color-mode'>
+          <option value='srgb'>sRGB (screen / digital)</option>
+          <option value='cmyk'>CMYK (print)</option>
+        </select>
+      </label>
+      <label class='ctrl'>
+        <span>icc profile</span>
+        <select id='girard-icc-profile'></select>
+      </label>
+      <button id='girard-icc-load' class='ctrl-inline-btn icc-load-btn'>load ICC profiler</button>
+      <p id='girard-icc-status' class='icc-status'>Fast math conversion in use. Load profiler for ICC-accurate colour.</p>
+    </div>
     <h4 class='panel-subheading'>export</h4>
+    <div class='ctrl-row'>
+      <label class='ctrl'>
+        <span>size (px, longer side)</span>
+        <input id='girard-export-width' type='number' value='1024' min='64' max='8192' step='32' />
+      </label>
+      <label class='ctrl ctrl-checkbox'>
+        <input id='girard-export-flatten' type='checkbox' />
+        <span>flatten alpha onto background</span>
+      </label>
+      <label class='ctrl'>
+        <span>background (when flattening)</span>
+        <input id='girard-export-bg' type='color' value='#ffffff' />
+      </label>
+    </div>
     <div class='export-buttons'>
       <button id='girard-export-svg' class='ctrl-inline-btn'>SVG</button>
       <button id='girard-export-png' class='ctrl-inline-btn'>PNG</button>
       <button id='girard-export-jpg' class='ctrl-inline-btn'>JPG</button>
-      <button class='ctrl-inline-btn' disabled title='Coming soon'>PDF</button>
-      <button class='ctrl-inline-btn' disabled title='Coming soon'>TIF</button>
+      <button class='ctrl-inline-btn' disabled title='Coming next'>PDF</button>
+      <button class='ctrl-inline-btn' disabled title='Coming next'>TIF</button>
     </div>
   </aside>
   <div id='girard-stage'></div>

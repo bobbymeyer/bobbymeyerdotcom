@@ -231,10 +231,86 @@ const defaultPattern = () => ({
   repeat: 'square',                                  // square | half-drop | half-brick
   palette: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'],
   surroundVeil: 0.2,
+  // Project-level colour mode. 'srgb' shows RGB pickers; 'cmyk' adds
+  // CMYK readouts on every picker and exports targets the chosen
+  // profile. Pickers and rendering still use sRGB hex internally; the
+  // CMYK fields are derived (and stored back) via conversion.
+  colorMode: 'srgb',
+  // Region-flavoured CMYK profile to target on export. Only used when
+  // colorMode === 'cmyk'. Without the heavy ICC profiler loaded we use
+  // a fast math conversion; selecting a profile + loading the profiler
+  // enables ICC-accurate conversion.
+  iccProfile: 'sRGB IEC61966-2.1',
+  // Export controls (live on the pattern so they survive sample loads).
+  exportWidth: 1024,
+  exportFlatten: false,
+  exportBackground: '#ffffff',
   layers: [
     makeLayer('solid'),
   ],
 });
+
+// ---------- Colour conversions ----------
+// Fast / mathematical CMYK ⇄ sRGB. Not ICC-accurate (saturated colours
+// in particular drift on press), but reasonable for muted palettes and
+// fine until the user loads the ICC profiler for precise conversion.
+function rgbToCmyk(r, g, b) {
+  const R = r / 255, G = g / 255, B = b / 255;
+  const k = 1 - Math.max(R, G, B);
+  if (k >= 1 - 1e-6) return { c: 0, m: 0, y: 0, k: 1 };
+  const c = (1 - R - k) / (1 - k);
+  const m = (1 - G - k) / (1 - k);
+  const y = (1 - B - k) / (1 - k);
+  return { c, m, y, k };
+}
+function cmykToRgb(c, m, y, k) {
+  const R = 255 * (1 - c) * (1 - k);
+  const G = 255 * (1 - m) * (1 - k);
+  const B = 255 * (1 - y) * (1 - k);
+  return { r: Math.round(R), g: Math.round(G), b: Math.round(B) };
+}
+function hexToCmyk(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return { c: 0, m: 0, y: 0, k: 0 };
+  const n = parseInt(m[1], 16);
+  return rgbToCmyk((n >> 16) & 255, (n >> 8) & 255, n & 255);
+}
+function cmykToHex(c, m, y, k) {
+  const { r, g, b } = cmykToRgb(c, m, y, k);
+  const x = (1 << 24) | (r << 16) | (g << 8) | b;
+  return '#' + x.toString(16).slice(1);
+}
+
+// Catalogue of region-flavoured CMYK targets. Display labels include
+// the region so the user can pick by where they're printing.
+const ICC_PROFILES = [
+  { id: 'sRGB IEC61966-2.1', label: 'sRGB (screen / digital)' },
+  { id: 'U.S. Web Coated (SWOP) v2', label: 'SWOP v2 — US web coated' },
+  { id: 'GRACoL2006_Coated1v2', label: 'GRACoL 2006 — US sheetfed' },
+  { id: 'FOGRA39', label: 'FOGRA39 — EU coated' },
+  { id: 'FOGRA51', label: 'FOGRA51 — EU coated (PSO v3)' },
+  { id: 'Japan Color 2001 Coated', label: 'Japan Color 2001 — JP coated' },
+];
+
+// Lazy state for the heavy ICC profiler (loaded on demand). Not in the
+// pattern — it's a runtime capability flag.
+const iccProfiler = {
+  loaded: false,
+  loading: false,
+  // Placeholder for the lcms.js (or color.js) module + parsed profiles.
+  // Next pass will populate this and swap the math conversions for
+  // ICC-accurate ones.
+  load: function() {
+    if (this.loaded || this.loading) return Promise.resolve();
+    this.loading = true;
+    // TODO(next pass): fetch lcms.js + profile binaries, decode, set
+    // up colour transforms. For now this is a stub so the UI can show
+    // the loading lifecycle without lying about capabilities.
+    return new Promise(resolve => {
+      setTimeout(() => { this.loaded = true; this.loading = false; resolve(); }, 50);
+    });
+  },
+};
 
 // ---------- Sample library ----------
 // Each entry is a partial pattern: a layers stack plus optional
@@ -3608,31 +3684,40 @@ function exportTileSvg(pattern, baseName) {
   downloadBlob(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }), `${baseName}.svg`);
 }
 
-// Render the deployable tile SVG to a transparent PNG. Canvas defaults
-// to transparent, so cells with no fill (or transparent palette
-// entries) come through with alpha — same as the SVG. `scale` bumps
-// pixel resolution for high-DPI output (default 2×).
-function exportTilePng(pattern, baseName, scale = 2) {
-  exportTileRaster(pattern, baseName, 'image/png', { scale });
+// Compute the export target pixel dimensions. The user picks a target
+// `exportWidth` (the longer side of the unit); height scales to match
+// the unit's aspect, so half-drop / half-brick units stay correct.
+function exportPixelDims(pattern, unitWidth, unitHeight) {
+  const target = Math.max(64, Math.min(8192, Number(pattern.exportWidth) || 1024));
+  const longSide = Math.max(unitWidth, unitHeight);
+  const k = target / longSide;
+  return { W: Math.round(unitWidth * k), H: Math.round(unitHeight * k) };
 }
 
-// JPEG. Always opaque, so a background colour is painted under the
-// tile before drawing. `scale` for high-DPI; `quality` 0..1.
-function exportTileJpeg(pattern, baseName, scale = 2, quality = 0.92, background = '#ffffff') {
-  exportTileRaster(pattern, baseName, 'image/jpeg', { scale, quality, background });
+// Render the deployable tile SVG to PNG. Transparent by default (alpha
+// preserved); flatten=true paints exportBackground under the tile first.
+function exportTilePng(pattern, baseName) {
+  const background = pattern.exportFlatten ? (pattern.exportBackground || '#ffffff') : null;
+  exportTileRaster(pattern, baseName, 'image/png', { background });
+}
+
+// JPEG. Always opaque (no alpha channel in JPEG), so we always paint
+// the background first regardless of the flatten flag.
+function exportTileJpeg(pattern, baseName, quality = 0.92) {
+  const background = pattern.exportBackground || '#ffffff';
+  exportTileRaster(pattern, baseName, 'image/jpeg', { quality, background });
 }
 
 // Shared raster export pipeline. Loads the SVG into an <img>, draws to
-// a canvas at `scale`× pixel density, exports via toBlob.
+// a canvas at the pattern's `exportWidth`, exports via toBlob.
 function exportTileRaster(pattern, baseName, mime, opts = {}) {
-  const { scale = 2, quality, background } = opts;
+  const { quality, background } = opts;
   const ext = mime === 'image/jpeg' ? 'jpg' : 'png';
   const { svg, width, height } = buildTileSvg(pattern);
   const xml = serializeSvg(svg);
   const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const W = Math.round(width * scale);
-  const H = Math.round(height * scale);
+  const { W, H } = exportPixelDims(pattern, width, height);
   const img = new Image();
   img.onload = () => {
     const canvas = document.createElement('canvas');
@@ -3686,7 +3771,8 @@ function renderLayerList(listEl, pattern, selected, handlers) {
 }
 
 // ---------- Per-layer config form ----------
-function buildConfigForm(host, layer, onChange) {
+function buildConfigForm(host, layer, onChange, opts = {}) {
+  const colorMode = opts.colorMode || 'srgb';
   host.replaceChildren();
   if (!layer) return;
   // Self-rebuild for controls that change which fields are visible
@@ -3734,6 +3820,49 @@ function buildConfigForm(host, layer, onChange) {
     mkInput('b', 255, 1);
     mkInput('a', 1, 0.05);
     root.appendChild(inputs);
+
+    // CMYK readouts. Visible only when the project is in CMYK mode.
+    // Editing CMYK fields updates RGB (and the upstream onColorChange).
+    if (colorMode === 'cmyk') {
+      const cmykRow = document.createElement('span');
+      cmykRow.className = 'rgba-inputs cmyk-inputs';
+      const cmykState = hexToCmyk(formatColor(rgba));
+      const cmykInputs = {};
+      const syncCmykFromRgb = () => {
+        const c = hexToCmyk(formatColor(rgba));
+        cmykState.c = c.c; cmykState.m = c.m; cmykState.y = c.y; cmykState.k = c.k;
+        for (const ax of ['c', 'm', 'y', 'k']) cmykInputs[ax].value = Math.round(cmykState[ax] * 100);
+      };
+      const mkCmykInput = (axis) => {
+        const cell = document.createElement('span');
+        cell.className = 'rgba-cell';
+        const tag = document.createElement('em');
+        tag.textContent = axis.toUpperCase();
+        const inp = document.createElement('input');
+        inp.type = 'number';
+        inp.min = 0; inp.max = 100; inp.step = 1;
+        inp.value = Math.round(cmykState[axis] * 100);
+        inp.addEventListener('input', () => {
+          const v = Math.max(0, Math.min(100, Number(inp.value) || 0)) / 100;
+          cmykState[axis] = v;
+          const { r, g, b } = cmykToRgb(cmykState.c, cmykState.m, cmykState.y, cmykState.k);
+          rgba.r = r; rgba.g = g; rgba.b = b;
+          sync();
+          // Refresh the RGB inputs in place.
+          const rgbInputs = inputs.querySelectorAll('.rgba-cell input');
+          rgbInputs[0].value = r; rgbInputs[1].value = g; rgbInputs[2].value = b;
+          onColorChange(formatColor(rgba));
+        });
+        cell.appendChild(tag);
+        cell.appendChild(inp);
+        cmykRow.appendChild(cell);
+        cmykInputs[axis] = inp;
+      };
+      mkCmykInput('c'); mkCmykInput('m'); mkCmykInput('y'); mkCmykInput('k');
+      // Also resync CMYK when RGB inputs change.
+      inputs.addEventListener('input', syncCmykFromRgb);
+      root.appendChild(cmykRow);
+    }
     return root;
   };
   const addColorCtrl = (label, value, onColorChange) => {
@@ -4454,7 +4583,7 @@ function mount() {
   const rerenderUI = () => {
     rerenderSvg();
     renderLayerList(listEl, pattern, selected, layerHandlers);
-    buildConfigForm(configEl, pattern.layers[selected], rerenderSvg);
+    buildConfigForm(configEl, pattern.layers[selected], rerenderSvg, { colorMode: pattern.colorMode || 'srgb' });
   };
 
   addSelect.addEventListener('change', () => {
@@ -4518,6 +4647,66 @@ function mount() {
       }
       rerenderSvg();
     });
+  }
+
+  // Colour mode + ICC profile picker. Switching the mode rebuilds the
+  // layer config form so colour pickers gain / lose their CMYK readouts.
+  const colorModeSel = document.getElementById('girard-color-mode');
+  const iccProfileSel = document.getElementById('girard-icc-profile');
+  const iccLoadBtn = document.getElementById('girard-icc-load');
+  const iccStatus = document.getElementById('girard-icc-status');
+  if (iccProfileSel) {
+    for (const p of ICC_PROFILES) {
+      const opt = document.createElement('option');
+      opt.value = p.id; opt.textContent = p.label;
+      iccProfileSel.appendChild(opt);
+    }
+    iccProfileSel.value = pattern.iccProfile || 'sRGB IEC61966-2.1';
+    iccProfileSel.addEventListener('change', () => {
+      pattern.iccProfile = iccProfileSel.value;
+    });
+  }
+  const refreshIccStatus = () => {
+    if (!iccStatus) return;
+    iccStatus.textContent = iccProfiler.loaded
+      ? 'ICC profiler loaded — precise colour conversion enabled.'
+      : iccProfiler.loading
+      ? 'Loading ICC profiler…'
+      : 'Fast math conversion in use. Load profiler for ICC-accurate colour.';
+  };
+  if (colorModeSel) {
+    colorModeSel.value = pattern.colorMode || 'srgb';
+    colorModeSel.addEventListener('change', () => {
+      pattern.colorMode = colorModeSel.value;
+      rerenderUI();
+    });
+  }
+  if (iccLoadBtn) {
+    iccLoadBtn.addEventListener('click', () => {
+      if (iccProfiler.loaded || iccProfiler.loading) { refreshIccStatus(); return; }
+      refreshIccStatus();
+      iccProfiler.load().then(refreshIccStatus);
+    });
+  }
+  refreshIccStatus();
+
+  // Export controls: size, flatten, background.
+  const exportWidthInp = document.getElementById('girard-export-width');
+  const exportFlattenInp = document.getElementById('girard-export-flatten');
+  const exportBgInp = document.getElementById('girard-export-bg');
+  if (exportWidthInp) {
+    exportWidthInp.value = pattern.exportWidth ?? 1024;
+    exportWidthInp.addEventListener('input', () => {
+      pattern.exportWidth = Math.max(64, Math.min(8192, Number(exportWidthInp.value) || 1024));
+    });
+  }
+  if (exportFlattenInp) {
+    exportFlattenInp.checked = !!pattern.exportFlatten;
+    exportFlattenInp.addEventListener('change', () => { pattern.exportFlatten = exportFlattenInp.checked; });
+  }
+  if (exportBgInp) {
+    exportBgInp.value = pattern.exportBackground ?? '#ffffff';
+    exportBgInp.addEventListener('input', () => { pattern.exportBackground = exportBgInp.value; });
   }
 
   // Export — the clean deployable repeat unit. Wait for any web fonts

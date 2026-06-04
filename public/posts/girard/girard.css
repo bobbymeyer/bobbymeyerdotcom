@@ -118,6 +118,33 @@
   text-align: left;
 }
 
+/* Compact CMYK readout row, appears under the RGBA inputs when the
+   project is in CMYK mode. */
+.cmyk-inputs { margin-top: 4px; }
+.cmyk-inputs .rgba-cell em { color: #888; }
+.cmyk-inputs input { width: 36px; }
+
+/* A ctrl with a leading checkbox + a label-style text. */
+.ctrl-checkbox {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 8px !important;
+}
+.ctrl-checkbox input { width: auto !important; margin: 0; }
+.ctrl-checkbox > span { text-transform: none; letter-spacing: 0; font-size: 12px; color: #1a1a1a; }
+
+/* Load-ICC button — sits inline below the colour pickers, gets a
+   subtle visual demotion vs primary action buttons. */
+.icc-load-btn { background: transparent !important; color: #1a1a1a !important; border: 1px solid #1a1a1a !important; }
+.icc-load-btn:hover { background: #1a1a1a !important; color: #fff !important; }
+.icc-status {
+  width: 100%;
+  margin: 0;
+  font-size: 11px;
+  color: #666;
+  line-height: 1.4;
+}
+
 /* Export buttons row — single row, buttons share the row evenly. */
 .export-buttons {
   display: flex;
