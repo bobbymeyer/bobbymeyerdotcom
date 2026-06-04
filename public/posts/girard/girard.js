@@ -4025,19 +4025,21 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
     }
     return root;
   };
-  const addColorCtrl = (label, value, onColorChange) => {
+  // Colour pickers are wide (RGBA + maybe CMYK rows) so they span both
+  // columns of the 2-col layout via .ctrl-span-2.
+  const addColorCtrl = (label, value, onColorChange, opts = {}) => {
     const wrap = document.createElement('label');
-    wrap.className = 'ctrl';
+    wrap.className = 'ctrl ctrl-span-2';
     const span = document.createElement('span');
     span.textContent = label;
     wrap.appendChild(span);
     wrap.appendChild(createColorWidget(value, onColorChange));
-    host.appendChild(wrap);
+    (opts.into || host).appendChild(wrap);
   };
 
   const addCtrl = (label, kind, value, opts = {}) => {
     const wrap = document.createElement('label');
-    wrap.className = 'ctrl';
+    wrap.className = 'ctrl' + (opts.span === 2 ? ' ctrl-span-2' : '');
     const span = document.createElement('span');
     span.textContent = label;
     wrap.appendChild(span);
@@ -4059,8 +4061,18 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
       if (opts.step !== undefined) input.step = opts.step;
     }
     wrap.appendChild(input);
-    host.appendChild(wrap);
+    (opts.into || host).appendChild(wrap);
     return input;
+  };
+  // A side-by-side pair container that occupies one cell of the
+  // parent grid and itself holds two ctrls in a 2-col sub-grid. Used
+  // for X/Y pairs (offsetX + offsetY) that need to share one column
+  // of the parent layout.
+  const addPair = () => {
+    const p = document.createElement('div');
+    p.className = 'config-pair';
+    host.appendChild(p);
+    return p;
   };
   const addHeader = (text) => {
     const h = document.createElement('h4');
@@ -4138,8 +4150,11 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
   });
   offMode.addEventListener('change', () => { layer.grid.offsetMode = offMode.value; onChange(); });
 
-  const offX = addCtrl('offset x', 'number', layer.grid.offset?.x ?? 0, { min: 0, max: 1, step: 0.05 });
-  const offY = addCtrl('offset y', 'number', layer.grid.offset?.y ?? 0, { min: 0, max: 1, step: 0.05 });
+  // Offset X / Y sit side-by-side inside col 2 of the parent grid,
+  // pairing visually with the offset-mode select in col 1.
+  const offsetPair = addPair();
+  const offX = addCtrl('offset x', 'number', layer.grid.offset?.x ?? 0, { min: 0, max: 1, step: 0.05, into: offsetPair });
+  const offY = addCtrl('offset y', 'number', layer.grid.offset?.y ?? 0, { min: 0, max: 1, step: 0.05, into: offsetPair });
   offX.addEventListener('input', () => {
     layer.grid.offset = { ...(layer.grid.offset || {}), x: Number(offX.value) };
     onChange();
@@ -4681,7 +4696,8 @@ function mount() {
   const seed      = document.getElementById('girard-seed');
   const roll      = document.getElementById('girard-roll');
   const repeat    = document.getElementById('girard-repeat');
-  const aspect    = document.getElementById('girard-aspect');
+  const aspectW   = document.getElementById('girard-aspect-w');
+  const aspectH   = document.getElementById('girard-aspect-h');
   const veil      = document.getElementById('girard-veil');
   const sampleSel = document.getElementById('girard-sample');
   const loadBtn   = document.getElementById('girard-load-sample');
@@ -4771,10 +4787,28 @@ function mount() {
     rerenderSvg();
   });
 
-  aspect.addEventListener('input', () => {
-    pattern.aspect = Math.max(0.2, Number(aspect.value) || 1);
+  const syncAspect = () => {
+    const w = Math.max(0.1, Number(aspectW.value) || 1);
+    const h = Math.max(0.1, Number(aspectH.value) || 1);
+    pattern.aspectW = w;
+    pattern.aspectH = h;
+    pattern.aspect = w / h;
     rerenderSvg();
-  });
+  };
+  if (aspectW) aspectW.addEventListener('input', syncAspect);
+  if (aspectH) aspectH.addEventListener('input', syncAspect);
+  // Seed initial UI values from the loaded pattern, in case it carries
+  // an explicit aspectW/aspectH; otherwise factor the ratio sensibly.
+  if (aspectW && aspectH) {
+    if (pattern.aspectW && pattern.aspectH) {
+      aspectW.value = pattern.aspectW;
+      aspectH.value = pattern.aspectH;
+    } else if (pattern.aspect && Math.abs(pattern.aspect - 1) > 1e-3) {
+      const a = pattern.aspect;
+      if (a >= 1) { aspectW.value = Math.round(a * 10) / 10; aspectH.value = 1; }
+      else        { aspectW.value = 1; aspectH.value = Math.round((1 / a) * 10) / 10; }
+    }
+  }
 
   veil.addEventListener('input', () => {
     pattern.surroundVeil = Number(veil.value);
@@ -4919,7 +4953,15 @@ function mount() {
     // Mirror any incoming top-level fields onto their UI controls.
     seed.value = pattern.seed;
     repeat.value = pattern.repeat;
-    aspect.value = pattern.aspect ?? 1;
+    if (aspectW && aspectH) {
+      if (pattern.aspectW && pattern.aspectH) {
+        aspectW.value = pattern.aspectW; aspectH.value = pattern.aspectH;
+      } else {
+        const a = pattern.aspect ?? 1;
+        if (a >= 1) { aspectW.value = Math.round(a * 10) / 10; aspectH.value = 1; }
+        else        { aspectW.value = 1; aspectH.value = Math.round((1 / a) * 10) / 10; }
+      }
+    }
     veil.value = pattern.surroundVeil;
     rerenderUI();
   });

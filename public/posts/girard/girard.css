@@ -201,6 +201,18 @@
   text-align: left;
 }
 .ctrl-inline-btn:hover { background: #444; }
+
+/* Aspect-ratio input pair: W : H, with the colon centred between. */
+.aspect-inputs { align-items: center; }
+.aspect-inputs > input { width: auto; flex: 1 1 0; min-width: 0; }
+.aspect-inputs > .aspect-sep {
+  flex: 0 0 auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #888;
+  line-height: 1;
+}
 .ctrl-inline-btn[aria-pressed="true"] { background: #444; outline: 1px solid #ddd; }
 
 /* In the desktop side panels, controls stack into a single column so a
@@ -307,6 +319,25 @@
   padding: 12px;
   background: transparent;
   border: 1px solid #e5e5e5;
+}
+
+/* On desktop the layer config switches to a 2-column grid: pairs of
+   related ctrls (cols/rows, gutter x/y, col/row weights, blend/opacity)
+   share a row; section headers + colour pickers span both columns. */
+@media (min-width: 1100px) {
+  #girard-layer-config {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+  }
+  #girard-layer-config .config-section,
+  #girard-layer-config .palette-swatches,
+  #girard-layer-config .ctrl-span-2 { grid-column: 1 / -1; }
+  #girard-layer-config .config-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
 }
 
 #girard-layer-config:empty {

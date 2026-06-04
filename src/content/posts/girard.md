@@ -41,10 +41,14 @@ tags:
           <option value='half-brick'>half-brick</option>
         </select>
       </label>
-      <label class='ctrl'>
-        <span>aspect (w/h)</span>
-        <input id='girard-aspect' type='number' value='1' min='0.2' max='5' step='0.05' />
-      </label>
+      <div class='ctrl ctrl-inline'>
+        <span>aspect (w : h)</span>
+        <div class='ctrl-inline-row aspect-inputs'>
+          <input id='girard-aspect-w' type='number' value='1' min='1' max='999' step='1' />
+          <span class='aspect-sep'>:</span>
+          <input id='girard-aspect-h' type='number' value='1' min='1' max='999' step='1' />
+        </div>
+      </div>
       <div class='ctrl ctrl-inline'>
         <span>surround veil</span>
         <div class='ctrl-inline-row'>
