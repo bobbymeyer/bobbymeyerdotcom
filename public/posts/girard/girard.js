@@ -4164,17 +4164,19 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
     layer.grid.offset = { ...(layer.grid.offset || {}), y: Number(offY.value) };
     onChange();
   });
-  const gx = addCtrl('gutter x (× cell)', 'number',
+  addHeader('gutter (× cell)');
+  const gutterPair = addPair();
+  const gx = addCtrl('x', 'number',
     layer.grid.gutterX ?? layer.grid.gutter ?? 0,
-    { min: 0, max: 0.9, step: 0.02 });
+    { min: 0, max: 0.9, step: 0.02, into: gutterPair });
   gx.addEventListener('input', () => {
     layer.grid.gutterX = Number(gx.value);
     delete layer.grid.gutter;
     onChange();
   });
-  const gy = addCtrl('gutter y (× cell)', 'number',
+  const gy = addCtrl('y', 'number',
     layer.grid.gutterY ?? layer.grid.gutter ?? 0,
-    { min: 0, max: 0.9, step: 0.02 });
+    { min: 0, max: 0.9, step: 0.02, into: gutterPair });
   gy.addEventListener('input', () => {
     layer.grid.gutterY = Number(gy.value);
     delete layer.grid.gutter;
