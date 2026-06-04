@@ -25,8 +25,10 @@
   #girard-stage {
     grid-column: 2;
     aspect-ratio: 1 / 1;
-    width: 100%;
+    width: 67%;
+    max-width: 67%;
     height: auto;
+    margin: 0 auto;
   }
   #girard-composition { grid-column: 1; }
   #girard-layers      { grid-column: 3; }
