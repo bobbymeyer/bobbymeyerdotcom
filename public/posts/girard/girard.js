@@ -3915,8 +3915,10 @@ function arrayBufferToBase64(buf) {
 // extra margin. Geometry that crosses an edge is wrap-painted at the
 // opposite edge by the renderer, then clipped here so the unit's
 // bounds are exactly the repeat dimensions.
-function buildTileSvg(pattern) {
+function buildTileSvg(pattern, opts = {}) {
+  const proof = pattern.softProof && iccProfiler.loaded && !opts.skipSoftProof;
   const tileGroup = buildTileGroup(pattern);
+  if (proof) applySoftProof(tileGroup, pattern.iccProfile || 'U.S. Web Coated (SWOP) v2');
   const unit = buildRepeatUnit(pattern, tileGroup);
   const root = el('svg', {
     xmlns: SVG_NS,
@@ -3988,7 +3990,10 @@ function exportTileSvg(pattern, baseName) {
 //     PhotometricInterpretation=5 (Separated) so RIPs see real CMYK.
 const TIFF_LIB_URL = 'https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js';
 function exportTileTiff(pattern, baseName) {
-  rasterizeForExport(pattern, { forceBackground: true }).then(({ canvas, W, H }) =>
+  // CMYK destination: bypass soft proof so the conversion goes
+  // straight from original sRGB → CMYK, not through a round-trip.
+  const skipSoftProof = iccProfiler.loaded;
+  rasterizeForExport(pattern, { forceBackground: true, skipSoftProof }).then(({ canvas, W, H }) =>
     loadScript(TIFF_LIB_URL).then(() => {
       const UTIF = window.UTIF;
       if (!UTIF || !UTIF.encodeImage) throw new Error('UTIF not available');
@@ -4096,7 +4101,7 @@ function rasterizeForExport(pattern, opts = {}) {
   const forceBg = !!opts.forceBackground;
   const wantAlpha = !forceBg && !pattern.exportFlatten;
   const background = pattern.exportBackground || '#ffffff';
-  const { svg, width, height } = buildTileSvg(pattern);
+  const { svg, width, height } = buildTileSvg(pattern, { skipSoftProof: !!opts.skipSoftProof });
   return buildEmbeddedFontStyle(pattern).then(fontCss => {
     injectFontStyle(svg, fontCss);
     const xml = serializeSvg(svg);
