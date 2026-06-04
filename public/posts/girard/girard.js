@@ -251,10 +251,41 @@ const defaultPattern = () => ({
 });
 
 // ---------- Colour conversions ----------
-// Fast / mathematical CMYK ⇄ sRGB. Not ICC-accurate (saturated colours
-// in particular drift on press), but reasonable for muted palettes and
-// fine until the user loads the ICC profiler for precise conversion.
-function rgbToCmyk(r, g, b) {
+// Two conversion paths:
+//   - Naive: linear (1-R-K)/(1-K). Cheap, always available, used by
+//     default. Saturated colours drift visibly on press.
+//   - Profile-aware: gamma-correct sRGB decode, smooth K-generation,
+//     per-profile ink limits + black-point parameters. Closer to what
+//     an actual SWOP / FOGRA / GRACoL / Japan Color press produces.
+//     Enabled when the user clicks "Load ICC Profiler". Still an
+//     approximation (true colorimetric accuracy needs a full ICC v4
+//     parser + LUT transform — that lands next pass with bundled
+//     profile binaries) but a real step up.
+
+// sRGB ⇄ linear gamma (IEC 61966-2.1 transfer function).
+function srgbToLinear(v) {
+  return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+}
+function linearToSrgb(v) {
+  if (v <= 0) return 0;
+  if (v >= 1) return 1;
+  return v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
+}
+
+// Per-profile parameters governing K generation, total ink limit, and
+// black-point offset. Values picked to roughly match published TVI
+// (tone value increase) and TAC behaviour for each profile.
+const PROFILE_PARAMS = {
+  'sRGB IEC61966-2.1':           { tac: 4.00, kStart: 0.00, kStrength: 1.00, blackPoint: 0.00 },
+  'U.S. Web Coated (SWOP) v2':   { tac: 3.00, kStart: 0.30, kStrength: 0.95, blackPoint: 0.04 },
+  'GRACoL2006_Coated1v2':        { tac: 3.40, kStart: 0.50, kStrength: 0.82, blackPoint: 0.02 },
+  'FOGRA39':                     { tac: 3.30, kStart: 0.35, kStrength: 0.92, blackPoint: 0.04 },
+  'FOGRA51':                     { tac: 3.20, kStart: 0.45, kStrength: 0.88, blackPoint: 0.02 },
+  'Japan Color 2001 Coated':     { tac: 3.50, kStart: 0.25, kStrength: 0.98, blackPoint: 0.05 },
+};
+
+// Naive RGB→CMYK (fallback / fast path).
+function naiveRgbToCmyk(r, g, b) {
   const R = r / 255, G = g / 255, B = b / 255;
   const k = 1 - Math.max(R, G, B);
   if (k >= 1 - 1e-6) return { c: 0, m: 0, y: 0, k: 1 };
@@ -263,20 +294,82 @@ function rgbToCmyk(r, g, b) {
   const y = (1 - B - k) / (1 - k);
   return { c, m, y, k };
 }
-function cmykToRgb(c, m, y, k) {
-  const R = 255 * (1 - c) * (1 - k);
-  const G = 255 * (1 - m) * (1 - k);
-  const B = 255 * (1 - y) * (1 - k);
-  return { r: Math.round(R), g: Math.round(G), b: Math.round(B) };
+// Profile-aware RGB→CMYK. Steps:
+//   1. sRGB → linear (gamma decode) so the maths reflect actual light.
+//   2. Compute "ink density" 1 - linear; pick K as the shared minimum
+//      ink, scaled in via a smooth threshold (kStart..1) and strength
+//      so neutrals print mostly K (no muddy CMY mix), and saturated
+//      tones keep more colour ink. This is a perceptual approximation
+//      of the K-generation curves real ICC profiles encode.
+//   3. CMY = remaining ink after removing K.
+//   4. Enforce total ink limit (TAC) by scaling all four channels
+//      down proportionally if they overshoot — keeps ink load printable.
+//   5. blackPoint adds a small lift so 0% ink doesn't map to perfect
+//      paper (press-realistic dot gain).
+function profileRgbToCmyk(r, g, b, profileId) {
+  const p = PROFILE_PARAMS[profileId] || PROFILE_PARAMS['U.S. Web Coated (SWOP) v2'];
+  const R = srgbToLinear(r / 255), G = srgbToLinear(g / 255), B = srgbToLinear(b / 255);
+  const cInk = 1 - R, mInk = 1 - G, yInk = 1 - B;
+  const minInk = Math.min(cInk, mInk, yInk);
+  // Smooth K generation: 0% K below kStart, linearly rising to kStrength·minInk above.
+  const t = Math.max(0, (minInk - p.kStart) / Math.max(1e-6, 1 - p.kStart));
+  let k = p.kStrength * minInk * (t * t * (3 - 2 * t));   // smoothstep ease
+  // CMY = ink minus the K we generated, clamped at 0.
+  let c = Math.max(0, cInk - k);
+  let m = Math.max(0, mInk - k);
+  let y = Math.max(0, yInk - k);
+  // Total area coverage limit (TAC).
+  const total = c + m + y + k;
+  if (total > p.tac) {
+    const scale = p.tac / total;
+    c *= scale; m *= scale; y *= scale; k *= scale;
+  }
+  // Black-point lift so 0% ink ≠ perfect paper.
+  const bp = p.blackPoint;
+  return {
+    c: Math.min(1, c + bp * (1 - c)),
+    m: Math.min(1, m + bp * (1 - m)),
+    y: Math.min(1, y + bp * (1 - y)),
+    k: Math.min(1, k + bp * (1 - k)),
+  };
 }
-function hexToCmyk(hex) {
+// Profile-aware CMYK→RGB: invert the gamma-aware transform. Reverses
+// the BP lift, restores total ink, removes the K-as-shared-min, then
+// linear → sRGB encode.
+function profileCmykToRgb(c, m, y, k, profileId) {
+  const p = PROFILE_PARAMS[profileId] || PROFILE_PARAMS['U.S. Web Coated (SWOP) v2'];
+  const unBp = (v) => Math.max(0, (v - p.blackPoint) / Math.max(1e-6, 1 - p.blackPoint));
+  const cc = unBp(c), mm = unBp(m), yy = unBp(y), kk = unBp(k);
+  // CMY + K each contribute ink; add K back so total ink density per
+  // channel is the original CMY + K.
+  const cInk = Math.min(1, cc + kk);
+  const mInk = Math.min(1, mm + kk);
+  const yInk = Math.min(1, yy + kk);
+  const R = linearToSrgb(1 - cInk);
+  const G = linearToSrgb(1 - mInk);
+  const B = linearToSrgb(1 - yInk);
+  return { r: Math.round(R * 255), g: Math.round(G * 255), b: Math.round(B * 255) };
+}
+
+// Dispatchers: route to profile-aware or naive based on profiler state.
+function rgbToCmyk(r, g, b, profileId) {
+  if (iccProfiler.loaded) return profileRgbToCmyk(r, g, b, profileId || iccProfiler.profileId);
+  return naiveRgbToCmyk(r, g, b);
+}
+function cmykToRgb(c, m, y, k, profileId) {
+  if (iccProfiler.loaded) return profileCmykToRgb(c, m, y, k, profileId || iccProfiler.profileId);
+  return { r: Math.round(255 * (1 - c) * (1 - k)),
+           g: Math.round(255 * (1 - m) * (1 - k)),
+           b: Math.round(255 * (1 - y) * (1 - k)) };
+}
+function hexToCmyk(hex, profileId) {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
   if (!m) return { c: 0, m: 0, y: 0, k: 0 };
   const n = parseInt(m[1], 16);
-  return rgbToCmyk((n >> 16) & 255, (n >> 8) & 255, n & 255);
+  return rgbToCmyk((n >> 16) & 255, (n >> 8) & 255, n & 255, profileId);
 }
-function cmykToHex(c, m, y, k) {
-  const { r, g, b } = cmykToRgb(c, m, y, k);
+function cmykToHex(c, m, y, k, profileId) {
+  const { r, g, b } = cmykToRgb(c, m, y, k, profileId);
   const x = (1 << 24) | (r << 16) | (g << 8) | b;
   return '#' + x.toString(16).slice(1);
 }
@@ -292,22 +385,29 @@ const ICC_PROFILES = [
   { id: 'Japan Color 2001 Coated', label: 'Japan Color 2001 — JP coated' },
 ];
 
-// Lazy state for the heavy ICC profiler (loaded on demand). Not in the
-// pattern — it's a runtime capability flag.
+// Lazy state for the ICC profiler. Loading is real (the better
+// conversion is gated behind the loaded flag and the chosen profile);
+// the actual ICC v4 binary parser lands next pass for true
+// colorimetric accuracy. Today's "loaded" state gives gamma-correct,
+// K-generated, ink-limited per-profile maths — meaningfully better
+// than the naive (1-R-K)/(1-K) formula, but still an approximation.
 const iccProfiler = {
   loaded: false,
   loading: false,
-  // Placeholder for the lcms.js (or color.js) module + parsed profiles.
-  // Next pass will populate this and swap the math conversions for
-  // ICC-accurate ones.
-  load: function() {
-    if (this.loaded || this.loading) return Promise.resolve();
+  profileId: null,
+  load: function(profileId) {
+    if (this.loaded) { this.profileId = profileId; return Promise.resolve(); }
+    if (this.loading) return Promise.resolve();
     this.loading = true;
-    // TODO(next pass): fetch lcms.js + profile binaries, decode, set
-    // up colour transforms. For now this is a stub so the UI can show
-    // the loading lifecycle without lying about capabilities.
     return new Promise(resolve => {
-      setTimeout(() => { this.loaded = true; this.loading = false; resolve(); }, 50);
+      // No external library to fetch yet — the better math is bundled.
+      // Tiny artificial delay so the UI's "loading" state is visible.
+      setTimeout(() => {
+        this.loaded = true;
+        this.loading = false;
+        this.profileId = profileId;
+        resolve();
+      }, 80);
     });
   },
 };
@@ -3823,6 +3923,15 @@ function exportTileTiff(pattern, baseName) {
       const ifd = UTIF.encodeImage(data, W, H);
       // Tag 296 (ResolutionUnit) = 2 (inch); 282/283 (X/Y Res) = 300.
       ifd.t282 = [300]; ifd.t283 = [300]; ifd.t296 = [2];
+      // Tag 270 (ImageDescription) records the colour-space intent so a
+      // printer's RIP can see what we targeted. Tag 305 (Software) is
+      // the producer. Real ICC profile binary (tag 34675) lands next
+      // pass alongside the v4 parser; for now we declare in metadata.
+      const intent = iccProfiler.loaded
+        ? `girard tile — sRGB source, intended for ${pattern.iccProfile || 'sRGB IEC61966-2.1'} (profile-aware approx; not yet embedded ICC)`
+        : 'girard tile — sRGB IEC61966-2.1';
+      ifd.t270 = [intent];
+      ifd.t305 = ['girard v0.01a'];
       const buf = UTIF.encode([ifd]);
       downloadBlob(new Blob([buf], { type: 'image/tiff' }), `${baseName}.tif`);
     }).catch(err => console.error('girard: TIFF export failed:', err))
@@ -3843,6 +3952,13 @@ function exportTilePdf(pattern, baseName) {
       pdfDoc.setTitle(baseName);
       pdfDoc.setCreator('girard — bobbymeyer.com');
       pdfDoc.setProducer('girard v0.01a');
+      // Declare colour intent in metadata. Real PDF/X-4 OutputIntent
+      // with the embedded ICC binary lands next pass.
+      const intent = iccProfiler.loaded
+        ? `sRGB source; intended for ${pattern.iccProfile || 'sRGB IEC61966-2.1'} (profile-aware approximation)`
+        : 'sRGB IEC61966-2.1';
+      pdfDoc.setSubject(intent);
+      pdfDoc.setKeywords(['girard', 'tile', 'pattern', pattern.iccProfile || 'sRGB']);
       // Embed PNG into the PDF; size the page to the canvas dims (1
       // point = 1 px here, which gives a workable absolute size — the
       // printer can rescale to any finished repeat size).
@@ -4991,13 +5107,17 @@ function mount() {
       pattern.iccProfile = iccProfileSel.value;
     });
   }
+  const profileLabel = (id) => {
+    const entry = ICC_PROFILES.find(p => p.id === id);
+    return entry ? entry.label : (id || 'sRGB');
+  };
   const refreshIccStatus = () => {
     if (!iccStatus) return;
     iccStatus.textContent = iccProfiler.loaded
-      ? 'ICC profiler loaded — precise colour conversion enabled.'
+      ? `Profile-aware conversion enabled — ${profileLabel(pattern.iccProfile)} (gamma-correct, K-generated, ink-limited; full ICC v4 LUTs land next pass).`
       : iccProfiler.loading
       ? 'Loading ICC profiler…'
-      : 'Fast math conversion in use. Load profiler for ICC-accurate colour.';
+      : 'Fast math conversion in use. Load profiler for profile-aware (gamma + K-generation + ink limit) colour.';
   };
   if (colorModeSel) {
     colorModeSel.value = pattern.colorMode || 'srgb';
@@ -5006,11 +5126,23 @@ function mount() {
       rerenderUI();
     });
   }
+  if (iccProfileSel) {
+    iccProfileSel.addEventListener('change', () => {
+      pattern.iccProfile = iccProfileSel.value;
+      iccProfiler.profileId = iccProfileSel.value;
+      refreshIccStatus();
+      rerenderUI();
+    });
+  }
   if (iccLoadBtn) {
     iccLoadBtn.addEventListener('click', () => {
-      if (iccProfiler.loaded || iccProfiler.loading) { refreshIccStatus(); return; }
+      if (iccProfiler.loaded) { refreshIccStatus(); return; }
+      if (iccProfiler.loading) return;
       refreshIccStatus();
-      iccProfiler.load().then(refreshIccStatus);
+      iccProfiler.load(pattern.iccProfile).then(() => {
+        refreshIccStatus();
+        rerenderUI();   // refresh CMYK readouts using new transform
+      });
     });
   }
   refreshIccStatus();
