@@ -4184,6 +4184,7 @@ function renderLayerList(listEl, pattern, selected, handlers) {
 // ---------- Per-layer config form ----------
 function buildConfigForm(host, layer, onChange, opts = {}) {
   const colorMode = opts.colorMode || 'srgb';
+  const iccProfile = opts.iccProfile || 'U.S. Web Coated (SWOP) v2';
   host.replaceChildren();
   if (!layer) return;
   // Self-rebuild for controls that change which fields are visible
@@ -4389,6 +4390,7 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
         const headRow = document.createElement('tr');
         const cols = ['', 'R', 'G', 'B', 'A'];
         if (colorMode === 'cmyk') cols.push('C', 'M', 'Y', 'K');
+        if (colorMode === 'cmyk' && iccProfiler.loaded) cols.push('ΔE');
         cols.push('');
         for (const label of cols) {
           const th = document.createElement('th');
@@ -4458,6 +4460,22 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
               td.appendChild(inp);
               tr.appendChild(td);
             }
+          }
+          // Gamut ΔE: how far the colour sits outside printable CMYK.
+          // Computed as the RGB-distance of the round-trip sRGB→CMYK→sRGB.
+          // Values are bucketed into in-gamut / borderline / out-of-gamut.
+          if (colorMode === 'cmyk' && iccProfiler.loaded) {
+            const back = profileCmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k, iccProfile);
+            const dE = Math.hypot(rgba.r - back.r, rgba.g - back.g, rgba.b - back.b);
+            const td = document.createElement('td');
+            td.className = 'palette-gamut ' + (dE > 12 ? 'oog' : dE > 5 ? 'edge' : 'inside');
+            td.textContent = dE.toFixed(0);
+            td.title = dE > 12
+              ? `Out of gamut (ΔE ≈ ${dE.toFixed(1)}): will desaturate / shift hue on press.`
+              : dE > 5
+              ? `Near gamut edge (ΔE ≈ ${dE.toFixed(1)}): minor shift on press.`
+              : `In gamut (ΔE ≈ ${dE.toFixed(1)}).`;
+            tr.appendChild(td);
           }
 
           // Remove button.
@@ -5120,7 +5138,10 @@ function mount() {
   const rerenderUI = () => {
     rerenderSvg();
     renderLayerList(listEl, pattern, selected, layerHandlers);
-    buildConfigForm(configEl, pattern.layers[selected], rerenderSvg, { colorMode: pattern.colorMode || 'srgb' });
+    buildConfigForm(configEl, pattern.layers[selected], rerenderSvg, {
+      colorMode: pattern.colorMode || 'srgb',
+      iccProfile: pattern.iccProfile || 'U.S. Web Coated (SWOP) v2',
+    });
   };
 
   addSelect.addEventListener('change', () => {

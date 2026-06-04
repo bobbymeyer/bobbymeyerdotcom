@@ -429,6 +429,20 @@ h4.config-section {
   color: #fff;
 }
 
+/* Gamut ΔE indicator: small badge with a colour bucket for how far
+   the colour sits outside the printable CMYK gamut. */
+.palette-gamut {
+  font: 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #fff;
+  text-align: center;
+  padding: 2px 4px;
+  border-radius: 2px;
+  cursor: help;
+}
+.palette-gamut.inside { background: #1e9c4e; }   /* in gamut */
+.palette-gamut.edge   { background: #d68b1a; }   /* borderline */
+.palette-gamut.oog    { background: #c4332a; }   /* out of gamut */
+
 .rgba-widget {
   display: inline-flex;
   align-items: center;
