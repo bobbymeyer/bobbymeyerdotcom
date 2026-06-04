@@ -275,14 +275,35 @@ function linearToSrgb(v) {
 // Per-profile parameters governing K generation, total ink limit, and
 // black-point offset. Values picked to roughly match published TVI
 // (tone value increase) and TAC behaviour for each profile.
+// Per-profile parameters governing K generation, total ink limit, TVI
+// (tone value increase = dot gain), and black-point offset. TVI values
+// represent the additional ink density a 50% commanded dot prints as,
+// approximated as gain50 ≈ printed - commanded at the curve peak.
+// Sourced from published characterization data for each ISO/SWOP/FOGRA
+// reference. CMYK printers typically run higher TVI on coated stock
+// than uncoated — the values here target coated runs.
 const PROFILE_PARAMS = {
-  'sRGB IEC61966-2.1':           { tac: 4.00, kStart: 0.00, kStrength: 1.00, blackPoint: 0.00 },
-  'U.S. Web Coated (SWOP) v2':   { tac: 3.00, kStart: 0.30, kStrength: 0.95, blackPoint: 0.04 },
-  'GRACoL2006_Coated1v2':        { tac: 3.40, kStart: 0.50, kStrength: 0.82, blackPoint: 0.02 },
-  'FOGRA39':                     { tac: 3.30, kStart: 0.35, kStrength: 0.92, blackPoint: 0.04 },
-  'FOGRA51':                     { tac: 3.20, kStart: 0.45, kStrength: 0.88, blackPoint: 0.02 },
-  'Japan Color 2001 Coated':     { tac: 3.50, kStart: 0.25, kStrength: 0.98, blackPoint: 0.05 },
+  'sRGB IEC61966-2.1':           { tac: 4.00, kStart: 0.00, kStrength: 1.00, blackPoint: 0.00, tviC: 0.00, tviM: 0.00, tviY: 0.00, tviK: 0.00 },
+  'U.S. Web Coated (SWOP) v2':   { tac: 3.00, kStart: 0.30, kStrength: 0.95, blackPoint: 0.04, tviC: 0.18, tviM: 0.18, tviY: 0.14, tviK: 0.20 },
+  'GRACoL2006_Coated1v2':        { tac: 3.40, kStart: 0.50, kStrength: 0.82, blackPoint: 0.02, tviC: 0.15, tviM: 0.15, tviY: 0.12, tviK: 0.17 },
+  'FOGRA39':                     { tac: 3.30, kStart: 0.35, kStrength: 0.92, blackPoint: 0.04, tviC: 0.14, tviM: 0.14, tviY: 0.10, tviK: 0.16 },
+  'FOGRA51':                     { tac: 3.20, kStart: 0.45, kStrength: 0.88, blackPoint: 0.02, tviC: 0.12, tviM: 0.12, tviY: 0.10, tviK: 0.14 },
+  'Japan Color 2001 Coated':     { tac: 3.50, kStart: 0.25, kStrength: 0.98, blackPoint: 0.05, tviC: 0.20, tviM: 0.20, tviY: 0.16, tviK: 0.22 },
 };
+
+// Inverse TVI: given target printed density, return the command ink
+// such that running it through a press with this gain produces the
+// target. Modeled as ink - gain * sin(πink)/2 — peaks at 50%, zero at
+// 0/100%. This is the standard sine-based ISO 12642 approximation.
+function tviCompensate(ink, gain) {
+  if (gain <= 0 || ink <= 0 || ink >= 1) return Math.max(0, Math.min(1, ink));
+  return Math.max(0, Math.min(1, ink - gain * Math.sin(Math.PI * ink) / 2));
+}
+// Forward TVI: given command ink, return apparent printed density.
+function tviApply(ink, gain) {
+  if (gain <= 0 || ink <= 0 || ink >= 1) return Math.max(0, Math.min(1, ink));
+  return Math.max(0, Math.min(1, ink + gain * Math.sin(Math.PI * ink) / 2));
+}
 
 // Naive RGB→CMYK (fallback / fast path).
 function naiveRgbToCmyk(r, g, b) {
@@ -306,6 +327,9 @@ function naiveRgbToCmyk(r, g, b) {
 //      down proportionally if they overshoot — keeps ink load printable.
 //   5. blackPoint adds a small lift so 0% ink doesn't map to perfect
 //      paper (press-realistic dot gain).
+//   6. TVI pre-compensation: invert the press's dot-gain curve per
+//      channel so the COMMANDED ink, after the press's gain, prints
+//      at the target density.
 function profileRgbToCmyk(r, g, b, profileId) {
   const p = PROFILE_PARAMS[profileId] || PROFILE_PARAMS['U.S. Web Coated (SWOP) v2'];
   const R = srgbToLinear(r / 255), G = srgbToLinear(g / 255), B = srgbToLinear(b / 255);
@@ -326,18 +350,29 @@ function profileRgbToCmyk(r, g, b, profileId) {
   }
   // Black-point lift so 0% ink ≠ perfect paper.
   const bp = p.blackPoint;
+  c = Math.min(1, c + bp * (1 - c));
+  m = Math.min(1, m + bp * (1 - m));
+  y = Math.min(1, y + bp * (1 - y));
+  k = Math.min(1, k + bp * (1 - k));
+  // Pre-compensate for the press's dot gain so the COMMANDED ink,
+  // after the press's TVI curve, lands at our target density.
   return {
-    c: Math.min(1, c + bp * (1 - c)),
-    m: Math.min(1, m + bp * (1 - m)),
-    y: Math.min(1, y + bp * (1 - y)),
-    k: Math.min(1, k + bp * (1 - k)),
+    c: tviCompensate(c, p.tviC),
+    m: tviCompensate(m, p.tviM),
+    y: tviCompensate(y, p.tviY),
+    k: tviCompensate(k, p.tviK),
   };
 }
-// Profile-aware CMYK→RGB: invert the gamma-aware transform. Reverses
-// the BP lift, restores total ink, removes the K-as-shared-min, then
-// linear → sRGB encode.
+// Profile-aware CMYK→RGB: invert the gamma-aware transform. Forward
+// TVI on the command ink to recover printed density, reverse BP lift,
+// merge K back into CMY, then linear → sRGB encode.
 function profileCmykToRgb(c, m, y, k, profileId) {
   const p = PROFILE_PARAMS[profileId] || PROFILE_PARAMS['U.S. Web Coated (SWOP) v2'];
+  // Forward TVI: command ink → apparent printed density.
+  c = tviApply(c, p.tviC);
+  m = tviApply(m, p.tviM);
+  y = tviApply(y, p.tviY);
+  k = tviApply(k, p.tviK);
   const unBp = (v) => Math.max(0, (v - p.blackPoint) / Math.max(1e-6, 1 - p.blackPoint));
   const cc = unBp(c), mm = unBp(m), yy = unBp(y), kk = unBp(k);
   // CMY + K each contribute ink; add K back so total ink density per
