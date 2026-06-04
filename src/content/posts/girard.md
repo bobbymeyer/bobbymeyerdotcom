@@ -1,7 +1,7 @@
 ---
 title: "girard"
 date: 2026-05-28 10:00:00 -0800
-summary: a tool for building infinitely repeatable textile patterns
+summary: a tool for building infinitely repeatable patterns
 custom_css: girard
 custom_js: girard
 thumbnail: cover.png

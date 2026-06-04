@@ -102,6 +102,23 @@
     align-items: stretch;
   }
   #girard-layers .ctrl { min-width: 0; width: 100%; }
+
+  /* Stretch the actual form elements so they fill the full panel width
+     instead of being content-sized inside the column. */
+  .girard-panel .ctrl input,
+  .girard-panel .ctrl select,
+  .girard-panel button.ctrl {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Lift the panel labels (GIRARD v0 / LAYERS) up so they sit roughly
+     in line with the post's page title above. The number matches the
+     post header height (h1 + inline subtitle + top/bottom margins). */
+  #girard-composition,
+  #girard-layers {
+    margin-top: -180px;
+  }
 }
 
 #girard-layer-panel {
@@ -149,7 +166,7 @@
 
 .layer-item.selected {
   border-color: #1a1a1a;
-  background: #f3f0e6;
+  background: #f0f0f0;
 }
 
 .layer-label {
@@ -182,8 +199,8 @@
   flex-wrap: wrap;
   gap: 12px;
   padding: 12px;
-  background: #f6f3eb;
-  border: 1px dashed #ccc;
+  background: transparent;
+  border: 1px solid #e5e5e5;
 }
 
 #girard-layer-config:empty {
