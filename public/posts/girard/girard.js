@@ -241,6 +241,12 @@ const defaultPattern = () => ({
   // a fast math conversion; selecting a profile + loading the profiler
   // enables ICC-accurate conversion.
   iccProfile: 'sRGB IEC61966-2.1',
+  // Soft-proof preview: when on and the ICC profiler is loaded, the
+  // stage colours are routed through the profile's RGB→CMYK→RGB round
+  // trip before painting. The result simulates on-screen what the
+  // pattern will look like printed (slight desat / hue shift / dot-
+  // gain bloom in midtones).
+  softProof: false,
   // Export controls (live on the pattern so they survive sample loads).
   exportWidth: 1024,
   exportFlatten: false,
@@ -3740,6 +3746,29 @@ function patternFonts(pattern) {
   return [...set];
 }
 
+// Soft proof: walk the rendered SVG tree, rewrite every fill/stroke
+// colour through the active profile's sRGB→CMYK→sRGB round trip so the
+// preview shows what the pattern will look like printed. Skips colours
+// the renderer flagged as semantically transparent ('none',
+// 'transparent') and leaves alpha untouched.
+function applySoftProof(svgNode, profileId) {
+  const transform = (colour) => {
+    if (!colour || colour === 'none' || colour === 'transparent') return colour;
+    const rgba = parseColor(colour);
+    if (rgba.a <= 0) return colour;
+    const cmyk = profileRgbToCmyk(rgba.r, rgba.g, rgba.b, profileId);
+    const back = profileCmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k, profileId);
+    return formatColor({ r: back.r, g: back.g, b: back.b, a: rgba.a });
+  };
+  const walk = (n) => {
+    if (!n || !n.attrs) return;
+    if (n.attrs.fill   != null) n.setAttribute('fill',   transform(n.attrs.fill));
+    if (n.attrs.stroke != null) n.setAttribute('stroke', transform(n.attrs.stroke));
+    (n.children || []).forEach(walk);
+  };
+  walk(svgNode);
+}
+
 function buildSvg(pattern) {
   const { w: tileW, h: tileH } = tileDims(pattern);
   // Show one full centre tile plus only a fraction of the surrounding
@@ -3755,6 +3784,11 @@ function buildSvg(pattern) {
   });
 
   const tileGroup = buildTileGroup(pattern);
+  // Soft proof on the preview: rewrite every fill/stroke through the
+  // active profile so the stage shows the print simulation.
+  if (pattern.softProof && iccProfiler.loaded) {
+    applySoftProof(tileGroup, pattern.iccProfile || 'U.S. Web Coated (SWOP) v2');
+  }
   const unit = buildRepeatUnit(pattern, tileGroup);
 
   const patternId = 'girard-tile';
@@ -5221,6 +5255,16 @@ function mount() {
     });
   }
   refreshIccStatus();
+
+  // Soft-proof toggle. Only effective when ICC profiler is loaded.
+  const softProofInp = document.getElementById('girard-soft-proof');
+  if (softProofInp) {
+    softProofInp.checked = !!pattern.softProof;
+    softProofInp.addEventListener('change', () => {
+      pattern.softProof = softProofInp.checked;
+      rerenderSvg();
+    });
+  }
 
   // Export controls: size, flatten, background.
   const exportWidthInp = document.getElementById('girard-export-width');

@@ -78,6 +78,10 @@ tags:
         <select id='girard-icc-profile'></select>
       </label>
       <button id='girard-icc-load' class='ctrl-inline-btn icc-load-btn'>load ICC profiler</button>
+      <label class='ctrl ctrl-checkbox'>
+        <input id='girard-soft-proof' type='checkbox' />
+        <span>soft proof on stage</span>
+      </label>
       <p id='girard-icc-status' class='icc-status'>Fast math conversion in use. Load profiler for ICC-accurate colour.</p>
     </div>
     <h4 class='panel-subheading'>export</h4>
