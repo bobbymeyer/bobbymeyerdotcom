@@ -436,9 +436,9 @@ const SAMPLES = {
           kind: 'comb',
           profiles: ['flame', 'square', 'spearhead', 'checker', 'drop', 'spear', 'angle', 'finger'],
           colors: ['#c0413c', '#4a6fb0', '#e8b53f', '#2c3340', '#e07a4e', '#c2a878', '#7a6cb0', '#4a9e78'],
-          teeth: [13, 15, 10, 9, 12, 17, 10, 11],
+          teeth: [13, 15, 11, 9, 13, 28, 10, 12],
           base: [0.34, 0.32, 0.34, 0.34, 0.32, 0.3, 0.34, 0.32],
-          duty: [0.55, 0.52, 0.55, 0.5, 0.55, 0.5, 0.5, 0.55],
+          duty: [0.55, 0.55, 0.55, 0.5, 0.55, 0.62, 0.5, 0.55],
         },
       },
     ],
@@ -3319,27 +3319,52 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         if (profile === 'square') {
           parent.appendChild(el('rect', { x: sx, y: ya, width: tw, height: toothH, fill: color }));
         } else if (profile === 'finger') {
+          // Rounded inner end (away from the spine) — so the negative
+          // space (a comb's gap with a round inner end) is congruent to
+          // the positive. The tip end stays flush with the band edge.
           const r = toothH * 0.5;
-          parent.appendChild(el('rect', { x: sx - r, y: ya, width: tw + r, height: toothH, rx: r, ry: r, fill: color }));
+          parent.appendChild(el('path', {
+            d: `M ${sx} ${ya} L ${tipX - r} ${ya} A ${r} ${r} 0 0 1 ${tipX - r} ${yb} L ${sx} ${yb} Z`,
+            fill: color,
+          }));
         } else if (profile === 'triangle' || profile === 'spear') {
           parent.appendChild(el('polygon', { points: `${sx},${ya} ${tipX},${ym} ${sx},${yb}`, fill: color }));
         } else if (profile === 'spearhead') {
-          parent.appendChild(el('polygon', { points: `${sx},${ya} ${tipX},${ym} ${sx},${yb}`, fill: color }));
-          parent.appendChild(el('circle', { cx: sx + tw * 0.12, cy: ym, r: toothH * 0.5, fill: color }));
-        } else if (profile === 'drop') {
-          // Lobe attached to the spine over the full tooth height, sides
-          // curving out to a rounded tip.
+          // Triangle whose base is a concave arc — a circle bites into
+          // the base, leaving the top and bottom corners as flange points
+          // and pinching the neck where the head meets the spine.
+          const aR = toothH * 0.6;
           parent.appendChild(el('path', {
-            d: `M ${sx} ${ya} C ${sx + tw * 0.55} ${ya} ${tipX} ${ym - toothH * 0.12} ${tipX} ${ym}`
-             + ` C ${tipX} ${ym + toothH * 0.12} ${sx + tw * 0.55} ${yb} ${sx} ${yb} Z`,
+            d: `M ${sx} ${ya} L ${tipX} ${ym} L ${sx} ${yb} A ${aR} ${aR} 0 0 0 ${sx} ${ya} Z`,
+            fill: color,
+          }));
+        } else if (profile === 'drop') {
+          // Strong taper: full attach at the spine narrowing to a sharp
+          // rounded tip. Bezier handles biased toward the spine.
+          parent.appendChild(el('path', {
+            d: `M ${sx} ${ya} C ${sx + tw * 0.18} ${ya} ${tipX} ${ym - toothH * 0.04} ${tipX} ${ym}`
+             + ` C ${tipX} ${ym + toothH * 0.04} ${sx + tw * 0.18} ${yb} ${sx} ${yb} Z`,
             fill: color,
           }));
         } else if (profile === 'flame') {
-          // Licking wave: convex belly rising to a clean sharp tip, then
-          // a concave back curling down — leans upward.
-          const tipY = ya + toothH * 0.34;
-          parent.appendChild(el('path', {
-            d: `M ${sx} ${yb} Q ${sx + tw * 0.7} ${yb} ${tipX} ${tipY} Q ${sx + tw * 0.45} ${ya} ${sx} ${ya} Z`,
+          // Triangle distorted via a sine wave: take the straight
+          // triangle edges (spine→tip) and bend them up by sin(πt) so
+          // the body bulges and the tip leans upward like a licking
+          // flame. Bottom edge bends a bit too for the S-curve.
+          const steps = 24;
+          const A = toothH * 0.55;
+          const top = [], bot = [];
+          for (let s = 0; s <= steps; s++) {
+            const t = s / steps;
+            const x = sx + tw * t;
+            const yT = ya + (ym - ya) * t;       // straight triangle upper edge
+            const yB = yb - (yb - ym) * t;       // straight triangle lower edge
+            const wave = Math.sin(t * Math.PI);
+            top.push(`${x.toFixed(2)},${(yT - A * wave).toFixed(2)}`);
+            bot.push(`${x.toFixed(2)},${(yB - A * 0.7 * wave).toFixed(2)}`);
+          }
+          parent.appendChild(el('polygon', {
+            points: top.join(' ') + ' ' + bot.reverse().join(' '),
             fill: color,
           }));
         }
