@@ -449,10 +449,14 @@ const SAMPLES = {
         grid: { cols: 5, rows: 7, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
         fill: {
           kind: 'shape',
-          shape: { kind: 'leaf', size: 1.0, ratio: 0.62, stem: 0.55, strokeWidth: 0.012 },
+          shape: { kind: 'leaf', size: 0.82, ratio: 0.62, stem: 0.55, strokeWidth: 0.012 },
           mode: 'fixed', color: '#6f9a93',
         },
-        vary: { scale: { type: 'random', min: 0.5, max: 1.2 } },
+        vary: {
+          scale:  { type: 'random', min: 0.5, max: 1.2 },
+          jitter: { type: 'random', min: -0.34, max: 0.34 },
+          rotate: { type: 'random', min: -10, max: 10 },
+        },
       },
     ],
   },
