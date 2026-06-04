@@ -3487,13 +3487,12 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       break;
     }
     case 'slant': {
-      // Girard "Barber Pole". Layer-wide fill: cols × rows independent
-      // barber-pole segments. Each row band runs its own M-bar barber
-      // pole, clipped to that band's y-range so bars don't bleed into
-      // adjacent rows (which would seam visibly when row palettes
-      // differ). Bars wrap at the band's top/bottom for seamless tiling
-      // within the band — and at the layer edges, that wrap completes
-      // the seam across tiles.
+      // Girard "Barber Pole". Continuous diagonal-bar pole per column,
+      // running top-to-bottom of the layer with M*rows bars total.
+      // `bars` (M) controls bar count per row band; `rows` multiplies
+      // it. Colour cycles per band (the `r * 0x9E37` salt XOR), so
+      // rows>1 gives stacked colour sections in one continuous pole.
+      // Bars wrap at the layer's top/bottom for seamless tile-to-tile.
       const G = layerGeom(col, row, cw, rh, cols, rows, layerBounds);
       if (!G) break;
       const { lw, lh, ox, oy, salt } = G;
@@ -3504,34 +3503,26 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const colW = lw / cols;
       const innerW = colW * (1 - gX);
       const innerOff = colW * gX / 2;
-      const rowH = lh / rows;
-      const pitch = rowH / M;
+      const totalBars = M * rows;
+      const pitch = lh / totalBars;
       const s = innerW * slope;
       const gapY = (fill.gap ?? 0.16) * pitch;
       const barH = pitch - gapY;
-      for (let r = 0; r < rows; r++) {
-        const rowY = oy + r * rowH;
-        // Per-row clip rect so bars stay inside their row band.
-        const clipId = `slant-${mod(col, 9999)}-${mod(row, 9999)}-${r}-${salt & 0xffff}`;
-        const clip = el('clipPath', { id: clipId });
-        clip.appendChild(el('rect', { x: ox, y: rowY, width: lw, height: rowH }));
-        parent.appendChild(el('defs', {}, [clip]));
-        const g = el('g', { 'clip-path': `url(#${clipId})` });
-        for (let c = 0; c < cols; c++) {
-          const cx = ox + c * colW + innerOff;
-          for (let i = -1; i <= M; i++) {
-            const bi = mod(i, M);
-            const color = palette[Math.floor(cellRng(c, bi, (salt ^ (r * 0x9E37)) >>> 0)() * palette.length)] || fill.color || '#2c7fb8';
-            if (isTransparent(color)) continue;
-            const y0 = rowY + i * pitch + gapY / 2;
-            g.appendChild(el('polygon', {
-              points: `${cx},${(y0 + s).toFixed(2)} ${cx + innerW},${y0.toFixed(2)} `
-                    + `${cx + innerW},${(y0 + barH).toFixed(2)} ${cx},${(y0 + barH + s).toFixed(2)}`,
-              fill: color,
-            }));
-          }
+      for (let c = 0; c < cols; c++) {
+        const cx = ox + c * colW + innerOff;
+        for (let i = -1; i <= totalBars; i++) {
+          const bi = mod(i, totalBars);
+          const band = Math.floor(bi / M);            // which row's palette pick
+          const bandBi = bi % M;                       // bar index inside the band
+          const color = palette[Math.floor(cellRng(c, bandBi, (salt ^ (band * 0x9E37)) >>> 0)() * palette.length)] || fill.color || '#2c7fb8';
+          if (isTransparent(color)) continue;
+          const y0 = oy + i * pitch + gapY / 2;
+          parent.appendChild(el('polygon', {
+            points: `${cx},${(y0 + s).toFixed(2)} ${cx + innerW},${y0.toFixed(2)} `
+                  + `${cx + innerW},${(y0 + barH).toFixed(2)} ${cx},${(y0 + barH + s).toFixed(2)}`,
+            fill: color,
+          }));
         }
-        parent.appendChild(g);
       }
       break;
     }
