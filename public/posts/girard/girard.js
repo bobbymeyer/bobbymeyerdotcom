@@ -3508,9 +3508,15 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const s = innerW * slope;
       const gapY = (fill.gap ?? 0.16) * pitch;
       const barH = pitch - gapY;
+      // Wrap range: enough bars beyond each edge that a bar whose
+      // diagonal sweeps across `s` vertical pixels still has its
+      // visible (un-clipped) portion drawn. Without this, high bar
+      // counts leave a triangular gap at the top-left / bottom-right
+      // of each column where the missing wrap bars would have sat.
+      const wrapN = Math.ceil(s / pitch) + 1;
       for (let c = 0; c < cols; c++) {
         const cx = ox + c * colW + innerOff;
-        for (let i = -1; i <= totalBars; i++) {
+        for (let i = -wrapN; i <= totalBars + wrapN - 1; i++) {
           const bi = mod(i, totalBars);
           const band = Math.floor(bi / M);            // which row's palette pick
           const bandBi = bi % M;                       // bar index inside the band
