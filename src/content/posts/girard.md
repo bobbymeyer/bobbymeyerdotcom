@@ -60,7 +60,6 @@ tags:
         </div>
       </div>
     </div>
-
     <h4 class='panel-subheading'>export</h4>
     <div class='export-buttons'>
       <button id='girard-export-svg' class='ctrl-inline-btn'>SVG</button>
@@ -70,9 +69,7 @@ tags:
       <button class='ctrl-inline-btn' disabled title='Coming soon'>TIFF</button>
     </div>
   </aside>
-
   <div id='girard-stage'></div>
-
   <aside id='girard-layers' class='girard-panel'>
     <select id='girard-add-layer'>
       <option value=''>+ add layer…</option>
