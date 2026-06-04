@@ -419,6 +419,22 @@ const SAMPLES = {
       },
     ],
   },
+  'Barber Pole': {
+    // Girard "Barber Pole": vertical columns of diagonal bars in random
+    // blues and teals, separated by white channels and thin white
+    // diagonal gaps.
+    palette: ['#2c7fb8', '#2f93b8', '#2aa6ac', '#1f6fa8', '#3aa0c2', '#1a5f9e', '#34b0b4', '#2d86bd'],
+    layers: [
+      {
+        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'solid', color: '#ffffff', mode: 'fixed' },
+      },
+      {
+        grid: { cols: 5, rows: 1, gutterX: 0.2, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        fill: { kind: 'slant', bars: 8, slope: 0.6, gap: 0.15 },
+      },
+    ],
+  },
   'Leaves': {
     // Girard "Leaves": outlined pointed-oval leaves (like Pepitas but
     // unfilled) with a vein straight down the centre that extends below
@@ -1465,7 +1481,8 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'twigs')
         || (l.fill?.kind === 'dashes' && l.fill?.mode === 'random')
         || (l.fill?.kind === 'multiform')
-        || (l.fill?.kind === 'fruit');
+        || (l.fill?.kind === 'fruit')
+        || (l.fill?.kind === 'slant');
   };
   if (sample.palette) {
     for (const l of layers) {
@@ -3389,6 +3406,31 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       }
       break;
     }
+    case 'slant': {
+      // Girard "Barber Pole": each column (cell) is filled with sheared
+      // parallelogram bars in random palette shades, separated by thin
+      // white diagonal gaps; gutterX leaves the white channels between
+      // columns. Bars wrap (index mod M) so the column tiles vertically.
+      const salt = layerBounds?.salt ?? 1;
+      const M = Math.max(2, fill.bars ?? 9);
+      const slope = fill.slope ?? 0.6;
+      const pitch = ih / M;
+      const s = iw * slope;
+      const gap = (fill.gap ?? 0.16) * pitch;
+      const barH = pitch - gap;
+      for (let i = -1; i <= M; i++) {
+        const bi = mod(i, M);
+        const color = palette[Math.floor(cellRng(ci, bi, salt ^ 0x33)() * palette.length)] || fill.color || '#2c7fb8';
+        if (isTransparent(color)) continue;
+        const y0 = iy + i * pitch + gap / 2;
+        parent.appendChild(el('polygon', {
+          points: `${ix},${(y0 + s).toFixed(2)} ${ix + iw},${y0.toFixed(2)} `
+                + `${ix + iw},${(y0 + barH).toFixed(2)} ${ix},${(y0 + barH + s).toFixed(2)}`,
+          fill: color,
+        }));
+      }
+      break;
+    }
     case 'layer': {
       if (fill.layer) {
         renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
@@ -3761,7 +3803,7 @@ function buildConfigForm(host, layer, onChange) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass', 'firecracker', 'comb'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass', 'firecracker', 'comb', 'slant'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -3791,6 +3833,8 @@ function buildConfigForm(host, layer, onChange) {
       layer.fill = { kind: 'firecracker', color: '#e0954a', fuse: 0.08, barWidth: 0.5, barLen: 0.4 };
     } else if (fillKind.value === 'comb') {
       layer.fill = { kind: 'comb', profile: 'square', color: '#4a6fb0', teeth: 14, amp: 0.3 };
+    } else if (fillKind.value === 'slant') {
+      layer.fill = { kind: 'slant', bars: 9, slope: 0.62, gap: 0.16 };
     } else if (fillKind.value === 'solid') {
       layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
     } else if (fillKind.value === 'shape') {
@@ -4001,6 +4045,13 @@ function buildConfigForm(host, layer, onChange) {
     bs.addEventListener('input', () => { layer.fill.base = Number(bs.value); onChange(); });
     const dt = addCtrl('tooth height', 'number', layer.fill.duty ?? 0.52, { min: 0.2, max: 0.9, step: 0.04 });
     dt.addEventListener('input', () => { layer.fill.duty = Number(dt.value); onChange(); });
+  } else if (layer.fill.kind === 'slant') {
+    const bn = addCtrl('bars', 'number', layer.fill.bars ?? 9, { min: 3, max: 24, step: 1 });
+    bn.addEventListener('input', () => { layer.fill.bars = Number(bn.value) | 0; onChange(); });
+    const sl = addCtrl('slope', 'number', layer.fill.slope ?? 0.62, { min: 0, max: 2, step: 0.05 });
+    sl.addEventListener('input', () => { layer.fill.slope = Number(sl.value); onChange(); });
+    const gp = addCtrl('gap', 'number', layer.fill.gap ?? 0.16, { min: 0, max: 0.5, step: 0.02 });
+    gp.addEventListener('input', () => { layer.fill.gap = Number(gp.value); onChange(); });
   } else if (layer.fill.kind === 'firecracker') {
     addColorCtrl('color', layer.fill.color || '#e0954a', (v) => { layer.fill.color = v; onChange(); });
     const fz = addCtrl('fuse', 'number', layer.fill.fuse ?? 0.08, { min: 0.02, max: 0.3, step: 0.01 });
