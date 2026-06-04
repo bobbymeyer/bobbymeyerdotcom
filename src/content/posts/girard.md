@@ -64,9 +64,9 @@ tags:
     <div class='export-buttons'>
       <button id='girard-export-svg' class='ctrl-inline-btn'>SVG</button>
       <button id='girard-export-png' class='ctrl-inline-btn'>PNG</button>
-      <button class='ctrl-inline-btn' disabled title='Coming soon'>JPEG</button>
+      <button id='girard-export-jpg' class='ctrl-inline-btn'>JPG</button>
       <button class='ctrl-inline-btn' disabled title='Coming soon'>PDF</button>
-      <button class='ctrl-inline-btn' disabled title='Coming soon'>TIFF</button>
+      <button class='ctrl-inline-btn' disabled title='Coming soon'>TIF</button>
     </div>
   </aside>
   <div id='girard-stage'></div>

@@ -3613,6 +3613,20 @@ function exportTileSvg(pattern, baseName) {
 // entries) come through with alpha — same as the SVG. `scale` bumps
 // pixel resolution for high-DPI output (default 2×).
 function exportTilePng(pattern, baseName, scale = 2) {
+  exportTileRaster(pattern, baseName, 'image/png', { scale });
+}
+
+// JPEG. Always opaque, so a background colour is painted under the
+// tile before drawing. `scale` for high-DPI; `quality` 0..1.
+function exportTileJpeg(pattern, baseName, scale = 2, quality = 0.92, background = '#ffffff') {
+  exportTileRaster(pattern, baseName, 'image/jpeg', { scale, quality, background });
+}
+
+// Shared raster export pipeline. Loads the SVG into an <img>, draws to
+// a canvas at `scale`× pixel density, exports via toBlob.
+function exportTileRaster(pattern, baseName, mime, opts = {}) {
+  const { scale = 2, quality, background } = opts;
+  const ext = mime === 'image/jpeg' ? 'jpg' : 'png';
   const { svg, width, height } = buildTileSvg(pattern);
   const xml = serializeSvg(svg);
   const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
@@ -3625,15 +3639,19 @@ function exportTilePng(pattern, baseName, scale = 2) {
     canvas.width = W;
     canvas.height = H;
     const ctx = canvas.getContext('2d');
+    if (background) {
+      ctx.fillStyle = background;
+      ctx.fillRect(0, 0, W, H);
+    }
     ctx.drawImage(img, 0, 0, W, H);
-    canvas.toBlob((pngBlob) => {
-      if (pngBlob) downloadBlob(pngBlob, `${baseName}.png`);
+    canvas.toBlob((outBlob) => {
+      if (outBlob) downloadBlob(outBlob, `${baseName}.${ext}`);
       URL.revokeObjectURL(url);
-    }, 'image/png');
+    }, mime, quality);
   };
   img.onerror = () => {
     URL.revokeObjectURL(url);
-    console.error('girard: PNG export failed (SVG load error)');
+    console.error(`girard: ${ext.toUpperCase()} export failed (SVG load error)`);
   };
   img.src = url;
 }
@@ -4519,6 +4537,12 @@ function mount() {
   if (exportPngBtn) {
     exportPngBtn.addEventListener('click', () => {
       fontsReady().then(() => exportTilePng(pattern, exportBase()));
+    });
+  }
+  const exportJpgBtn = document.getElementById('girard-export-jpg');
+  if (exportJpgBtn) {
+    exportJpgBtn.addEventListener('click', () => {
+      fontsReady().then(() => exportTileJpeg(pattern, exportBase()));
     });
   }
 

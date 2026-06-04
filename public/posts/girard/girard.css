@@ -118,11 +118,18 @@
   text-align: left;
 }
 
-/* Export buttons row — content-sized buttons, wrap as needed. */
+/* Export buttons row — single row, buttons share the row evenly. */
 .export-buttons {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
+}
+.export-buttons .ctrl-inline-btn {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: 6px;
+  padding-right: 6px;
+  text-align: center;        /* short glyph labels in a compact button */
 }
 .export-buttons .ctrl-inline-btn[disabled] {
   opacity: 0.35;
