@@ -117,13 +117,13 @@
   }
 
   /* Panel bodies stay top-aligned with the stage; lift JUST the
-     section labels into the empty space above so their bottoms line
-     up with the post title's bottom. The matched margin-bottom keeps
-     the panel body in the same place. */
+     section labels into the empty space above so their bottoms align
+     with the post title's bottom. Sum of margin-top + margin-bottom
+     (= -24) is kept constant so the panel body stays put. */
   #girard-composition > .panel-heading,
   #girard-layers .layer-panel-header h3 {
-    margin-top: -82px;
-    margin-bottom: 58px;
+    margin-top: -45px;
+    margin-bottom: 21px;
     align-self: start;        /* keep section labels left-aligned */
   }
   #girard-layers .layer-panel-header { display: contents; }
