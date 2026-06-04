@@ -4210,11 +4210,12 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
   // Optional explicit weights for variable-width columns / rows.
   // Comma-separated list of positive numbers; blank = fall back to
   // uniform cols/rows.
+  addHeader('weights');
   const parseWeights = (str) => {
     const list = str.split(',').map(s => Number(s.trim())).filter(n => isFinite(n) && n > 0);
     return list.length ? list : null;
   };
-  const cWeights = addCtrl('col weights', 'text',
+  const cWeights = addCtrl('col', 'text',
     (layer.grid.colWeights || []).join(', '),
     {});
   cWeights.placeholder = 'uniform';
@@ -4223,7 +4224,7 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
     if (w) layer.grid.colWeights = w; else delete layer.grid.colWeights;
     onChange();
   });
-  const rWeights = addCtrl('row weights', 'text',
+  const rWeights = addCtrl('row', 'text',
     (layer.grid.rowWeights || []).join(', '),
     {});
   rWeights.placeholder = 'uniform';
