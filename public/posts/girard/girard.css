@@ -113,17 +113,19 @@
   }
 
   /* Panel bodies stay top-aligned with the stage; lift JUST the
-     labels (GIRARD v0 / LAYERS) into the empty space above so they
-     align with the post title. The add-layer dropdown stays put in
-     the panel body via display: contents on its wrapper. */
+     labels (GIRARD v0 / LAYERS) into the empty space above so their
+     bottoms line up with the post title's bottom. The matched
+     margin-bottom keeps the panel body in the same place. */
   #girard-composition > header {
-    margin-top: -140px;
-    margin-bottom: 100px;
+    margin-top: -82px;
+    margin-bottom: 58px;
+    align-self: end;
   }
   #girard-layers .layer-panel-header { display: contents; }
   #girard-layers .layer-panel-header h3 {
-    margin-top: -140px;
-    margin-bottom: 100px;
+    margin-top: -82px;
+    margin-bottom: 58px;
+    align-self: end;
   }
 
   /* Roomier spacing inside the panels. */
