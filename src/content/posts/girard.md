@@ -19,11 +19,13 @@ tags:
   <aside id='girard-composition' class='girard-panel'>
     <h3 class='panel-heading'>project settings</h3>
     <div class='ctrl-row'>
-      <label class='ctrl'>
+      <div class='ctrl ctrl-inline'>
         <span>seed</span>
-        <input id='girard-seed' type='number' value='1' min='0' max='99999' />
-      </label>
-      <button id='girard-roll' class='ctrl'>roll seed</button>
+        <div class='ctrl-inline-row'>
+          <input id='girard-seed' type='number' value='1' min='0' max='99999' />
+          <button id='girard-roll' class='ctrl ctrl-inline-btn'>roll</button>
+        </div>
+      </div>
       <label class='ctrl'>
         <span>repeat</span>
         <select id='girard-repeat'>
@@ -36,15 +38,20 @@ tags:
         <span>aspect (w/h)</span>
         <input id='girard-aspect' type='number' value='1' min='0.2' max='5' step='0.05' />
       </label>
-      <label class='ctrl'>
+      <div class='ctrl ctrl-inline'>
         <span>surround veil</span>
-        <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.5' />
-      </label>
-      <label class='ctrl'>
+        <div class='ctrl-inline-row'>
+          <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.2' />
+          <button id='girard-veil-preview' class='ctrl ctrl-inline-btn' aria-pressed='false'>preview</button>
+        </div>
+      </div>
+      <div class='ctrl ctrl-inline'>
         <span>sample</span>
-        <select id='girard-sample'></select>
-      </label>
-      <button id='girard-load-sample' class='ctrl'>load sample</button>
+        <div class='ctrl-inline-row'>
+          <select id='girard-sample'></select>
+          <button id='girard-load-sample' class='ctrl ctrl-inline-btn'>load</button>
+        </div>
+      </div>
     </div>
   </aside>
   <div id='girard-stage'></div>

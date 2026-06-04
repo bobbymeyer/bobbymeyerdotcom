@@ -92,6 +92,17 @@
   width: 100%;
 }
 
+/* An inline ctrl pairs an input with a trailing button. The label
+   span stacks on top; the row underneath holds them side-by-side. */
+.ctrl-inline-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.ctrl-inline-row > :first-child { flex: 1; min-width: 0; }
+.ctrl-inline-btn { flex: 0 0 auto; padding-left: 14px; padding-right: 14px; }
+.ctrl-inline-btn[aria-pressed="true"] { background: #444; outline: 1px solid #ddd; }
+
 /* In the desktop side panels, controls stack into a single column so a
    narrow gutter doesn't push them into ragged rows. */
 @media (min-width: 1100px) {

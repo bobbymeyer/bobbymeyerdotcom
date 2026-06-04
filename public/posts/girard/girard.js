@@ -230,7 +230,7 @@ const defaultPattern = () => ({
   tileSize: 480,
   repeat: 'square',                                  // square | half-drop | half-brick
   palette: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'],
-  surroundVeil: 0.5,
+  surroundVeil: 0.2,
   layers: [
     makeLayer('solid'),
   ],
@@ -4392,8 +4392,36 @@ function mount() {
 
   veil.addEventListener('input', () => {
     pattern.surroundVeil = Number(veil.value);
+    // Slider use cancels the "preview" toggle (which forces veil=1).
+    if (veilPreviewBtn) {
+      veilPreviewBtn.dataset.previewOn = '';
+      veilPreviewBtn.setAttribute('aria-pressed', 'false');
+    }
     rerenderSvg();
   });
+
+  // "preview" button toggles between 100% visible (full tiling, no
+  // veil) and the slider's value. Stash the slider value when previewing
+  // so we can restore it on toggle off.
+  const veilPreviewBtn = document.getElementById('girard-veil-preview');
+  if (veilPreviewBtn) {
+    veilPreviewBtn.addEventListener('click', () => {
+      const on = veilPreviewBtn.dataset.previewOn === '1';
+      if (on) {
+        const stash = Number(veilPreviewBtn.dataset.previewStash);
+        const restored = isFinite(stash) ? stash : Number(veil.value);
+        pattern.surroundVeil = restored;
+        veilPreviewBtn.dataset.previewOn = '';
+        veilPreviewBtn.setAttribute('aria-pressed', 'false');
+      } else {
+        veilPreviewBtn.dataset.previewStash = String(pattern.surroundVeil);
+        pattern.surroundVeil = 0;
+        veilPreviewBtn.dataset.previewOn = '1';
+        veilPreviewBtn.setAttribute('aria-pressed', 'true');
+      }
+      rerenderSvg();
+    });
+  }
 
   loadBtn.addEventListener('click', () => {
     const name = sampleSel.value;
