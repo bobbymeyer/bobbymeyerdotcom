@@ -14,13 +14,13 @@
    stage as a square taking the remaining width minus two side panels. */
 @media (min-width: 1100px) {
   #girard {
-    width: calc(100vw - 96px);
-    margin-left: calc(50% - 50vw + 48px);
-    margin-right: calc(50% - 50vw + 48px);
+    width: calc(100vw - 200px);
+    margin-left: calc(50% - 50vw + 100px);
+    margin-right: calc(50% - 50vw + 100px);
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr) 320px;
     align-items: start;
-    gap: 24px;
+    gap: 48px;
   }
   #girard-stage {
     grid-column: 2;
@@ -112,13 +112,24 @@
     box-sizing: border-box;
   }
 
-  /* Lift the panel labels (GIRARD v0 / LAYERS) up so they sit roughly
-     in line with the post's page title above. The number matches the
-     post header height (h1 + inline subtitle + top/bottom margins). */
-  #girard-composition,
-  #girard-layers {
-    margin-top: -180px;
+  /* Panel bodies stay top-aligned with the stage; lift JUST the
+     labels (GIRARD v0 / LAYERS) into the empty space above so they
+     align with the post title. The add-layer dropdown stays put in
+     the panel body via display: contents on its wrapper. */
+  #girard-composition > header {
+    margin-top: -140px;
+    margin-bottom: 100px;
   }
+  #girard-layers .layer-panel-header { display: contents; }
+  #girard-layers .layer-panel-header h3 {
+    margin-top: -140px;
+    margin-bottom: 100px;
+  }
+
+  /* Roomier spacing inside the panels. */
+  #girard-composition .ctrl-row { gap: 16px; }
+  #girard-layer-panel { gap: 14px; }
+  #girard-layer-config { gap: 16px; padding: 16px; }
 }
 
 #girard-layer-panel {
