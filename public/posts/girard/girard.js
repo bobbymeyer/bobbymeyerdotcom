@@ -4145,16 +4145,17 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
   cols.addEventListener('input', () => { layer.grid.cols = Math.max(1, Number(cols.value) | 0); onChange(); });
   rows.addEventListener('input', () => { layer.grid.rows = Math.max(1, Number(rows.value) | 0); onChange(); });
 
-  const offMode = addCtrl('offset mode', 'select', layer.grid.offsetMode || 'none', {
+  addHeader('offset');
+  const offMode = addCtrl('mode', 'select', layer.grid.offsetMode || 'none', {
     options: ['none', 'alternate-row', 'alternate-col'],
   });
   offMode.addEventListener('change', () => { layer.grid.offsetMode = offMode.value; onChange(); });
 
-  // Offset X / Y sit side-by-side inside col 2 of the parent grid,
-  // pairing visually with the offset-mode select in col 1.
+  // X / Y sit side-by-side inside col 2 of the parent grid, pairing
+  // visually with the offset mode select in col 1.
   const offsetPair = addPair();
-  const offX = addCtrl('offset x', 'number', layer.grid.offset?.x ?? 0, { min: 0, max: 1, step: 0.05, into: offsetPair });
-  const offY = addCtrl('offset y', 'number', layer.grid.offset?.y ?? 0, { min: 0, max: 1, step: 0.05, into: offsetPair });
+  const offX = addCtrl('x', 'number', layer.grid.offset?.x ?? 0, { min: 0, max: 1, step: 0.05, into: offsetPair });
+  const offY = addCtrl('y', 'number', layer.grid.offset?.y ?? 0, { min: 0, max: 1, step: 0.05, into: offsetPair });
   offX.addEventListener('input', () => {
     layer.grid.offset = { ...(layer.grid.offset || {}), x: Number(offX.value) };
     onChange();
