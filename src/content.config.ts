@@ -22,6 +22,9 @@ const posts = defineCollection({
     height: z.number().int().min(1).default(2),
     // Drafts render in dev but are excluded from production builds.
     draft: z.boolean().default(false),
+    // Optional version tag rendered as a tiny superscript on the title
+    // (e.g. "0.01a" → girard^0.01a). Useful for tool-style posts.
+    version: z.string().optional(),
   }),
 });
 

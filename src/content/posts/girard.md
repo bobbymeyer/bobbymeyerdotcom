@@ -1,5 +1,6 @@
 ---
 title: "girard"
+version: "0.01a"
 date: 2026-05-28 10:00:00 -0800
 summary: a tool for building infinitely repeatable patterns
 custom_css: girard
@@ -16,9 +17,7 @@ tags:
 ---
 <div id='girard'>
   <aside id='girard-composition' class='girard-panel'>
-    <header>
-      <h2>girard <small>v0</small></h2>
-    </header>
+    <h3 class='panel-heading'>project settings</h3>
     <div class='ctrl-row'>
       <label class='ctrl'>
         <span>seed</span>

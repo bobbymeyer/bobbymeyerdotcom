@@ -113,20 +113,16 @@
   }
 
   /* Panel bodies stay top-aligned with the stage; lift JUST the
-     labels (GIRARD v0 / LAYERS) into the empty space above so their
-     bottoms line up with the post title's bottom. The matched
-     margin-bottom keeps the panel body in the same place. */
-  #girard-composition > header {
-    margin-top: -82px;
-    margin-bottom: 58px;
-    align-self: end;
-  }
-  #girard-layers .layer-panel-header { display: contents; }
+     section labels into the empty space above so their bottoms line
+     up with the post title's bottom. The matched margin-bottom keeps
+     the panel body in the same place. */
+  #girard-composition > .panel-heading,
   #girard-layers .layer-panel-header h3 {
     margin-top: -82px;
     margin-bottom: 58px;
-    align-self: end;
+    align-self: start;        /* keep section labels left-aligned */
   }
+  #girard-layers .layer-panel-header { display: contents; }
 
   /* Roomier spacing inside the panels. */
   #girard-composition .ctrl-row { gap: 16px; }
@@ -149,13 +145,15 @@
   gap: 12px;
 }
 
-.layer-panel-header h3 {
+.layer-panel-header h3,
+.panel-heading {
   font: inherit;
   font-weight: 700;
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   margin: 0;
+  text-align: left;
 }
 
 #girard-layer-list {

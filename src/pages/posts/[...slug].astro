@@ -42,7 +42,9 @@ const jsSrc = post.data.custom_js
     </a>
     <header class="mt-8 mb-10 flex flex-wrap items-end gap-x-6 gap-y-2">
       <h1 class="text-3xl md:text-5xl font-bold tracking-tight leading-tight">
-        {post.data.title}
+        {post.data.title}{post.data.version && (
+          <sup class="text-[10px] font-mono font-normal text-black/50 ml-1 align-super tracking-normal">v{post.data.version}</sup>
+        )}
       </h1>
       {post.data.summary && (
         <p class="text-black/70 leading-relaxed">{post.data.summary}</p>
