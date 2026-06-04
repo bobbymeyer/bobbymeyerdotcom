@@ -14,9 +14,9 @@
    stage as a square taking the remaining width minus two side panels. */
 @media (min-width: 1100px) {
   #girard {
-    width: calc(100vw - 32px);
-    margin-left: calc(50% - 50vw + 16px);
-    margin-right: calc(50% - 50vw + 16px);
+    width: calc(100vw - 96px);
+    margin-left: calc(50% - 50vw + 48px);
+    margin-right: calc(50% - 50vw + 48px);
     display: grid;
     grid-template-columns: 280px minmax(0, 1fr) 320px;
     align-items: start;
