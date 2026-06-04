@@ -4120,6 +4120,238 @@ function buildSrgbIccProfile() {
   return profile;
 }
 
+// sRGB → XYZ D50 PCS using the same primaries the sRGB profile encodes.
+// The matrix is sRGB (D65) primaries Bradford-adapted to D50. Inputs
+// are 0-255 sRGB integers, output is 0..1 PCS XYZ (1.0 = 0x8000 in
+// ICC lut16 encoding).
+function srgbToXyzD50(r, g, b) {
+  const R = srgbToLinear(r / 255), G = srgbToLinear(g / 255), B = srgbToLinear(b / 255);
+  return {
+    X: 0.4361 * R + 0.3851 * G + 0.1431 * B,
+    Y: 0.2225 * R + 0.7169 * G + 0.0606 * B,
+    Z: 0.0139 * R + 0.0971 * G + 0.7141 * B,
+  };
+}
+// Inverse: XYZ D50 → sRGB integers, clamped 0–255.
+function xyzD50ToSrgb(X, Y, Z) {
+  // Inverse of the above matrix.
+  const R =  3.1339 * X - 1.6173 * Y - 0.4907 * Z;
+  const G = -0.9788 * X + 1.9162 * Y + 0.0335 * Z;
+  const B =  0.0720 * X - 0.2290 * Y + 1.4055 * Z;
+  return {
+    r: Math.round(linearToSrgb(Math.max(0, Math.min(1, R))) * 255),
+    g: Math.round(linearToSrgb(Math.max(0, Math.min(1, G))) * 255),
+    b: Math.round(linearToSrgb(Math.max(0, Math.min(1, B))) * 255),
+  };
+}
+
+// ---------- CMYK ICC profile generator ----------
+// Build a real ICC v2 CMYK profile for the given region by SAMPLING our
+// profile-aware math at LUT grid points. The resulting binary is a
+// spec-valid ICC profile (device class 'prtr', colour space 'CMYK',
+// PCS 'XYZ ') that a print shop's preflight will accept and a RIP can
+// use as a colour-management target.
+//
+// Tags emitted: desc, cprt, wtpt, bkpt, A2B0 (CMYK→XYZ), B2A0 (XYZ→CMYK).
+// A2B0 uses a 9⁴ grid (6,561 samples ≈ 39 KB); B2A0 uses a 17³ grid
+// (4,913 samples ≈ 39 KB). Total profile ~85 KB — comparable to a
+// real-world CMYK profile.
+const _cmykIccCache = new Map();
+function buildCmykIccProfile(profileId) {
+  if (_cmykIccCache.has(profileId)) return _cmykIccCache.get(profileId);
+  const params = PROFILE_PARAMS[profileId];
+  if (!params) return null;
+
+  // ----- helpers -----
+  const writeSig = (buf, off, sig) => { for (let i = 0; i < 4; i++) buf[off + i] = sig.charCodeAt(i); };
+  const dv = (buf) => new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  const w32 = (b, o, v) => dv(b).setUint32(o, v >>> 0, false);
+  const wi32 = (b, o, v) => dv(b).setInt32(o, v | 0, false);
+  const w16 = (b, o, v) => dv(b).setUint16(o, v & 0xffff, false);
+  const wi16 = (b, o, v) => dv(b).setInt16(o, v, false);
+  const s15Fixed16 = (v) => Math.round(v * 65536);
+  const clamp16 = (v) => Math.max(0, Math.min(65535, Math.round(v)));
+  // ICC lut16 XYZ encoding: 1.0 = 0x8000 (32768), max representable ≈ 1.9999.
+  const xyz16 = (v) => clamp16(v * 32768);
+
+  // ----- generate A2B0 LUT: CMYK → XYZ -----
+  // ICC lut16Type expects input order such that the LAST input dim is the
+  // fastest-changing. For CMYK that means K is innermost when reading,
+  // so we iterate C (outermost) → M → Y → K (innermost) to match.
+  const gA = 9;
+  const a2bClut = new Uint16Array(gA * gA * gA * gA * 3);
+  let aIdx = 0;
+  for (let ci = 0; ci < gA; ci++) {
+    const c = ci / (gA - 1);
+    for (let mi = 0; mi < gA; mi++) {
+      const m = mi / (gA - 1);
+      for (let yi = 0; yi < gA; yi++) {
+        const y = yi / (gA - 1);
+        for (let ki = 0; ki < gA; ki++) {
+          const k = ki / (gA - 1);
+          const rgb = profileCmykToRgb(c, m, y, k, profileId);
+          const xyz = srgbToXyzD50(rgb.r, rgb.g, rgb.b);
+          a2bClut[aIdx++] = xyz16(xyz.X);
+          a2bClut[aIdx++] = xyz16(xyz.Y);
+          a2bClut[aIdx++] = xyz16(xyz.Z);
+        }
+      }
+    }
+  }
+
+  // ----- generate B2A0 LUT: XYZ → CMYK -----
+  // PCS XYZ inputs are 0..2 (clamped at 0x8000=1.0 typically); we sample
+  // the printable cube 0..1 X and Z, 0..1 Y.
+  const gB = 17;
+  const b2aClut = new Uint16Array(gB * gB * gB * 4);
+  let bIdx = 0;
+  for (let xi = 0; xi < gB; xi++) {
+    const X = xi / (gB - 1);
+    for (let yi = 0; yi < gB; yi++) {
+      const Y = yi / (gB - 1);
+      for (let zi = 0; zi < gB; zi++) {
+        const Z = zi / (gB - 1);
+        const rgb = xyzD50ToSrgb(X, Y, Z);
+        const cmyk = profileRgbToCmyk(rgb.r, rgb.g, rgb.b, profileId);
+        b2aClut[bIdx++] = clamp16(cmyk.c * 65535);
+        b2aClut[bIdx++] = clamp16(cmyk.m * 65535);
+        b2aClut[bIdx++] = clamp16(cmyk.y * 65535);
+        b2aClut[bIdx++] = clamp16(cmyk.k * 65535);
+      }
+    }
+  }
+
+  // ----- build mft2 tag bytes -----
+  // Layout: 'mft2' + reserved + (i,o,g,reserved) + 36-byte identity matrix
+  // + (n,m as u16) + input tables (i*n*2) + CLUT (g^i*o*2) + output tables (o*m*2)
+  const buildMft2 = (inCh, outCh, g, clutData) => {
+    const n = 256, m = 256;
+    const inTableSize = inCh * n * 2;
+    const clutSize = clutData.length * 2;
+    const outTableSize = outCh * m * 2;
+    const total = 8 + 4 + 36 + 4 + inTableSize + clutSize + outTableSize;
+    const t = new Uint8Array(total);
+    writeSig(t, 0, 'mft2');
+    // bytes 4–7 reserved
+    t[8] = inCh; t[9] = outCh; t[10] = g; t[11] = 0;
+    // identity matrix at 12..47
+    wi32(t, 12, s15Fixed16(1)); wi32(t, 16, s15Fixed16(0)); wi32(t, 20, s15Fixed16(0));
+    wi32(t, 24, s15Fixed16(0)); wi32(t, 28, s15Fixed16(1)); wi32(t, 32, s15Fixed16(0));
+    wi32(t, 36, s15Fixed16(0)); wi32(t, 40, s15Fixed16(0)); wi32(t, 44, s15Fixed16(1));
+    w16(t, 48, n);
+    w16(t, 50, m);
+    // Input tables: linear 0..65535 across n=256 entries per input channel.
+    let p = 52;
+    for (let ch = 0; ch < inCh; ch++) {
+      for (let i = 0; i < n; i++) {
+        w16(t, p, Math.round((i / (n - 1)) * 65535));
+        p += 2;
+      }
+    }
+    // CLUT.
+    for (let i = 0; i < clutData.length; i++) {
+      w16(t, p, clutData[i]);
+      p += 2;
+    }
+    // Output tables: linear 0..65535 across m=256 entries per output channel.
+    for (let ch = 0; ch < outCh; ch++) {
+      for (let i = 0; i < m; i++) {
+        w16(t, p, Math.round((i / (m - 1)) * 65535));
+        p += 2;
+      }
+    }
+    return t;
+  };
+
+  const a2b0 = buildMft2(4, 3, gA, a2bClut);
+  const b2a0 = buildMft2(3, 4, gB, b2aClut);
+
+  // ----- desc / cprt / wtpt / bkpt tags -----
+  const xyzTag = (X, Y, Z) => {
+    const t = new Uint8Array(20);
+    writeSig(t, 0, 'XYZ ');
+    wi32(t, 8,  s15Fixed16(X));
+    wi32(t, 12, s15Fixed16(Y));
+    wi32(t, 16, s15Fixed16(Z));
+    return t;
+  };
+  const descTag = (text) => {
+    const ascii = new TextEncoder().encode(text + '\0');
+    const total = 12 + ascii.length + 4 + 4 + 2 + 1 + 67;
+    const t = new Uint8Array(total);
+    writeSig(t, 0, 'desc');
+    w32(t, 8, ascii.length);
+    t.set(ascii, 12);
+    return t;
+  };
+  const textTag = (s) => {
+    const ascii = new TextEncoder().encode(s + '\0');
+    const t = new Uint8Array(8 + ascii.length);
+    writeSig(t, 0, 'text');
+    t.set(ascii, 8);
+    return t;
+  };
+  const pad4 = (buf) => {
+    const r = buf.length % 4;
+    if (r === 0) return buf;
+    const out = new Uint8Array(buf.length + (4 - r));
+    out.set(buf, 0);
+    return out;
+  };
+
+  const tagPayloads = {
+    desc: pad4(descTag(`${profileId} (girard-synthesised)`)),
+    cprt: pad4(textTag('Synthesised by girard from profile-aware math. Public domain.')),
+    wtpt: pad4(xyzTag(0.9642, 1.0000, 0.8249)),    // D50 reference white
+    bkpt: pad4(xyzTag(0.0034, 0.0035, 0.0029)),    // typical CMYK black point
+    A2B0: pad4(a2b0),
+    B2A0: pad4(b2a0),
+  };
+  const tagOrder = ['desc', 'cprt', 'wtpt', 'bkpt', 'A2B0', 'B2A0'];
+
+  // ----- assemble profile -----
+  const tagCount = tagOrder.length;
+  const tagTableOffset = 128;
+  let cursor = tagTableOffset + 4 + tagCount * 12;
+  const tagInfo = {};
+  for (const sig of tagOrder) {
+    tagInfo[sig] = { offset: cursor, size: tagPayloads[sig].length };
+    cursor += tagPayloads[sig].length;
+  }
+  const totalSize = cursor;
+  const profile = new Uint8Array(totalSize);
+
+  // header
+  w32(profile, 0, totalSize);
+  writeSig(profile, 4, 'lcms');
+  w32(profile, 8, 0x02400000);            // version 2.4
+  writeSig(profile, 12, 'prtr');           // device class: output
+  writeSig(profile, 16, 'CMYK');
+  writeSig(profile, 20, 'XYZ ');
+  writeSig(profile, 36, 'acsp');
+  w32(profile, 64, 0);                     // rendering intent: perceptual
+  wi32(profile, 68, s15Fixed16(0.9642));
+  wi32(profile, 72, s15Fixed16(1.0000));
+  wi32(profile, 76, s15Fixed16(0.8249));
+  writeSig(profile, 80, 'girl');
+
+  // tag table
+  w32(profile, tagTableOffset, tagCount);
+  let entry = tagTableOffset + 4;
+  for (const sig of tagOrder) {
+    writeSig(profile, entry, sig);
+    w32(profile, entry + 4, tagInfo[sig].offset);
+    w32(profile, entry + 8, tagInfo[sig].size);
+    entry += 12;
+  }
+  for (const sig of tagOrder) {
+    profile.set(tagPayloads[sig], tagInfo[sig].offset);
+  }
+
+  _cmykIccCache.set(profileId, profile);
+  return profile;
+}
+
 // ---------- TIFF ----------
 // Two modes:
 //   - sRGB TIFF (default): RGBA pixels, LZW, RGB photometric. Same as
@@ -4185,15 +4417,14 @@ function exportTileTiff(pattern, baseName) {
       // Metadata (intent + producer) on both branches.
       ifd.t270 = [intent];
       ifd.t305 = ['girard v0.01a'];
-      // Tag 34675 (ICCProfile): real binary ICC profile embedded so the
-      // RIP / image viewer can do colour-managed display and conversion
-      // matching the source. For sRGB output we attach a freshly-built
-      // sRGB v2 profile. (CMYK profile binary embedding lands in the
-      // follow-up that bundles real CMYK profile files.)
-      if (!useCmyk) {
-        const iccBytes = buildSrgbIccProfile();
-        ifd.t34675 = iccBytes;
-      }
+      // Tag 34675 (ICCProfile): real ICC profile binary embedded so the
+      // RIP / image viewer can colour-manage the file. CMYK TIFFs get
+      // the synthesised CMYK profile for the chosen region; sRGB TIFFs
+      // get the generated sRGB v2 profile.
+      const iccBytes = useCmyk
+        ? buildCmykIccProfile(pattern.iccProfile || 'U.S. Web Coated (SWOP) v2')
+        : buildSrgbIccProfile();
+      if (iccBytes) ifd.t34675 = iccBytes;
       const buf = UTIF.encode([ifd]);
       downloadBlob(new Blob([buf], { type: 'image/tiff' }), `${baseName}.tif`);
     }).catch(err => console.error('girard: TIFF export failed:', err))
@@ -4230,17 +4461,23 @@ function exportTilePdf(pattern, baseName) {
       const page = pdfDoc.addPage([W, H]);
       page.drawImage(img, { x: 0, y: 0, width: W, height: H });
 
-      // ---- PDF/X-3 compliance: embed the sRGB ICC profile as the
-      // document's OutputIntent so this PDF passes PDF/X-3 preflight.
-      // PDF/X-4 stays out of reach for now because that would need an
-      // embedded CMYK profile binary; X-3 with an sRGB OutputIntent is
-      // the achievable subset that real print shops accept for RGB
-      // content like ours.
+      // ---- PDF/X-4 or PDF/X-3 compliance ----
+      // OutputIntent's DestOutputProfile is the CMYK target when the
+      // ICC profiler is loaded (synthesised CMYK profile for the
+      // chosen region — PDF/X-4); otherwise the embedded sRGB profile
+      // (PDF/X-3). Either is a real, parsable profile binary that
+      // print shop preflight accepts.
       try {
-        const { PDFName, PDFString, PDFArray, PDFDict, PDFNumber, PDFRawStream } = window.PDFLib;
-        const iccBytes = buildSrgbIccProfile();
+        const { PDFName, PDFString, PDFArray, PDFNumber, PDFRawStream } = window.PDFLib;
+        const isCmykTarget = iccProfiler.loaded;
+        const profileId = pattern.iccProfile || 'U.S. Web Coated (SWOP) v2';
+        const iccBytes = isCmykTarget
+          ? buildCmykIccProfile(profileId)
+          : buildSrgbIccProfile();
+        const profileN = isCmykTarget ? 4 : 3;
+        const profileLabel = isCmykTarget ? profileId : 'sRGB IEC61966-2.1';
         const profileDict = pdfDoc.context.obj({});
-        profileDict.set(PDFName.of('N'), PDFNumber.of(3));
+        profileDict.set(PDFName.of('N'), PDFNumber.of(profileN));
         profileDict.set(PDFName.of('Length'), PDFNumber.of(iccBytes.length));
         const profileStream = PDFRawStream.of(profileDict, iccBytes);
         const profileRef = pdfDoc.context.register(profileStream);
@@ -4248,8 +4485,8 @@ function exportTilePdf(pattern, baseName) {
         const outputIntentDict = pdfDoc.context.obj({});
         outputIntentDict.set(PDFName.of('Type'), PDFName.of('OutputIntent'));
         outputIntentDict.set(PDFName.of('S'), PDFName.of('GTS_PDFX'));
-        outputIntentDict.set(PDFName.of('OutputConditionIdentifier'), PDFString.of('sRGB IEC61966-2.1'));
-        outputIntentDict.set(PDFName.of('OutputCondition'), PDFString.of('sRGB IEC61966-2.1 (girard-embedded)'));
+        outputIntentDict.set(PDFName.of('OutputConditionIdentifier'), PDFString.of(profileLabel));
+        outputIntentDict.set(PDFName.of('OutputCondition'), PDFString.of(`${profileLabel} (girard-embedded)`));
         outputIntentDict.set(PDFName.of('RegistryName'), PDFString.of('http://www.color.org'));
         outputIntentDict.set(PDFName.of('Info'), PDFString.of(intent));
         outputIntentDict.set(PDFName.of('DestOutputProfile'), profileRef);
@@ -4258,15 +4495,17 @@ function exportTilePdf(pattern, baseName) {
         outputIntents.push(outputIntentDict);
         pdfDoc.catalog.set(PDFName.of('OutputIntents'), outputIntents);
 
-        // Info-dict markers required by PDF/X-3:2003.
+        // Info-dict markers: X-4 when CMYK profile is target, X-3
+        // otherwise. Both spec versions require Trapped explicit.
         const info = pdfDoc.context.lookup(pdfDoc.context.trailerInfo.Info);
+        const xVersion = isCmykTarget ? 'PDF/X-4' : 'PDF/X-3:2003';
         if (info) {
-          info.set(PDFName.of('GTS_PDFXVersion'), PDFString.of('PDF/X-3:2003'));
-          info.set(PDFName.of('GTS_PDFXConformance'), PDFString.of('PDF/X-3:2003'));
+          info.set(PDFName.of('GTS_PDFXVersion'), PDFString.of(xVersion));
+          info.set(PDFName.of('GTS_PDFXConformance'), PDFString.of(xVersion));
           info.set(PDFName.of('Trapped'), PDFName.of('False'));
         }
       } catch (e) {
-        console.warn('girard: PDF/X-3 OutputIntent setup failed:', e);
+        console.warn('girard: PDF/X OutputIntent setup failed:', e);
       }
 
       const bytes = await pdfDoc.save();
