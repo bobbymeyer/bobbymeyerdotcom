@@ -3608,6 +3608,36 @@ function exportTileSvg(pattern, baseName) {
   downloadBlob(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }), `${baseName}.svg`);
 }
 
+// Render the deployable tile SVG to a transparent PNG. Canvas defaults
+// to transparent, so cells with no fill (or transparent palette
+// entries) come through with alpha — same as the SVG. `scale` bumps
+// pixel resolution for high-DPI output (default 2×).
+function exportTilePng(pattern, baseName, scale = 2) {
+  const { svg, width, height } = buildTileSvg(pattern);
+  const xml = serializeSvg(svg);
+  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const W = Math.round(width * scale);
+  const H = Math.round(height * scale);
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, W, H);
+    canvas.toBlob((pngBlob) => {
+      if (pngBlob) downloadBlob(pngBlob, `${baseName}.png`);
+      URL.revokeObjectURL(url);
+    }, 'image/png');
+  };
+  img.onerror = () => {
+    URL.revokeObjectURL(url);
+    console.error('girard: PNG export failed (SVG load error)');
+  };
+  img.src = url;
+}
+
 // ---------- Layer list ----------
 function renderLayerList(listEl, pattern, selected, handlers) {
   const items = pattern.layers.map((layer, i) => {
@@ -4472,16 +4502,23 @@ function mount() {
     });
   }
 
-  // Export SVG — the clean deployable repeat unit.
+  // Export — the clean deployable repeat unit. Wait for any web fonts
+  // to be ready first (text-shape layers need real metrics).
+  const exportBase = () => (sampleSel.value || 'girard-tile').toString().toLowerCase().replace(/\s+/g, '-');
+  const fontsReady = () => {
+    const fonts = patternFonts(pattern);
+    return fonts.length ? Promise.all(fonts.map(ensureFont)) : Promise.resolve();
+  };
   const exportSvgBtn = document.getElementById('girard-export-svg');
   if (exportSvgBtn) {
     exportSvgBtn.addEventListener('click', () => {
-      const baseName = (sampleSel.value || 'girard-tile').toString().toLowerCase().replace(/\s+/g, '-');
-      // Make sure any web fonts are ready before exporting (otherwise
-      // text-shape layers would serialize without the right metrics).
-      const fonts = patternFonts(pattern);
-      const ready = fonts.length ? Promise.all(fonts.map(ensureFont)) : Promise.resolve();
-      ready.then(() => exportTileSvg(pattern, baseName));
+      fontsReady().then(() => exportTileSvg(pattern, exportBase()));
+    });
+  }
+  const exportPngBtn = document.getElementById('girard-export-png');
+  if (exportPngBtn) {
+    exportPngBtn.addEventListener('click', () => {
+      fontsReady().then(() => exportTilePng(pattern, exportBase()));
     });
   }
 

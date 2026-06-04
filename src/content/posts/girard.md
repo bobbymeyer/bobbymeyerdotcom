@@ -63,7 +63,7 @@ tags:
     <h4 class='panel-subheading'>export</h4>
     <div class='export-buttons'>
       <button id='girard-export-svg' class='ctrl-inline-btn'>SVG</button>
-      <button class='ctrl-inline-btn' disabled title='Coming soon'>PNG</button>
+      <button id='girard-export-png' class='ctrl-inline-btn'>PNG</button>
       <button class='ctrl-inline-btn' disabled title='Coming soon'>JPEG</button>
       <button class='ctrl-inline-btn' disabled title='Coming soon'>PDF</button>
       <button class='ctrl-inline-btn' disabled title='Coming soon'>TIFF</button>
