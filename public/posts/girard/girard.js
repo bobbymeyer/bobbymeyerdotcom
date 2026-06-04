@@ -419,27 +419,24 @@ const SAMPLES = {
       },
     ],
   },
-  'Palio': {
-    // Girard "Palio": a sampler of self-complementary stripe bands — each
-    // a different boundary profile (Flame, Square Comb, Crown, Checker,
-    // Drop, Spear, Angle, Goo) where the white negative space is the
-    // colour shape inverted. One comb layer renders all eight bands.
-    palette: ['#c0413c'],
+  'Leaves': {
+    // Girard "Leaves": outlined pointed-oval leaves (like Pepitas but
+    // unfilled) with a vein straight down the centre that extends below
+    // into a stem, scattered on a soft off-white ground in muted teal.
+    palette: ['#6f9a93'],
     layers: [
       {
         grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', color: '#f1ece0', mode: 'fixed' },
+        fill: { kind: 'solid', color: '#eef0ec', mode: 'fixed' },
       },
       {
-        grid: { cols: 8, rows: 1, gutterX: 0.14, offset: { x: 0, y: 0 }, offsetMode: 'none' },
+        grid: { cols: 5, rows: 7, offset: { x: 0.5, y: 0 }, offsetMode: 'alternate-row' },
         fill: {
-          kind: 'comb',
-          profiles: ['flame', 'square', 'spearhead', 'checker', 'drop', 'spear', 'angle', 'finger'],
-          colors: ['#c0413c', '#4a6fb0', '#e8b53f', '#2c3340', '#e07a4e', '#c2a878', '#7a6cb0', '#4a9e78'],
-          teeth: [13, 15, 11, 9, 13, 28, 10, 12],
-          base: [0.34, 0.32, 0.34, 0.34, 0.32, 0.3, 0.34, 0.32],
-          duty: [0.55, 0.55, 0.55, 0.5, 0.55, 0.62, 0.5, 0.55],
+          kind: 'shape',
+          shape: { kind: 'leaf', size: 1.0, ratio: 0.62, stem: 0.55, strokeWidth: 0.012 },
+          mode: 'fixed', color: '#6f9a93',
         },
+        vary: { scale: { type: 'random', min: 0.5, max: 1.2 } },
       },
     ],
   },
@@ -1735,6 +1732,27 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         fill,
         ...sAttrs,
       });
+    }
+    case 'leaf': {
+      // Outlined pointed oval (a pepita with no fill) plus a vein down
+      // the centre that extends past the bottom into a stem. Drawn in
+      // the resolved colour as strokes.
+      const g = el('g', {});
+      const hy = dim / 2;
+      const hx = hy * (shape.ratio ?? 0.42);
+      const stemLen = dim * (shape.stem ?? 0.5);
+      const sw2 = (shape.strokeWidth ?? 0.016) * Math.min(cw, rh);
+      const stroke = {
+        fill: 'none',
+        stroke: (fill && fill !== 'none') ? fill : (shape.stroke || '#6f9a93'),
+        'stroke-width': sw2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+      };
+      g.appendChild(el('path', {
+        d: `M 0,${(-hy).toFixed(2)} Q ${hx.toFixed(2)},0 0,${hy.toFixed(2)} Q ${(-hx).toFixed(2)},0 0,${(-hy).toFixed(2)} Z`,
+        ...stroke,
+      }));
+      g.appendChild(el('line', { x1: 0, y1: (-hy).toFixed(2), x2: 0, y2: (hy + stemLen).toFixed(2), ...stroke }));
+      return g;
     }
     case 'lens': {
       // Vesica / pointed oval ("pepita"). Two quadratic curves bulging
@@ -3810,7 +3828,7 @@ function buildConfigForm(host, layer, onChange) {
     }
   } else if (layer.fill.kind === 'shape') {
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'onion', 'flower', 'blossom', 'barbell', 'plus', 'cross', 'quadDots', 'jacks'],
+      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'leaf', 'onion', 'flower', 'blossom', 'barbell', 'plus', 'cross', 'quadDots', 'jacks'],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
