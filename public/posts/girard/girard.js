@@ -3954,91 +3954,105 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
   // (fill kind, vary on/off, solid colour mode).
   const rebuild = () => buildConfigForm(host, layer, onChange);
 
-  // Compact RGBA editor: small swatch + four number inputs. Returns
-  // a DOM node; pair with addColorCtrl when a label row is wanted.
+  // Compact colour editor laid out as a single-row table matching the
+  // palette table format: header labels (R/G/B/A and optionally
+  // C/M/Y/K) over a body row with a native colour-picker swatch and
+  // number cells. Returns the <table> node.
   const createColorWidget = (initial, onColorChange) => {
-    const root = document.createElement('div');
-    root.className = 'rgba-widget';
-    const swatch = document.createElement('span');
-    swatch.className = 'rgba-swatch';
-    root.appendChild(swatch);
+    const table = document.createElement('table');
+    table.className = 'palette-table';
+    const cols = ['', 'R', 'G', 'B', 'A'];
+    if (colorMode === 'cmyk') cols.push('C', 'M', 'Y', 'K');
+    const thead = document.createElement('thead');
+    const headRow = document.createElement('tr');
+    for (const label of cols) {
+      const th = document.createElement('th');
+      th.textContent = label;
+      headRow.appendChild(th);
+    }
+    thead.appendChild(headRow);
+    table.appendChild(thead);
+
     const rgba = parseColor(initial);
-    const sync = () => { swatch.style.background = formatColor(rgba); };
-    sync();
-    const inputs = document.createElement('span');
-    inputs.className = 'rgba-inputs';
-    const mkInput = (axis, max, step) => {
-      const cell = document.createElement('span');
-      cell.className = 'rgba-cell';
-      const tag = document.createElement('em');
-      tag.textContent = axis.toUpperCase();
+    const hexOf = (x) => '#' + [x.r, x.g, x.b].map(v => Math.max(0, Math.min(255, v | 0)).toString(16).padStart(2, '0')).join('');
+
+    const tbody = document.createElement('tbody');
+    const tr = document.createElement('tr');
+    // Swatch: native colour picker. Click to open OS picker; the rgba
+    // alpha is preserved when the user changes the colour.
+    const swatchTd = document.createElement('td');
+    const picker = document.createElement('input');
+    picker.type = 'color';
+    picker.className = 'palette-color-picker';
+    picker.value = hexOf(rgba);
+    swatchTd.appendChild(picker);
+    tr.appendChild(swatchTd);
+
+    const rgbInputs = {};
+    const cmykInputs = {};
+    const refresh = () => {
+      picker.value = hexOf(rgba);
+      rgbInputs.r.value = rgba.r;
+      rgbInputs.g.value = rgba.g;
+      rgbInputs.b.value = rgba.b;
+      rgbInputs.a.value = rgba.a;
+      if (colorMode === 'cmyk') {
+        const c = hexToCmyk(formatColor(rgba));
+        cmykInputs.c.value = Math.round(c.c * 100);
+        cmykInputs.m.value = Math.round(c.m * 100);
+        cmykInputs.y.value = Math.round(c.y * 100);
+        cmykInputs.k.value = Math.round(c.k * 100);
+      }
+    };
+    const fire = () => { onColorChange(formatColor(rgba)); refresh(); };
+
+    picker.addEventListener('input', () => {
+      const next = parseColor(picker.value);
+      rgba.r = next.r; rgba.g = next.g; rgba.b = next.b;
+      fire();
+    });
+
+    for (const axis of ['r', 'g', 'b', 'a']) {
+      const td = document.createElement('td');
       const inp = document.createElement('input');
       inp.type = 'number';
       inp.min = 0;
-      inp.max = max;
-      inp.step = step;
+      inp.max = axis === 'a' ? 1 : 255;
+      inp.step = axis === 'a' ? 0.05 : 1;
       inp.value = axis === 'a' ? rgba.a : rgba[axis];
       inp.addEventListener('input', () => {
-        let v = Number(inp.value);
-        if (axis === 'a') v = Math.max(0, Math.min(1, v));
-        else v = Math.max(0, Math.min(255, v));
-        rgba[axis] = v;
-        sync();
-        onColorChange(formatColor(rgba));
+        const v = Number(inp.value);
+        rgba[axis] = axis === 'a' ? Math.max(0, Math.min(1, v)) : Math.max(0, Math.min(255, v));
+        fire();
       });
-      cell.appendChild(tag);
-      cell.appendChild(inp);
-      inputs.appendChild(cell);
-    };
-    mkInput('r', 255, 1);
-    mkInput('g', 255, 1);
-    mkInput('b', 255, 1);
-    mkInput('a', 1, 0.05);
-    root.appendChild(inputs);
+      td.appendChild(inp);
+      tr.appendChild(td);
+      rgbInputs[axis] = inp;
+    }
 
-    // CMYK readouts. Visible only when the project is in CMYK mode.
-    // Editing CMYK fields updates RGB (and the upstream onColorChange).
     if (colorMode === 'cmyk') {
-      const cmykRow = document.createElement('span');
-      cmykRow.className = 'rgba-inputs cmyk-inputs';
-      const cmykState = hexToCmyk(formatColor(rgba));
-      const cmykInputs = {};
-      const syncCmykFromRgb = () => {
-        const c = hexToCmyk(formatColor(rgba));
-        cmykState.c = c.c; cmykState.m = c.m; cmykState.y = c.y; cmykState.k = c.k;
-        for (const ax of ['c', 'm', 'y', 'k']) cmykInputs[ax].value = Math.round(cmykState[ax] * 100);
-      };
-      const mkCmykInput = (axis) => {
-        const cell = document.createElement('span');
-        cell.className = 'rgba-cell';
-        const tag = document.createElement('em');
-        tag.textContent = axis.toUpperCase();
+      const cmyk = hexToCmyk(formatColor(rgba));
+      for (const axis of ['c', 'm', 'y', 'k']) {
+        const td = document.createElement('td');
         const inp = document.createElement('input');
         inp.type = 'number';
         inp.min = 0; inp.max = 100; inp.step = 1;
-        inp.value = Math.round(cmykState[axis] * 100);
+        inp.value = Math.round(cmyk[axis] * 100);
         inp.addEventListener('input', () => {
-          const v = Math.max(0, Math.min(100, Number(inp.value) || 0)) / 100;
-          cmykState[axis] = v;
-          const { r, g, b } = cmykToRgb(cmykState.c, cmykState.m, cmykState.y, cmykState.k);
+          cmyk[axis] = Math.max(0, Math.min(100, Number(inp.value) || 0)) / 100;
+          const { r, g, b } = cmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
           rgba.r = r; rgba.g = g; rgba.b = b;
-          sync();
-          // Refresh the RGB inputs in place.
-          const rgbInputs = inputs.querySelectorAll('.rgba-cell input');
-          rgbInputs[0].value = r; rgbInputs[1].value = g; rgbInputs[2].value = b;
-          onColorChange(formatColor(rgba));
+          fire();
         });
-        cell.appendChild(tag);
-        cell.appendChild(inp);
-        cmykRow.appendChild(cell);
+        td.appendChild(inp);
+        tr.appendChild(td);
         cmykInputs[axis] = inp;
-      };
-      mkCmykInput('c'); mkCmykInput('m'); mkCmykInput('y'); mkCmykInput('k');
-      // Also resync CMYK when RGB inputs change.
-      inputs.addEventListener('input', syncCmykFromRgb);
-      root.appendChild(cmykRow);
+      }
     }
-    return root;
+
+    tbody.appendChild(tr);
+    table.appendChild(tbody);
+    return table;
   };
   // Colour pickers are wide (RGBA + maybe CMYK rows) so they span both
   // columns of the 2-col layout via .ctrl-span-2.
