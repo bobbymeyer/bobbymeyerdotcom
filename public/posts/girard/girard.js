@@ -3559,6 +3559,55 @@ function buildSvg(pattern) {
   return root;
 }
 
+// ---------- Export ----------
+// Build a deployable repeat-unit SVG: just the one tile that tiles
+// seamlessly when laid out edge-to-edge. No veil, no surround, no
+// extra margin. Geometry that crosses an edge is wrap-painted at the
+// opposite edge by the renderer, then clipped here so the unit's
+// bounds are exactly the repeat dimensions.
+function buildTileSvg(pattern) {
+  const tileGroup = buildTileGroup(pattern);
+  const unit = buildRepeatUnit(pattern, tileGroup);
+  const root = el('svg', {
+    xmlns: SVG_NS,
+    'xmlns:xlink': 'http://www.w3.org/1999/xlink',
+    viewBox: `0 0 ${unit.width} ${unit.height}`,
+    width: unit.width,
+    height: unit.height,
+  });
+  // Clip the unit to its own bounds so wrap-painted geometry doesn't
+  // extend past the deployable canvas.
+  const clipId = 'girard-export-clip';
+  const clip = el('clipPath', { id: clipId });
+  clip.appendChild(el('rect', { x: 0, y: 0, width: unit.width, height: unit.height }));
+  root.appendChild(el('defs', {}, [clip]));
+  const g = el('g', { 'clip-path': `url(#${clipId})` });
+  unit.content.forEach(n => g.appendChild(n));
+  root.appendChild(g);
+  return { svg: root, width: unit.width, height: unit.height };
+}
+
+function serializeSvg(svgNode) {
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' + new XMLSerializer().serializeToString(svgNode);
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function exportTileSvg(pattern, baseName) {
+  const { svg } = buildTileSvg(pattern);
+  const xml = serializeSvg(svg);
+  downloadBlob(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }), `${baseName}.svg`);
+}
+
 // ---------- Layer list ----------
 function renderLayerList(listEl, pattern, selected, handlers) {
   const items = pattern.layers.map((layer, i) => {
@@ -4420,6 +4469,19 @@ function mount() {
         veilPreviewBtn.setAttribute('aria-pressed', 'true');
       }
       rerenderSvg();
+    });
+  }
+
+  // Export SVG — the clean deployable repeat unit.
+  const exportSvgBtn = document.getElementById('girard-export-svg');
+  if (exportSvgBtn) {
+    exportSvgBtn.addEventListener('click', () => {
+      const baseName = (sampleSel.value || 'girard-tile').toString().toLowerCase().replace(/\s+/g, '-');
+      // Make sure any web fonts are ready before exporting (otherwise
+      // text-shape layers would serialize without the right metrics).
+      const fonts = patternFonts(pattern);
+      const ready = fonts.length ? Promise.all(fonts.map(ensureFont)) : Promise.resolve();
+      ready.then(() => exportTileSvg(pattern, baseName));
     });
   }
 

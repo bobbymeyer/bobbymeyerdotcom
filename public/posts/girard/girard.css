@@ -103,6 +103,33 @@
 }
 #girard .panel-heading { margin: 0; }
 
+/* Sub-section heading inside a panel (e.g. "EXPORT" under project
+   settings). Same size as a panel heading but separated by a thin
+   rule above so it reads as a discrete sub-section. */
+.panel-subheading {
+  font: inherit;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid #e5e5e5;
+  text-align: left;
+}
+
+/* Export buttons row — content-sized buttons, wrap as needed. */
+.export-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.export-buttons .ctrl-inline-btn[disabled] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.export-buttons .ctrl-inline-btn[disabled]:hover { background: #1a1a1a; }
+
 .ctrl-row {
   display: flex;
   flex-wrap: wrap;
