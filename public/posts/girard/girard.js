@@ -3636,6 +3636,90 @@ function buildSvg(pattern) {
 }
 
 // ---------- Export ----------
+// Deferred-load helper. Hits a CDN <script> once and resolves when the
+// global it exposes is available. Used to lazy-fetch UTIF (TIFF) and
+// pdf-lib (PDF) only when the user actually exports those formats.
+const _loadedScripts = new Set();
+function loadScript(src) {
+  if (_loadedScripts.has(src)) return Promise.resolve();
+  _loadedScripts.add(src);
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.crossOrigin = 'anonymous';
+    s.onload = () => resolve();
+    s.onerror = () => { _loadedScripts.delete(src); reject(new Error('Failed to load ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+
+// Cache of font-binary fetches. Maps "Family|weight" to an ArrayBuffer
+// of the actual font file (WOFF2 from Google Fonts), used to inline
+// @font-face inside exported SVGs so the file is self-contained.
+const _fontBinaries = new Map();
+
+// Fetch the Google Fonts CSS for a family, find the woff2 URLs, fetch
+// each binary, and return [{weight, mime, buffer}, ...]. Cached.
+function fetchFontBinaries(family) {
+  if (!family || GENERIC_FONTS.includes(family)) return Promise.resolve([]);
+  const cacheKey = family;
+  if (_fontBinaries.has(cacheKey)) return Promise.resolve(_fontBinaries.get(cacheKey));
+  const cssUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(family).replace(/%20/g, '+')}:wght@400;700;900&display=swap`;
+  return fetch(cssUrl, { mode: 'cors' })
+    .then(r => r.text())
+    .then(css => {
+      // Parse @font-face blocks: extract font-weight + woff2 src URL.
+      const out = [];
+      const blocks = css.split('@font-face').slice(1);
+      for (const b of blocks) {
+        const w = /font-weight:\s*(\d+)/.exec(b);
+        const u = /url\((https?:\/\/[^)]+\.woff2)\)/.exec(b);
+        if (w && u) out.push({ weight: Number(w[1]), url: u[1] });
+      }
+      // Fetch unique URLs, dedupe by weight.
+      const seen = new Set();
+      const filtered = out.filter(x => { if (seen.has(x.weight)) return false; seen.add(x.weight); return true; });
+      return Promise.all(filtered.map(x =>
+        fetch(x.url, { mode: 'cors' }).then(r => r.arrayBuffer()).then(buf => ({ weight: x.weight, mime: 'font/woff2', buffer: buf }))
+      ));
+    })
+    .then(items => { _fontBinaries.set(cacheKey, items); return items; })
+    .catch(err => { console.warn('girard: font fetch failed for', family, err); return []; });
+}
+
+// Build <style> contents with @font-face data URIs for every family
+// referenced by text-shape layers. Embedding inside the SVG makes the
+// exported file viewable / printable without external font CDN access.
+function buildEmbeddedFontStyle(pattern) {
+  const families = patternFonts(pattern);
+  if (!families.length) return Promise.resolve('');
+  return Promise.all(families.map(fam => fetchFontBinaries(fam).then(items => ({ fam, items }))))
+    .then(entries => {
+      const rules = [];
+      for (const { fam, items } of entries) {
+        for (const it of items) {
+          const b64 = arrayBufferToBase64(it.buffer);
+          rules.push(
+            `@font-face{font-family:"${fam}";font-style:normal;font-weight:${it.weight};` +
+            `src:url("data:${it.mime};base64,${b64}") format("woff2");}`
+          );
+        }
+      }
+      return rules.join('');
+    });
+}
+
+function arrayBufferToBase64(buf) {
+  let s = '';
+  const bytes = new Uint8Array(buf);
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    s += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(s);
+}
+
 // Build a deployable repeat-unit SVG: just the one tile that tiles
 // seamlessly when laid out edge-to-edge. No veil, no surround, no
 // extra margin. Geometry that crosses an edge is wrap-painted at the
@@ -3678,10 +3762,120 @@ function downloadBlob(blob, filename) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Inject an SVG <defs><style>@font-face…</style></defs> for every
+// family used by text-shape layers, so exported files don't depend on
+// the viewer having those fonts installed. Real DOM methods so this
+// works in the browser (the headless test harness uses array-shaped
+// children; the real browser uses HTMLCollection).
+function injectFontStyle(svg, fontCss) {
+  if (!fontCss) return;
+  let defs = svg.querySelector ? svg.querySelector('defs') : null;
+  if (!defs) {
+    defs = el('defs', {});
+    if (svg.insertBefore) svg.insertBefore(defs, svg.firstChild || null);
+    else svg.appendChild(defs);
+  }
+  const style = el('style', {});
+  style.textContent = fontCss;
+  defs.appendChild(style);
+}
+
 function exportTileSvg(pattern, baseName) {
   const { svg } = buildTileSvg(pattern);
-  const xml = serializeSvg(svg);
-  downloadBlob(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }), `${baseName}.svg`);
+  buildEmbeddedFontStyle(pattern).then(fontCss => {
+    injectFontStyle(svg, fontCss);
+    const xml = serializeSvg(svg);
+    downloadBlob(new Blob([xml], { type: 'image/svg+xml;charset=utf-8' }), `${baseName}.svg`);
+  });
+}
+
+// ---------- TIFF (sRGB, LZW, 8-bit) ----------
+const TIFF_LIB_URL = 'https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js';
+function exportTileTiff(pattern, baseName) {
+  rasterizeForExport(pattern, { forceBackground: true }).then(({ canvas, W, H }) =>
+    loadScript(TIFF_LIB_URL).then(() => {
+      const UTIF = window.UTIF;
+      if (!UTIF || !UTIF.encodeImage) throw new Error('UTIF not available');
+      const ctx = canvas.getContext('2d');
+      const { data } = ctx.getImageData(0, 0, W, H);
+      // UTIF.encodeImage takes RGBA bytes, produces an IFD with LZW.
+      const ifd = UTIF.encodeImage(data, W, H);
+      // Tag 296 (ResolutionUnit) = 2 (inch); 282/283 (X/Y Res) = 300.
+      ifd.t282 = [300]; ifd.t283 = [300]; ifd.t296 = [2];
+      const buf = UTIF.encode([ifd]);
+      downloadBlob(new Blob([buf], { type: 'image/tiff' }), `${baseName}.tif`);
+    }).catch(err => console.error('girard: TIFF export failed:', err))
+  );
+}
+
+// ---------- PDF (raster at high DPI, sRGB) ----------
+// Vector PDF / PDF/X-4 with embedded CMYK profile lands next pass; for
+// now this is a raster PDF that embeds the high-DPI PNG. Fonts are
+// rasterized into that PNG so they reproduce reliably without the
+// reader needing the typeface installed.
+const PDF_LIB_URL = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
+function exportTilePdf(pattern, baseName) {
+  rasterizeForExport(pattern, { forceBackground: true }).then(({ canvas, W, H }) =>
+    loadScript(PDF_LIB_URL).then(async () => {
+      const { PDFDocument } = window.PDFLib;
+      const pdfDoc = await PDFDocument.create();
+      pdfDoc.setTitle(baseName);
+      pdfDoc.setCreator('girard — bobbymeyer.com');
+      pdfDoc.setProducer('girard v0.01a');
+      // Embed PNG into the PDF; size the page to the canvas dims (1
+      // point = 1 px here, which gives a workable absolute size — the
+      // printer can rescale to any finished repeat size).
+      const pngDataUrl = canvas.toDataURL('image/png');
+      const pngBytes = await fetch(pngDataUrl).then(r => r.arrayBuffer());
+      const img = await pdfDoc.embedPng(pngBytes);
+      const page = pdfDoc.addPage([W, H]);
+      page.drawImage(img, { x: 0, y: 0, width: W, height: H });
+      const bytes = await pdfDoc.save();
+      downloadBlob(new Blob([bytes], { type: 'application/pdf' }), `${baseName}.pdf`);
+    }).catch(err => console.error('girard: PDF export failed:', err))
+  );
+}
+
+// Shared rasterization step used by TIFF / PDF / JPG / PNG. Returns a
+// canvas painted with the tile at exportWidth resolution. Honours the
+// flatten flag for alpha-bearing formats (raster PDF and TIFF always
+// composite onto the background since neither LZW-TIFF nor raster PDF
+// preserves alpha reliably across print workflows).
+// Shared rasterization step used by TIFF / PDF / JPG / PNG. Returns a
+// canvas painted with the tile at the configured export size. The
+// `forceBackground` flag is used by formats that don't preserve alpha
+// reliably (TIFF, raster PDF, JPG) — they always composite onto the
+// background regardless of the flatten flag.
+function rasterizeForExport(pattern, opts = {}) {
+  const forceBg = !!opts.forceBackground;
+  const wantAlpha = !forceBg && !pattern.exportFlatten;
+  const background = pattern.exportBackground || '#ffffff';
+  const { svg, width, height } = buildTileSvg(pattern);
+  return buildEmbeddedFontStyle(pattern).then(fontCss => {
+    injectFontStyle(svg, fontCss);
+    const xml = serializeSvg(svg);
+    const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const { W, H } = exportPixelDims(pattern, width, height);
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = W;
+        canvas.height = H;
+        const ctx = canvas.getContext('2d');
+        if (!wantAlpha) {
+          ctx.fillStyle = background;
+          ctx.fillRect(0, 0, W, H);
+        }
+        ctx.drawImage(img, 0, 0, W, H);
+        URL.revokeObjectURL(url);
+        resolve({ canvas, W, H });
+      };
+      img.onerror = (e) => { URL.revokeObjectURL(url); reject(e); };
+      img.src = url;
+    });
+  });
 }
 
 // Compute the export target pixel dimensions. The user picks a target
@@ -3694,51 +3888,17 @@ function exportPixelDims(pattern, unitWidth, unitHeight) {
   return { W: Math.round(unitWidth * k), H: Math.round(unitHeight * k) };
 }
 
-// Render the deployable tile SVG to PNG. Transparent by default (alpha
-// preserved); flatten=true paints exportBackground under the tile first.
+// Render the tile and encode via canvas.toBlob. PNG preserves alpha
+// unless flatten is set; JPG always flattens (no alpha channel).
 function exportTilePng(pattern, baseName) {
-  const background = pattern.exportFlatten ? (pattern.exportBackground || '#ffffff') : null;
-  exportTileRaster(pattern, baseName, 'image/png', { background });
+  rasterizeForExport(pattern).then(({ canvas }) =>
+    canvas.toBlob(b => b && downloadBlob(b, `${baseName}.png`), 'image/png')
+  );
 }
-
-// JPEG. Always opaque (no alpha channel in JPEG), so we always paint
-// the background first regardless of the flatten flag.
 function exportTileJpeg(pattern, baseName, quality = 0.92) {
-  const background = pattern.exportBackground || '#ffffff';
-  exportTileRaster(pattern, baseName, 'image/jpeg', { quality, background });
-}
-
-// Shared raster export pipeline. Loads the SVG into an <img>, draws to
-// a canvas at the pattern's `exportWidth`, exports via toBlob.
-function exportTileRaster(pattern, baseName, mime, opts = {}) {
-  const { quality, background } = opts;
-  const ext = mime === 'image/jpeg' ? 'jpg' : 'png';
-  const { svg, width, height } = buildTileSvg(pattern);
-  const xml = serializeSvg(svg);
-  const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const { W, H } = exportPixelDims(pattern, width, height);
-  const img = new Image();
-  img.onload = () => {
-    const canvas = document.createElement('canvas');
-    canvas.width = W;
-    canvas.height = H;
-    const ctx = canvas.getContext('2d');
-    if (background) {
-      ctx.fillStyle = background;
-      ctx.fillRect(0, 0, W, H);
-    }
-    ctx.drawImage(img, 0, 0, W, H);
-    canvas.toBlob((outBlob) => {
-      if (outBlob) downloadBlob(outBlob, `${baseName}.${ext}`);
-      URL.revokeObjectURL(url);
-    }, mime, quality);
-  };
-  img.onerror = () => {
-    URL.revokeObjectURL(url);
-    console.error(`girard: ${ext.toUpperCase()} export failed (SVG load error)`);
-  };
-  img.src = url;
+  rasterizeForExport(pattern, { forceBackground: true }).then(({ canvas }) =>
+    canvas.toBlob(b => b && downloadBlob(b, `${baseName}.jpg`), 'image/jpeg', quality)
+  );
 }
 
 // ---------- Layer list ----------
@@ -4732,6 +4892,18 @@ function mount() {
   if (exportJpgBtn) {
     exportJpgBtn.addEventListener('click', () => {
       fontsReady().then(() => exportTileJpeg(pattern, exportBase()));
+    });
+  }
+  const exportTifBtn = document.getElementById('girard-export-tif');
+  if (exportTifBtn) {
+    exportTifBtn.addEventListener('click', () => {
+      fontsReady().then(() => exportTileTiff(pattern, exportBase()));
+    });
+  }
+  const exportPdfBtn = document.getElementById('girard-export-pdf');
+  if (exportPdfBtn) {
+    exportPdfBtn.addEventListener('click', () => {
+      fontsReady().then(() => exportTilePdf(pattern, exportBase()));
     });
   }
 

@@ -95,8 +95,8 @@ tags:
       <button id='girard-export-svg' class='ctrl-inline-btn'>SVG</button>
       <button id='girard-export-png' class='ctrl-inline-btn'>PNG</button>
       <button id='girard-export-jpg' class='ctrl-inline-btn'>JPG</button>
-      <button class='ctrl-inline-btn' disabled title='Coming next'>PDF</button>
-      <button class='ctrl-inline-btn' disabled title='Coming next'>TIF</button>
+      <button id='girard-export-pdf' class='ctrl-inline-btn'>PDF</button>
+      <button id='girard-export-tif' class='ctrl-inline-btn'>TIF</button>
     </div>
   </aside>
   <div id='girard-stage'></div>
