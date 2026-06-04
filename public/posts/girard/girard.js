@@ -434,10 +434,11 @@ const SAMPLES = {
         grid: { cols: 8, rows: 1, gutterX: 0.14, offset: { x: 0, y: 0 }, offsetMode: 'none' },
         fill: {
           kind: 'comb',
-          profiles: ['flame', 'square', 'crown', 'checker', 'round', 'triangle', 'angle', 'round'],
+          profiles: ['flame', 'square', 'spearhead', 'checker', 'drop', 'spear', 'angle', 'finger'],
           colors: ['#c0413c', '#4a6fb0', '#e8b53f', '#2c3340', '#e07a4e', '#c2a878', '#7a6cb0', '#4a9e78'],
-          teeth: [14, 16, 11, 8, 13, 18, 11, 9],
-          amp: [0.34, 0.28, 0.34, 0, 0.4, 0.38, 0, 0.42],
+          teeth: [13, 15, 10, 9, 12, 17, 10, 11],
+          base: [0.34, 0.32, 0.34, 0.34, 0.32, 0.3, 0.34, 0.32],
+          duty: [0.55, 0.52, 0.55, 0.5, 0.55, 0.5, 0.5, 0.55],
         },
       },
     ],
@@ -3256,43 +3257,54 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       break;
     }
     case 'comb': {
-      // Self-complementary 50/50 band: a colour fills the left part of
-      // the band up to a periodic boundary x = b(y); the white ground is
-      // the congruent complement (shift by half a period swaps them).
-      // `profile` picks the boundary; per-column arrays let one layer
-      // render a whole striped sampler (Palio). profiles: square,
-      // triangle, round, crown, flame, checker, angle.
+      // A comb band: a solid spine (base) down one edge with teeth of a
+      // chosen profile combing off it. The white gaps between teeth are
+      // congruent to the teeth, so the negative space mirrors the
+      // positive. Per-column arrays let one layer render the whole Palio
+      // sampler. profiles: square, triangle/spear, spearhead, finger,
+      // drop, flame, checker, angle.
       const nB = (fill.profiles && fill.profiles.length) || 1;
       const idx = mod(ci, nB);
       const at = (v, d) => Array.isArray(v) ? v[mod(idx, v.length)] : (v ?? d);
-      const profile = fill.profiles ? fill.profiles[idx] : (fill.profile || 'square');
+      let profile = fill.profiles ? fill.profiles[idx] : (fill.profile || 'square');
+      if (profile === 'goo') profile = 'finger';
+      if (profile === 'crown') profile = 'spearhead';
+      if (profile === 'round') profile = 'drop';
       const color = fill.colors ? fill.colors[mod(idx, fill.colors.length)] : (fill.color || palette[0] || '#888');
       const teeth = Math.max(1, at(fill.teeth, 10));
-      const amp = at(fill.amp, 0.3);
+      const base = at(fill.base, 0.3);            // spine width, × band
+      const duty = at(fill.duty, 0.52);           // tooth height, × period
       const W = iw, H = ih, x0 = ix, y0 = iy;
-      const wide = W * (0.5 + amp), narrow = W * (0.5 - amp);
-      const T = H / teeth;
       if (isTransparent(color)) break;
+      const spineW = base * W;
+      const sx = x0 + spineW;                      // spine outer edge
+      const tipX = x0 + W;                          // teeth reach band edge
+      const tw = tipX - sx;
+      const T = H / teeth;
+      const toothH = T * duty;
+
+      // Solid spine down the full height.
+      parent.appendChild(el('rect', { x: x0, y: y0, width: spineW, height: H, fill: color }));
 
       if (profile === 'checker') {
-        const s = W / 2;
+        const s = tw / 2;
         const nr = Math.max(1, Math.round(H / s));
         const sh = H / nr;
         for (let r = 0; r < nr; r++) for (let c = 0; c < 2; c++) {
-          if ((r + c) % 2 === 0) parent.appendChild(el('rect', { x: x0 + c * s, y: y0 + r * sh, width: s, height: sh, fill: color }));
+          if ((r + c) % 2 === 0) parent.appendChild(el('rect', { x: sx + c * s, y: y0 + r * sh, width: s, height: sh, fill: color }));
         }
         break;
       }
       if (profile === 'angle') {
         const clipId = `cmb-${mod(ci, 9999)}-${(layerBounds?.salt || 1) & 0xffff}`;
         const clip = el('clipPath', { id: clipId });
-        clip.appendChild(el('rect', { x: x0, y: y0, width: W, height: H }));
+        clip.appendChild(el('rect', { x: sx, y: y0, width: tw, height: H }));
         const g = el('g', { 'clip-path': `url(#${clipId})` });
         const P = T;
-        for (let k = -Math.ceil(H / P) - 1; k < Math.ceil((W + H) / P) + 1; k++) {
+        for (let k = -Math.ceil(H / P) - 1; k < Math.ceil((tw + H) / P) + 1; k++) {
           const off = k * P;
           g.appendChild(el('line', {
-            x1: x0 + off, y1: y0, x2: x0 + off + H, y2: y0 + H,
+            x1: sx + off, y1: y0, x2: sx + off + H, y2: y0 + H,
             stroke: color, 'stroke-width': P / (2 * Math.SQRT2),
           }));
         }
@@ -3301,42 +3313,35 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         break;
       }
 
-      const pts = [];
-      if (profile === 'square') {
-        for (let i = 0; i < teeth; i++) {
-          const yt = y0 + i * T;
-          pts.push([x0 + wide, yt], [x0 + wide, yt + T / 2], [x0 + narrow, yt + T / 2], [x0 + narrow, yt + T]);
-        }
-      } else if (profile === 'triangle' || profile === 'spear' || profile === 'crown') {
-        for (let i = 0; i < teeth; i++) {
-          const yt = y0 + i * T;
-          pts.push([x0 + narrow, yt], [x0 + wide, yt + T / 2], [x0 + narrow, yt + T]);
-        }
-      } else if (profile === 'round' || profile === 'drop' || profile === 'goo') {
-        const steps = teeth * 14;
-        for (let s = 0; s <= steps; s++) {
-          const y = H * s / steps;
-          pts.push([x0 + W * (0.5 + amp * Math.cos(2 * Math.PI * y / T)), y0 + y]);
-        }
-      } else if (profile === 'flame') {
-        // Asymmetric licking wave: quick rise, long curved fall.
-        const steps = teeth * 16;
-        for (let s = 0; s <= steps; s++) {
-          const y = H * s / steps;
-          const ph = (y / T) % 1;
-          const f = ph < 0.34 ? (ph / 0.34) : (1 - (ph - 0.34) / 0.66);
-          const ff = Math.max(0, f) * Math.max(0, f) * (3 - 2 * Math.max(0, f)); // smoothstep ease → rounded lick
-          pts.push([x0 + narrow + (wide - narrow) * ff, y0 + y]);
-        }
-      }
-      let d = `M ${x0} ${y0}`;
-      for (const [px, py] of pts) d += ` L ${px.toFixed(2)} ${py.toFixed(2)}`;
-      d += ` L ${x0} ${y0 + H} Z`;
-      parent.appendChild(el('path', { d, fill: color }));
-      if (profile === 'crown') {
-        // A dot in each valley (between the points) — the jewels.
-        for (let i = 0; i < teeth; i++) {
-          parent.appendChild(el('circle', { cx: x0 + wide * 0.62, cy: y0 + (i + 1) * T, r: W * 0.09, fill: color }));
+      // Discrete teeth off the spine, one per period.
+      for (let i = 0; i < teeth; i++) {
+        const ya = y0 + i * T, yb = ya + toothH, ym = (ya + yb) / 2;
+        if (profile === 'square') {
+          parent.appendChild(el('rect', { x: sx, y: ya, width: tw, height: toothH, fill: color }));
+        } else if (profile === 'finger') {
+          const r = toothH * 0.5;
+          parent.appendChild(el('rect', { x: sx - r, y: ya, width: tw + r, height: toothH, rx: r, ry: r, fill: color }));
+        } else if (profile === 'triangle' || profile === 'spear') {
+          parent.appendChild(el('polygon', { points: `${sx},${ya} ${tipX},${ym} ${sx},${yb}`, fill: color }));
+        } else if (profile === 'spearhead') {
+          parent.appendChild(el('polygon', { points: `${sx},${ya} ${tipX},${ym} ${sx},${yb}`, fill: color }));
+          parent.appendChild(el('circle', { cx: sx + tw * 0.12, cy: ym, r: toothH * 0.5, fill: color }));
+        } else if (profile === 'drop') {
+          // Lobe attached to the spine over the full tooth height, sides
+          // curving out to a rounded tip.
+          parent.appendChild(el('path', {
+            d: `M ${sx} ${ya} C ${sx + tw * 0.55} ${ya} ${tipX} ${ym - toothH * 0.12} ${tipX} ${ym}`
+             + ` C ${tipX} ${ym + toothH * 0.12} ${sx + tw * 0.55} ${yb} ${sx} ${yb} Z`,
+            fill: color,
+          }));
+        } else if (profile === 'flame') {
+          // Licking wave: convex belly rising to a clean sharp tip, then
+          // a concave back curling down — leans upward.
+          const tipY = ya + toothH * 0.34;
+          parent.appendChild(el('path', {
+            d: `M ${sx} ${yb} Q ${sx + tw * 0.7} ${yb} ${tipX} ${tipY} Q ${sx + tw * 0.45} ${ya} ${sx} ${ya} Z`,
+            fill: color,
+          }));
         }
       }
       break;
@@ -3944,13 +3949,15 @@ function buildConfigForm(host, layer, onChange) {
     const dn = addCtrl('density', 'number', layer.fill.density ?? 0.82, { min: 0, max: 1, step: 0.05 });
     dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
   } else if (layer.fill.kind === 'comb' && !layer.fill.profiles) {
-    const pf = addCtrl('profile', 'select', layer.fill.profile || 'square', { options: ['square', 'triangle', 'round', 'crown', 'flame', 'checker', 'angle'] });
+    const pf = addCtrl('profile', 'select', layer.fill.profile || 'square', { options: ['square', 'spear', 'spearhead', 'drop', 'finger', 'flame', 'checker', 'angle'] });
     pf.addEventListener('change', () => { layer.fill.profile = pf.value; onChange(); });
     addColorCtrl('color', layer.fill.color || '#4a6fb0', (v) => { layer.fill.color = v; onChange(); });
     const tt = addCtrl('teeth', 'number', layer.fill.teeth ?? 14, { min: 2, max: 40, step: 1 });
     tt.addEventListener('input', () => { layer.fill.teeth = Number(tt.value) | 0; onChange(); });
-    const ap = addCtrl('depth', 'number', layer.fill.amp ?? 0.3, { min: 0.05, max: 0.48, step: 0.02 });
-    ap.addEventListener('input', () => { layer.fill.amp = Number(ap.value); onChange(); });
+    const bs = addCtrl('base', 'number', layer.fill.base ?? 0.3, { min: 0.05, max: 0.6, step: 0.02 });
+    bs.addEventListener('input', () => { layer.fill.base = Number(bs.value); onChange(); });
+    const dt = addCtrl('tooth height', 'number', layer.fill.duty ?? 0.52, { min: 0.2, max: 0.9, step: 0.04 });
+    dt.addEventListener('input', () => { layer.fill.duty = Number(dt.value); onChange(); });
   } else if (layer.fill.kind === 'firecracker') {
     addColorCtrl('color', layer.fill.color || '#e0954a', (v) => { layer.fill.color = v; onChange(); });
     const fz = addCtrl('fuse', 'number', layer.fill.fuse ?? 0.08, { min: 0.02, max: 0.3, step: 0.01 });
