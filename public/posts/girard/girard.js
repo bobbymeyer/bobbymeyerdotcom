@@ -3945,7 +3945,13 @@ function exportTileSvg(pattern, baseName) {
   });
 }
 
-// ---------- TIFF (sRGB, LZW, 8-bit) ----------
+// ---------- TIFF ----------
+// Two modes:
+//   - sRGB TIFF (default): RGBA pixels, LZW, RGB photometric. Same as
+//     viewing in any image tool.
+//   - CMYK TIFF (when ICC profiler is loaded): every pixel converted
+//     through the active profile's RGB→CMYK transform, then written as
+//     PhotometricInterpretation=5 (Separated) so RIPs see real CMYK.
 const TIFF_LIB_URL = 'https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js';
 function exportTileTiff(pattern, baseName) {
   rasterizeForExport(pattern, { forceBackground: true }).then(({ canvas, W, H }) =>
@@ -3953,18 +3959,52 @@ function exportTileTiff(pattern, baseName) {
       const UTIF = window.UTIF;
       if (!UTIF || !UTIF.encodeImage) throw new Error('UTIF not available');
       const ctx = canvas.getContext('2d');
-      const { data } = ctx.getImageData(0, 0, W, H);
-      // UTIF.encodeImage takes RGBA bytes, produces an IFD with LZW.
-      const ifd = UTIF.encodeImage(data, W, H);
-      // Tag 296 (ResolutionUnit) = 2 (inch); 282/283 (X/Y Res) = 300.
-      ifd.t282 = [300]; ifd.t283 = [300]; ifd.t296 = [2];
-      // Tag 270 (ImageDescription) records the colour-space intent so a
-      // printer's RIP can see what we targeted. Tag 305 (Software) is
-      // the producer. Real ICC profile binary (tag 34675) lands next
-      // pass alongside the v4 parser; for now we declare in metadata.
-      const intent = iccProfiler.loaded
-        ? `girard tile — sRGB source, intended for ${pattern.iccProfile || 'sRGB IEC61966-2.1'} (profile-aware approx; not yet embedded ICC)`
+      const rgba = ctx.getImageData(0, 0, W, H).data;
+      const useCmyk = iccProfiler.loaded;
+      let ifd;
+      const intent = useCmyk
+        ? `girard tile — converted sRGB→${pattern.iccProfile || 'U.S. Web Coated (SWOP) v2'} (profile-aware approx)`
         : 'girard tile — sRGB IEC61966-2.1';
+      if (useCmyk) {
+        // Per-pixel RGB→CMYK using the active profile.
+        const profileId = pattern.iccProfile || 'U.S. Web Coated (SWOP) v2';
+        const cmyk = new Uint8Array(W * H * 4);
+        const N = W * H;
+        for (let i = 0; i < N; i++) {
+          const o = i * 4;
+          const px = profileRgbToCmyk(rgba[o], rgba[o + 1], rgba[o + 2], profileId);
+          cmyk[o]     = Math.round(px.c * 255);
+          cmyk[o + 1] = Math.round(px.m * 255);
+          cmyk[o + 2] = Math.round(px.y * 255);
+          cmyk[o + 3] = Math.round(px.k * 255);
+        }
+        // Hand-built IFD for chunky-CMYK output. UTIF.encode honours
+        // the tag values we set, so PhotometricInterpretation=5 with
+        // SamplesPerPixel=4 produces a Separated TIFF that print
+        // tools (Photoshop, Acrobat, RIPs) will read as CMYK.
+        ifd = {
+          't254': [0],            // NewSubfileType
+          't256': [W],            // ImageWidth
+          't257': [H],            // ImageLength
+          't258': [8, 8, 8, 8],   // BitsPerSample (8-bit × 4 channels)
+          't259': [1],            // Compression: 1 = none (LZW path through UTIF is RGB-tuned)
+          't262': [5],            // PhotometricInterpretation: 5 = Separated (CMYK)
+          't277': [4],            // SamplesPerPixel
+          't278': [H],            // RowsPerStrip (single strip = full image)
+          't279': [cmyk.length],  // StripByteCounts
+          't282': [300],          // XResolution
+          't283': [300],          // YResolution
+          't284': [1],            // PlanarConfiguration: 1 = chunky (CMYK CMYK …)
+          't296': [2],            // ResolutionUnit: 2 = inch
+          't339': [1, 1, 1, 1],   // SampleFormat: unsigned integer
+          'data': cmyk,
+          'isLE': true,
+        };
+      } else {
+        ifd = UTIF.encodeImage(rgba, W, H);
+        ifd.t282 = [300]; ifd.t283 = [300]; ifd.t296 = [2];
+      }
+      // Metadata (intent + producer) on both branches.
       ifd.t270 = [intent];
       ifd.t305 = ['girard v0.01a'];
       const buf = UTIF.encode([ifd]);
