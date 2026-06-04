@@ -3487,27 +3487,38 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       break;
     }
     case 'slant': {
-      // Girard "Barber Pole": each column (cell) is filled with sheared
-      // parallelogram bars in random palette shades, separated by thin
-      // white diagonal gaps; gutterX leaves the white channels between
-      // columns. Bars wrap (index mod M) so the column tiles vertically.
-      const salt = layerBounds?.salt ?? 1;
+      // Girard "Barber Pole". Layer-wide fill: each column is one
+      // continuous diagonal-bar pole, M bars across the FULL column
+      // height (any `rows` value is ignored — the bars belong to the
+      // column as a whole, so per-cell rendering would seam at row
+      // boundaries). Bars are wrap-painted top/bottom for tiling.
+      const G = layerGeom(col, row, cw, rh, cols, rows, layerBounds);
+      if (!G) break;
+      const { lw, lh, ox, oy, salt } = G;
       const M = Math.max(2, fill.bars ?? 9);
       const slope = fill.slope ?? 0.6;
-      const pitch = ih / M;
-      const s = iw * slope;
-      const gap = (fill.gap ?? 0.16) * pitch;
-      const barH = pitch - gap;
-      for (let i = -1; i <= M; i++) {
-        const bi = mod(i, M);
-        const color = palette[Math.floor(cellRng(ci, bi, salt ^ 0x33)() * palette.length)] || fill.color || '#2c7fb8';
-        if (isTransparent(color)) continue;
-        const y0 = iy + i * pitch + gap / 2;
-        parent.appendChild(el('polygon', {
-          points: `${ix},${(y0 + s).toFixed(2)} ${ix + iw},${y0.toFixed(2)} `
-                + `${ix + iw},${(y0 + barH).toFixed(2)} ${ix},${(y0 + barH + s).toFixed(2)}`,
-          fill: color,
-        }));
+      const { gutter, gutterX } = layer.grid;
+      const gX = gutterX ?? gutter ?? 0;
+      const colW = lw / cols;
+      const innerW = colW * (1 - gX);
+      const innerOff = colW * gX / 2;
+      const pitch = lh / M;
+      const s = innerW * slope;
+      const gapY = (fill.gap ?? 0.16) * pitch;
+      const barH = pitch - gapY;
+      for (let c = 0; c < cols; c++) {
+        const cx = ox + c * colW + innerOff;
+        for (let i = -1; i <= M; i++) {
+          const bi = mod(i, M);
+          const color = palette[Math.floor(cellRng(c, bi, salt ^ 0x33)() * palette.length)] || fill.color || '#2c7fb8';
+          if (isTransparent(color)) continue;
+          const y0 = oy + i * pitch + gapY / 2;
+          parent.appendChild(el('polygon', {
+            points: `${cx},${(y0 + s).toFixed(2)} ${cx + innerW},${y0.toFixed(2)} `
+                  + `${cx + innerW},${(y0 + barH).toFixed(2)} ${cx},${(y0 + barH + s).toFixed(2)}`,
+            fill: color,
+          }));
+        }
       }
       break;
     }
