@@ -4452,14 +4452,61 @@ function exportTilePdf(pattern, baseName) {
         : 'sRGB IEC61966-2.1';
       pdfDoc.setSubject(intent);
       pdfDoc.setKeywords(['girard', 'tile', 'pattern', pattern.iccProfile || 'sRGB']);
-      // Embed PNG into the PDF; size the page to the canvas dims (1
-      // point = 1 px here, which gives a workable absolute size — the
-      // printer can rescale to any finished repeat size).
-      const pngDataUrl = canvas.toDataURL('image/png');
-      const pngBytes = await fetch(pngDataUrl).then(r => r.arrayBuffer());
-      const img = await pdfDoc.embedPng(pngBytes);
+      // Page sized 1pt = 1px (the printer rescales to any finished
+      // repeat size).
       const page = pdfDoc.addPage([W, H]);
-      page.drawImage(img, { x: 0, y: 0, width: W, height: H });
+      if (iccProfiler.loaded) {
+        // True CMYK content: convert pixels through the active profile
+        // and embed as a /DeviceCMYK image XObject. PDF/X-4 with this
+        // CMYK content + matching CMYK OutputIntent (set below) is real
+        // press-ready conformance, not just a metadata claim.
+        const profileId = pattern.iccProfile || 'U.S. Web Coated (SWOP) v2';
+        const ctx = canvas.getContext('2d');
+        const rgba = ctx.getImageData(0, 0, W, H).data;
+        const cmyk = new Uint8Array(W * H * 4);
+        for (let i = 0, N = W * H; i < N; i++) {
+          const o = i * 4;
+          const px = profileRgbToCmyk(rgba[o], rgba[o + 1], rgba[o + 2], profileId);
+          cmyk[o]     = Math.round(px.c * 255);
+          cmyk[o + 1] = Math.round(px.m * 255);
+          cmyk[o + 2] = Math.round(px.y * 255);
+          cmyk[o + 3] = Math.round(px.k * 255);
+        }
+        const { PDFName, PDFNumber, PDFRawStream, PDFOperator, PDFHexString, PDFContext } = window.PDFLib;
+        // Image XObject dictionary. pdf-lib's flateStream compresses the
+        // pixel data with FlateDecode and sets the /Filter entry.
+        const imgDict = pdfDoc.context.obj({
+          Type: PDFName.of('XObject'),
+          Subtype: PDFName.of('Image'),
+          Width: PDFNumber.of(W),
+          Height: PDFNumber.of(H),
+          ColorSpace: PDFName.of('DeviceCMYK'),
+          BitsPerComponent: PDFNumber.of(8),
+        });
+        const imgStream = pdfDoc.context.flateStream(cmyk, imgDict);
+        const imgRef = pdfDoc.context.register(imgStream);
+        // Add to page's Resources/XObject.
+        const resources = pdfDoc.context.obj({});
+        const xObjects = pdfDoc.context.obj({});
+        xObjects.set(PDFName.of('GirardCmyk'), imgRef);
+        resources.set(PDFName.of('XObject'), xObjects);
+        page.node.set(PDFName.of('Resources'), resources);
+        // Push raw operators: q / cm (scale to page) / Do (draw image) / Q.
+        // PDF image space is 1×1, so scale to [W H 0 0 0 0] places it
+        // covering the page. Y is already flipped by PDF convention.
+        page.pushOperators(
+          PDFOperator.of('q\n'),
+          PDFOperator.of(`${W} 0 0 ${H} 0 0 cm\n`),
+          PDFOperator.of('/GirardCmyk Do\n'),
+          PDFOperator.of('Q\n'),
+        );
+      } else {
+        // sRGB path: embed PNG of the canvas (existing behaviour).
+        const pngDataUrl = canvas.toDataURL('image/png');
+        const pngBytes = await fetch(pngDataUrl).then(r => r.arrayBuffer());
+        const img = await pdfDoc.embedPng(pngBytes);
+        page.drawImage(img, { x: 0, y: 0, width: W, height: H });
+      }
 
       // ---- PDF/X-4 or PDF/X-3 compliance ----
       // OutputIntent's DestOutputProfile is the CMYK target when the
