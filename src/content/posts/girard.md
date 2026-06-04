@@ -15,8 +15,7 @@ tags:
 - pattern
 ---
 <div id='girard'>
-  <div id='girard-stage'></div>
-  <aside id='girard-controls'>
+  <aside id='girard-composition' class='girard-panel'>
     <header>
       <h2>girard <small>v0</small></h2>
     </header>
@@ -48,6 +47,9 @@ tags:
       </label>
       <button id='girard-load-sample' class='ctrl'>load sample</button>
     </div>
+  </aside>
+  <div id='girard-stage'></div>
+  <aside id='girard-layers' class='girard-panel'>
     <div id='girard-layer-panel'>
       <div class='layer-panel-header'>
         <h3>layers</h3>

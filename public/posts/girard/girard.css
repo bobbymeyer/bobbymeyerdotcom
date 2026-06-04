@@ -3,6 +3,33 @@
   flex-direction: column;
   gap: 24px;
   margin: 24px 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: #1a1a1a;
+}
+
+/* Desktop: break out of the post's max-w-3xl container and lay the tool
+   out as composition | stage | layers. The negative-margin trick pulls
+   the tool back to the viewport edges; the inner grid then sizes the
+   stage as a square taking the remaining width minus two side panels. */
+@media (min-width: 1100px) {
+  #girard {
+    width: calc(100vw - 32px);
+    margin-left: calc(50% - 50vw + 16px);
+    margin-right: calc(50% - 50vw + 16px);
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr) 320px;
+    align-items: start;
+    gap: 24px;
+  }
+  #girard-stage {
+    grid-column: 2;
+    aspect-ratio: 1 / 1;
+    width: 100%;
+    height: auto;
+  }
+  #girard-composition { grid-column: 1; }
+  #girard-layers      { grid-column: 3; }
 }
 
 #girard-stage {
@@ -23,26 +50,20 @@
 #girard-stage svg {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
 }
 
-#girard-controls {
+.girard-panel {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: end;
+  flex-direction: column;
   gap: 16px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  color: #1a1a1a;
 }
 
-#girard-controls header {
-  width: 100%;
+#girard-composition header {
   margin-bottom: 4px;
 }
 
-#girard-controls header h2 {
+#girard-composition header h2 {
   font-family: inherit;
   font-size: 14px;
   font-weight: 700;
@@ -51,17 +72,10 @@
   text-transform: uppercase;
 }
 
-#girard-controls header h2 small {
+#girard-composition header h2 small {
   font-size: 10px;
   color: #888;
   margin-left: 6px;
-}
-
-#girard-controls header .hint {
-  margin: 4px 0 0;
-  font-size: 11px;
-  color: #666;
-  line-height: 1.4;
 }
 
 .ctrl-row {
@@ -70,6 +84,22 @@
   gap: 16px;
   align-items: end;
   width: 100%;
+}
+
+/* In the desktop side panels, controls stack into a single column so a
+   narrow gutter doesn't push them into ragged rows. */
+@media (min-width: 1100px) {
+  #girard-composition .ctrl-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  #girard-composition .ctrl { min-width: 0; width: 100%; }
+  #girard-layers #girard-layer-config {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  #girard-layers .ctrl { min-width: 0; width: 100%; }
 }
 
 #girard-layer-panel {
