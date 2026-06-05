@@ -2417,19 +2417,47 @@ function parseSvgShape(svgText) {
     try {
       const liveSvg = host.querySelector('svg');
       if (!liveSvg) { host.remove(); return null; }
+      // Decide whether an element is direct rendering geometry or a
+      // definition. <defs>, <clipPath>, <mask>, <symbol>, <pattern>
+      // children are referenced by other elements; they shouldn't be
+      // extracted as visible paths or the result is "the icon plus
+      // every clip rectangle stacked on top".
+      const isInDefs = (el) => {
+        let p = el.parentNode;
+        while (p && p !== liveSvg && p.tagName) {
+          const t = p.tagName.toLowerCase();
+          if (t === 'defs' || t === 'clippath' || t === 'mask'
+              || t === 'symbol' || t === 'pattern') return true;
+          p = p.parentNode;
+        }
+        return false;
+      };
       const shapes = liveSvg.querySelectorAll('path, rect, circle, ellipse, polygon, polyline');
       const paths = [];
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const shapeEl of shapes) {
+        if (isInDefs(shapeEl)) continue;
         const d0 = svgElToPathD(shapeEl);
         if (!d0) continue;
+        // Honour the source's visibility — skip fill="none",
+        // display:none, visibility:hidden, zero-opacity, etc. so we
+        // don't repaint invisible scaffolding (background rects on a
+        // hidden layer, registration marks, …).
+        let computedFill = null;
+        try {
+          const cs = getComputedStyle(shapeEl);
+          if (cs.display === 'none' || cs.visibility === 'hidden') continue;
+          if (parseFloat(cs.opacity) === 0) continue;
+          computedFill = cs.fill;
+          if (computedFill === 'none' || computedFill === 'rgba(0, 0, 0, 0)') continue;
+        } catch {}
         let ctm = null;
         try { ctm = shapeEl.getCTM(); } catch {}
         const m = ctm ? [ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f] : [1, 0, 0, 1, 0, 0];
         const dT = (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0)
           ? d0
           : transformPathData(d0, m);
-        paths.push({ d: dT });
+        paths.push({ d: dT, fill: computedFill });
         // Use the live element's transformed bbox to compute the
         // tight viewBox — avoids huge declared viewBoxes that the
         // author left around the artwork.
@@ -2451,12 +2479,16 @@ function parseSvgShape(svgText) {
       }
       host.remove();
       if (paths.length === 0) return null;
-      if (!isFinite(minX)) {
-        // bbox calls failed for all shapes — fall back to declared.
-        const vb = (root.getAttribute('viewBox') || '0 0 100 100').split(/[\s,]+/).map(Number);
-        return { viewBox: vb.length === 4 ? vb : [0, 0, 100, 100], paths };
-      }
-      return { viewBox: [minX, minY, maxX - minX, maxY - minY], paths };
+      // Multi-colour artwork keeps its source fills; monochrome
+      // icons fall through to palette colouring at render time. The
+      // user can flip the explicit `preserveColors` flag either way
+      // later if heuristic guesses wrong.
+      const distinctFills = new Set(paths.map(p => p.fill).filter(Boolean));
+      const preserveColors = distinctFills.size > 1;
+      const vb = isFinite(minX)
+        ? [minX, minY, maxX - minX, maxY - minY]
+        : (root.getAttribute('viewBox') || '0 0 100 100').split(/[\s,]+/).map(Number);
+      return { viewBox: vb.length === 4 ? vb : [0, 0, 100, 100], paths, preserveColors };
     } catch (err) {
       host.remove();
       // fall through to the string-walk fallback below
@@ -2516,8 +2548,14 @@ function shapeNode(shape, cw, rh, fill, ctx) {
     const tx = -(vx + vw / 2) * scale;
     const ty = -(vy + vh / 2) * scale;
     const g = el('g', { transform: `translate(${tx.toFixed(3)} ${ty.toFixed(3)}) scale(${scale.toFixed(6)})` });
+    // Multi-colour imports (preserveColors true, set by the parser
+    // when the source had >1 distinct fill) keep their original
+    // fills. Monochrome icons fall through to the cell's palette
+    // colour so they read as part of the pattern.
+    const preserve = !!custom.preserveColors;
     for (const p of custom.paths) {
-      g.appendChild(el('path', { d: p.d, fill, ...sAttrs }));
+      const f = preserve && p.fill ? p.fill : fill;
+      g.appendChild(el('path', { d: p.d, fill: f, ...sAttrs }));
     }
     return g;
   }
