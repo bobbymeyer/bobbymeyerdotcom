@@ -18,8 +18,9 @@
 #girard-composition-label { order: 1; }
 #girard-composition       { order: 2; }
 #girard-stage             { order: 3; }
-#girard-layers-label      { order: 4; }
-#girard-layers            { order: 5; }
+#girard-yardage-open      { order: 4; align-self: start; }
+#girard-layers-label      { order: 5; }
+#girard-layers            { order: 6; }
 
 /* Desktop: break out of the post's max-w-3xl container and lay the
    tool as a 5-column × 2-row grid. Outer 1fr columns absorb leftover
@@ -50,6 +51,12 @@
     align-self: start;
   }
   #girard-layers      { grid-row: 2; grid-column: 4; align-self: start; }
+  /* Yardage trigger sits under the stage column, left-aligned. */
+  #girard-yardage-open {
+    grid-row: 3; grid-column: 3;
+    justify-self: start;
+    align-self: start;
+  }
 }
 
 #girard-stage {

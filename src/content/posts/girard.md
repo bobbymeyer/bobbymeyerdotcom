@@ -57,7 +57,6 @@ tags:
             <option value='in'>in</option>
             <option value='cm'>cm</option>
           </select>
-          <button id='girard-yardage-open' class='ctrl-inline-btn' title='Open full-screen yardage preview'>yardage</button>
         </div>
       </div>
       <div class='ctrl ctrl-inline'>
@@ -160,6 +159,7 @@ tags:
     </div>
   </aside>
   <div id='girard-stage'></div>
+  <button id='girard-yardage-open' class='ctrl-inline-btn' title='Open full-screen yardage preview'>yardage</button>
   <aside id='girard-layers' class='girard-panel'>
     <select id='girard-add-layer'>
       <option value=''>+ add layer…</option>
