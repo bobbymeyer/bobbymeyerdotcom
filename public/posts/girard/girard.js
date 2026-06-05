@@ -4835,6 +4835,8 @@ function walkSvgToPdfOps(node, state, ops, profileId, clipDefs, fontMap, gsRegis
 
   const lcA = nAttr(node, 'stroke-linecap');
   const ljA = nAttr(node, 'stroke-linejoin');
+  const sdA = nAttr(node, 'stroke-dasharray');
+  const soA = nAttr(node, 'stroke-dashoffset');
   const emitFillStroke = () => {
     const f = pdfColor(fill, profileId, false);
     const s = pdfColor(stroke, profileId, true);
@@ -4851,6 +4853,12 @@ function walkSvgToPdfOps(node, state, ops, profileId, clipDefs, fontMap, gsRegis
       if (ljA) {
         const ljMap = { miter: 0, round: 1, bevel: 2 };
         ops.push(`${ljMap[ljA] ?? 0} j`);
+      }
+      if (sdA && sdA !== 'none') {
+        // SVG: comma- or space-separated lengths. PDF: `[a b c …] phase d`.
+        const arr = String(sdA).split(/[\s,]+/).filter(Boolean).map(v => Number(v).toFixed(3)).join(' ');
+        const phase = Number(soA) || 0;
+        ops.push(`[${arr}] ${phase.toFixed(3)} d`);
       }
     }
     return { hasFill, hasStroke };
@@ -5085,6 +5093,8 @@ function exportTilePdf(pattern, baseName) {
         const ctx = canvas.getContext('2d');
         const rgba = ctx.getImageData(0, 0, W, H).data;
         const cmyk = new Uint8Array(W * H * 4);
+        const alpha = new Uint8Array(W * H);
+        let anyAlpha = false;
         for (let i = 0, N = W * H; i < N; i++) {
           const o = i * 4;
           const px = profileRgbToCmyk(rgba[o], rgba[o + 1], rgba[o + 2], profileId);
@@ -5092,6 +5102,9 @@ function exportTilePdf(pattern, baseName) {
           cmyk[o + 1] = Math.round(px.m * 255);
           cmyk[o + 2] = Math.round(px.y * 255);
           cmyk[o + 3] = Math.round(px.k * 255);
+          const a = rgba[o + 3];
+          alpha[i] = a;
+          if (a < 255) anyAlpha = true;
         }
         const { PDFName, PDFNumber, PDFRawStream, PDFOperator, PDFHexString, PDFContext } = window.PDFLib;
         // Image XObject dictionary. pdf-lib's flateStream compresses the
@@ -5104,6 +5117,22 @@ function exportTilePdf(pattern, baseName) {
           ColorSpace: PDFName.of('DeviceCMYK'),
           BitsPerComponent: PDFNumber.of(8),
         });
+        // Soft mask: 8-bit grayscale image of per-pixel alpha. DeviceCMYK
+        // images have no alpha channel of their own, so transparency
+        // rides along on /SMask. Skipped when the canvas is fully opaque.
+        if (anyAlpha && !pattern.exportFlatten) {
+          const smaskDict = pdfDoc.context.obj({
+            Type: PDFName.of('XObject'),
+            Subtype: PDFName.of('Image'),
+            Width: PDFNumber.of(W),
+            Height: PDFNumber.of(H),
+            ColorSpace: PDFName.of('DeviceGray'),
+            BitsPerComponent: PDFNumber.of(8),
+          });
+          const smaskStream = pdfDoc.context.flateStream(alpha, smaskDict);
+          const smaskRef = pdfDoc.context.register(smaskStream);
+          imgDict.set(PDFName.of('SMask'), smaskRef);
+        }
         const imgStream = pdfDoc.context.flateStream(cmyk, imgDict);
         const imgRef = pdfDoc.context.register(imgStream);
         // Add to page's Resources/XObject.
@@ -5112,6 +5141,13 @@ function exportTilePdf(pattern, baseName) {
         xObjects.set(PDFName.of('GirardCmyk'), imgRef);
         resources.set(PDFName.of('XObject'), xObjects);
         page.node.set(PDFName.of('Resources'), resources);
+        // Page transparency group: required for SMask compositing to work
+        // correctly. Matches the dict the vector path sets up.
+        page.node.set(PDFName.of('Group'), pdfDoc.context.obj({
+          Type: PDFName.of('Group'),
+          S: PDFName.of('Transparency'),
+          CS: PDFName.of('DeviceCMYK'),
+        }));
         // Push raw operators: q / cm (scale to page) / Do (draw image) / Q.
         // PDF image space is 1×1, so scale to [W H 0 0 0 0] places it
         // covering the page. Y is already flipped by PDF convention.
