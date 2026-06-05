@@ -2611,6 +2611,17 @@ function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
   // overlapping-shape effects like Feathers.
   const perCell = !!layer.blendPerCell;
   if (!perCell && (blend || op)) group.setAttribute('style', blend + op);
+  // Mirror / flip the layer's content around its own bounding box.
+  // `translate(w, 0) scale(-1, 1)` flips horizontally about the right
+  // edge then shifts the right edge to x=0 — net effect: mirror across
+  // the layer's vertical centre line. Same idea for the Y axis.
+  const fx = layer.flipX ? -1 : 1;
+  const fy = layer.flipY ? -1 : 1;
+  if (fx === -1 || fy === -1) {
+    const tx = fx === -1 ? w : 0;
+    const ty = fy === -1 ? h : 0;
+    group.setAttribute('transform', `translate(${tx} ${ty}) scale(${fx} ${fy})`);
+  }
   parent.appendChild(group);
 
   const palette = layer.palette && layer.palette.length ? layer.palette : parentPalette;
@@ -6036,11 +6047,27 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     host = body;
   };
 
-  // --- Blend + opacity (universal) ---
+  // --- Blend + opacity + mirror (universal) ---
   const blend = addCtrl('blend', 'select', layer.blendMode || 'normal', { options: BLEND_MODES });
   const op = addCtrl('opacity', 'number', layer.opacity ?? 1, { min: 0, max: 1, step: 0.05 });
+  // Mirror: flip the layer's content about its own bounding box. Stored
+  // as two booleans (flipX / flipY); collapsed into a single 4-state
+  // picker for the UI so the common cases are one click away.
+  const mirrorState = layer.flipX && layer.flipY ? 'both'
+                     : layer.flipX ? 'horizontal'
+                     : layer.flipY ? 'vertical'
+                     : 'none';
+  const mirror = addCtrl('mirror', 'select', mirrorState, {
+    options: ['none', 'horizontal', 'vertical', 'both'],
+  });
   blend.addEventListener('change', () => { layer.blendMode = blend.value; onChange(); });
   op.addEventListener('input',  () => { layer.opacity = Number(op.value); onChange(); });
+  mirror.addEventListener('change', () => {
+    const v = mirror.value;
+    layer.flipX = v === 'horizontal' || v === 'both';
+    layer.flipY = v === 'vertical'   || v === 'both';
+    onChange();
+  });
 
   // --- Palette (skipped for fixed-color solid) ---
   const isFixedSolid = layer.fill.kind === 'solid'
