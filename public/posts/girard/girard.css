@@ -18,7 +18,25 @@
 #girard-composition-label { order: 1; }
 #girard-composition       { order: 2; }
 #girard-stage-wrap        { order: 3; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
-#girard-stage-wrap > #girard-yardage-open { align-self: start; }
+#girard-stage-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#girard-stage-tools .stage-veil {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #555;
+}
+#girard-stage-tools .stage-veil input[type='range'] {
+  width: 100px;
+  flex: 0 0 auto;
+}
 #girard-layers-label      { order: 5; }
 #girard-layers            { order: 6; }
 

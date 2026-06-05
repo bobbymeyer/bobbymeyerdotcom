@@ -60,13 +60,6 @@ tags:
         </div>
       </div>
       <div class='ctrl ctrl-inline'>
-        <span>surround veil</span>
-        <div class='ctrl-inline-row'>
-          <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.2' />
-          <button id='girard-veil-preview' class='ctrl-inline-btn' aria-pressed='false'>preview</button>
-        </div>
-      </div>
-      <div class='ctrl ctrl-inline'>
         <span>sample</span>
         <div class='ctrl-inline-row'>
           <select id='girard-sample'></select>
@@ -173,7 +166,14 @@ tags:
   </aside>
   <div id='girard-stage-wrap'>
     <div id='girard-stage'></div>
-    <button id='girard-yardage-open' class='ctrl-inline-btn' title='Open full-screen yardage preview'>yardage</button>
+    <div id='girard-stage-tools'>
+      <button id='girard-yardage-open' class='ctrl-inline-btn' title='Open full-screen yardage preview'>yardage</button>
+      <label class='ctrl-inline-row stage-veil' title='Dim the surrounding tile margins'>
+        <span>veil</span>
+        <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.2' />
+        <button id='girard-veil-preview' class='ctrl-inline-btn' aria-pressed='false'>preview</button>
+      </label>
+    </div>
   </div>
   <aside id='girard-layers' class='girard-panel'>
     <select id='girard-add-layer'>
