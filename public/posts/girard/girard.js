@@ -2273,18 +2273,198 @@ function appendPetalRing(host, { cx = 0, cy = 0, ringR, petalR, count, fill, ext
 
 // Shape.size is a fraction (0..1) of the smaller cell dimension.
 // Lets shapes scale with the grid instead of needing absolute pixels.
-// Parse a user-supplied SVG document into a shape descriptor the
-// shapeNode catalog can render. Strips presentation (fill / stroke
-// from the source) so the cell's palette colour drives the result;
-// converts non-path elements (rect, circle, polygon, …) to path
-// d-strings so the renderer has one code path. Returns null on bad
-// input; the caller can surface a friendly message.
+// Apply an affine matrix [a, b, c, d, e, f] to every endpoint and
+// control point in an SVG `d` string, returning a new d. Handles
+// M/L/H/V/C/S/Q/T/Z in both absolute and relative forms; arc (A)
+// scales radii by the matrix's per-axis scale magnitude (good
+// enough for the icon-export case where arcs are rare).
+function transformPathData(d, m) {
+  const tokens = d.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/g) || [];
+  const apply = (x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+  const sxLen = Math.hypot(m[0], m[1]);
+  const syLen = Math.hypot(m[2], m[3]);
+  const fmt = (v) => Number.isFinite(v) ? (Math.round(v * 1000) / 1000).toString() : '0';
+  let i = 0, cx = 0, cy = 0, sx = 0, sy = 0;
+  let out = '';
+  let cmd = '';
+  const num = () => parseFloat(tokens[i++]);
+  while (i < tokens.length) {
+    if (/^[a-zA-Z]$/.test(tokens[i])) cmd = tokens[i++];
+    const rel = cmd === cmd.toLowerCase();
+    const C = cmd.toUpperCase();
+    if (C === 'M') {
+      let nx = num(), ny = num();
+      if (rel) { nx += cx; ny += cy; }
+      const [tx, ty] = apply(nx, ny);
+      out += `M ${fmt(tx)} ${fmt(ty)} `;
+      cx = nx; cy = ny; sx = nx; sy = ny;
+      cmd = rel ? 'l' : 'L';
+    } else if (C === 'L') {
+      let nx = num(), ny = num();
+      if (rel) { nx += cx; ny += cy; }
+      const [tx, ty] = apply(nx, ny);
+      out += `L ${fmt(tx)} ${fmt(ty)} `;
+      cx = nx; cy = ny;
+    } else if (C === 'H') {
+      let nx = num();
+      if (rel) nx += cx;
+      const [tx, ty] = apply(nx, cy);
+      out += `L ${fmt(tx)} ${fmt(ty)} `;
+      cx = nx;
+    } else if (C === 'V') {
+      let ny = num();
+      if (rel) ny += cy;
+      const [tx, ty] = apply(cx, ny);
+      out += `L ${fmt(tx)} ${fmt(ty)} `;
+      cy = ny;
+    } else if (C === 'C') {
+      let c1x = num(), c1y = num(), c2x = num(), c2y = num(), nx = num(), ny = num();
+      if (rel) { c1x += cx; c1y += cy; c2x += cx; c2y += cy; nx += cx; ny += cy; }
+      const [t1x, t1y] = apply(c1x, c1y);
+      const [t2x, t2y] = apply(c2x, c2y);
+      const [tx, ty] = apply(nx, ny);
+      out += `C ${fmt(t1x)} ${fmt(t1y)} ${fmt(t2x)} ${fmt(t2y)} ${fmt(tx)} ${fmt(ty)} `;
+      cx = nx; cy = ny;
+    } else if (C === 'S') {
+      let c2x = num(), c2y = num(), nx = num(), ny = num();
+      if (rel) { c2x += cx; c2y += cy; nx += cx; ny += cy; }
+      const [t2x, t2y] = apply(c2x, c2y);
+      const [tx, ty] = apply(nx, ny);
+      out += `S ${fmt(t2x)} ${fmt(t2y)} ${fmt(tx)} ${fmt(ty)} `;
+      cx = nx; cy = ny;
+    } else if (C === 'Q') {
+      let qx = num(), qy = num(), nx = num(), ny = num();
+      if (rel) { qx += cx; qy += cy; nx += cx; ny += cy; }
+      const [tqx, tqy] = apply(qx, qy);
+      const [tx, ty] = apply(nx, ny);
+      out += `Q ${fmt(tqx)} ${fmt(tqy)} ${fmt(tx)} ${fmt(ty)} `;
+      cx = nx; cy = ny;
+    } else if (C === 'T') {
+      let nx = num(), ny = num();
+      if (rel) { nx += cx; ny += cy; }
+      const [tx, ty] = apply(nx, ny);
+      out += `T ${fmt(tx)} ${fmt(ty)} `;
+      cx = nx; cy = ny;
+    } else if (C === 'A') {
+      const rx = num(), ry = num(), rot = num(), large = num(), sweep = num();
+      let nx = num(), ny = num();
+      if (rel) { nx += cx; ny += cy; }
+      const [tx, ty] = apply(nx, ny);
+      out += `A ${fmt(rx * sxLen)} ${fmt(ry * syLen)} ${rot} ${large} ${sweep} ${fmt(tx)} ${fmt(ty)} `;
+      cx = nx; cy = ny;
+    } else if (C === 'Z') {
+      out += 'Z ';
+      cx = sx; cy = sy;
+    } else {
+      i++;
+    }
+  }
+  return out.trim();
+}
+
+// Convert any SVG shape element to a path `d` string.
+function svgElToPathD(el) {
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'path') return el.getAttribute('d');
+  if (tag === 'circle') {
+    const cx = +el.getAttribute('cx') || 0, cy = +el.getAttribute('cy') || 0, r = +el.getAttribute('r') || 0;
+    if (r <= 0) return null;
+    return `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 ${-r * 2} 0 Z`;
+  }
+  if (tag === 'ellipse') {
+    const cx = +el.getAttribute('cx') || 0, cy = +el.getAttribute('cy') || 0;
+    const rx = +el.getAttribute('rx') || 0, ry = +el.getAttribute('ry') || 0;
+    if (rx <= 0 || ry <= 0) return null;
+    return `M ${cx - rx} ${cy} a ${rx} ${ry} 0 1 0 ${rx * 2} 0 a ${rx} ${ry} 0 1 0 ${-rx * 2} 0 Z`;
+  }
+  if (tag === 'rect') {
+    const x = +el.getAttribute('x') || 0, y = +el.getAttribute('y') || 0;
+    const w = +el.getAttribute('width') || 0, h = +el.getAttribute('height') || 0;
+    if (w <= 0 || h <= 0) return null;
+    return `M ${x} ${y} h ${w} v ${h} h ${-w} Z`;
+  }
+  if (tag === 'polygon' || tag === 'polyline') {
+    const pts = (el.getAttribute('points') || '').match(/-?\d*\.?\d+/g) || [];
+    if (pts.length < 4) return null;
+    let d = `M ${pts[0]} ${pts[1]}`;
+    for (let i = 2; i + 1 < pts.length; i += 2) d += ` L ${pts[i]} ${pts[i + 1]}`;
+    if (tag === 'polygon') d += ' Z';
+    return d;
+  }
+  return null;
+}
+
+// Browser-assisted parse: drop the SVG into a hidden node and use the
+// engine's own CTM / getBBox so group transforms, <use> references,
+// nested viewBoxes etc. flatten correctly. Falls back to a pure-text
+// walk if the DOM path fails (jsdom in node tests, malformed SVG, …).
 function parseSvgShape(svgText) {
   if (!svgText) return null;
   const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+  if (doc.getElementsByTagName('parsererror').length) return null;
   const root = doc.documentElement;
   if (!root || root.tagName.toLowerCase() !== 'svg') return null;
-  if (doc.getElementsByTagName('parsererror').length) return null;
+
+  // Browser-assisted flatten: mount the parsed SVG in a hidden host
+  // node, then walk shape elements using getCTM() / getBBox() so all
+  // group transforms, <use> references, and nested viewBoxes apply
+  // exactly the way the browser would render them.
+  const host = typeof document !== 'undefined' ? document.createElement('div') : null;
+  if (host && document.body) {
+    host.setAttribute('style', 'position:absolute;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden;');
+    host.innerHTML = svgText;
+    document.body.appendChild(host);
+    try {
+      const liveSvg = host.querySelector('svg');
+      if (!liveSvg) { host.remove(); return null; }
+      const shapes = liveSvg.querySelectorAll('path, rect, circle, ellipse, polygon, polyline');
+      const paths = [];
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const shapeEl of shapes) {
+        const d0 = svgElToPathD(shapeEl);
+        if (!d0) continue;
+        let ctm = null;
+        try { ctm = shapeEl.getCTM(); } catch {}
+        const m = ctm ? [ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f] : [1, 0, 0, 1, 0, 0];
+        const dT = (m[0] === 1 && m[1] === 0 && m[2] === 0 && m[3] === 1 && m[4] === 0 && m[5] === 0)
+          ? d0
+          : transformPathData(d0, m);
+        paths.push({ d: dT });
+        // Use the live element's transformed bbox to compute the
+        // tight viewBox — avoids huge declared viewBoxes that the
+        // author left around the artwork.
+        try {
+          const bb = shapeEl.getBBox();
+          const corners = [
+            [bb.x, bb.y], [bb.x + bb.width, bb.y],
+            [bb.x, bb.y + bb.height], [bb.x + bb.width, bb.y + bb.height],
+          ];
+          for (const [cx, cy] of corners) {
+            const x = m[0] * cx + m[2] * cy + m[4];
+            const y = m[1] * cx + m[3] * cy + m[5];
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+          }
+        } catch {}
+      }
+      host.remove();
+      if (paths.length === 0) return null;
+      if (!isFinite(minX)) {
+        // bbox calls failed for all shapes — fall back to declared.
+        const vb = (root.getAttribute('viewBox') || '0 0 100 100').split(/[\s,]+/).map(Number);
+        return { viewBox: vb.length === 4 ? vb : [0, 0, 100, 100], paths };
+      }
+      return { viewBox: [minX, minY, maxX - minX, maxY - minY], paths };
+    } catch (err) {
+      host.remove();
+      // fall through to the string-walk fallback below
+    }
+  }
+
+  // Fallback: text-only walk (no transforms, no <use> resolution).
+  // Used in headless environments without a real SVG engine.
   const vbAttr = root.getAttribute('viewBox');
   let vx = 0, vy = 0, vw = 100, vh = 100;
   if (vbAttr) {
@@ -2293,55 +2473,19 @@ function parseSvgShape(svgText) {
       [vx, vy, vw, vh] = parts;
     }
   } else {
-    const wAttr = parseFloat(root.getAttribute('width')) || 100;
-    const hAttr = parseFloat(root.getAttribute('height')) || 100;
-    vw = wAttr; vh = hAttr;
+    vw = parseFloat(root.getAttribute('width')) || 100;
+    vh = parseFloat(root.getAttribute('height')) || 100;
   }
   const paths = [];
   const walk = (node) => {
     for (const child of Array.from(node.children || [])) {
       const tag = child.tagName.toLowerCase();
-      if (tag === 'path') {
-        const d = child.getAttribute('d');
-        if (d) paths.push({ d });
-      } else if (tag === 'circle') {
-        const cx = +child.getAttribute('cx') || 0;
-        const cy = +child.getAttribute('cy') || 0;
-        const r  = +child.getAttribute('r')  || 0;
-        if (r > 0) {
-          // Two arcs trace a closed circle without trusting browser
-          // arc-flag semantics across SVG → path conversions.
-          paths.push({ d: `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 ${-r * 2} 0 Z` });
-        }
-      } else if (tag === 'ellipse') {
-        const cx = +child.getAttribute('cx') || 0;
-        const cy = +child.getAttribute('cy') || 0;
-        const rx = +child.getAttribute('rx') || 0;
-        const ry = +child.getAttribute('ry') || 0;
-        if (rx > 0 && ry > 0) {
-          paths.push({ d: `M ${cx - rx} ${cy} a ${rx} ${ry} 0 1 0 ${rx * 2} 0 a ${rx} ${ry} 0 1 0 ${-rx * 2} 0 Z` });
-        }
-      } else if (tag === 'rect') {
-        const x = +child.getAttribute('x') || 0;
-        const y = +child.getAttribute('y') || 0;
-        const w = +child.getAttribute('width')  || 0;
-        const h = +child.getAttribute('height') || 0;
-        if (w > 0 && h > 0) {
-          paths.push({ d: `M ${x} ${y} h ${w} v ${h} h ${-w} Z` });
-        }
-      } else if (tag === 'polygon' || tag === 'polyline') {
-        const pts = (child.getAttribute('points') || '').match(/-?\d*\.?\d+/g) || [];
-        if (pts.length >= 4) {
-          let d = `M ${pts[0]} ${pts[1]}`;
-          for (let i = 2; i + 1 < pts.length; i += 2) d += ` L ${pts[i]} ${pts[i + 1]}`;
-          if (tag === 'polygon') d += ' Z';
-          paths.push({ d });
-        }
-      } else if (tag === 'line') {
-        // Lines have no fill — skip unless we want a stroke pass later.
-      } else if (tag === 'g' || tag === 'svg' || tag === 'defs') {
+      if (tag === 'g' || tag === 'svg' || tag === 'defs' || tag === 'symbol') {
         walk(child);
+        continue;
       }
+      const d = svgElToPathD(child);
+      if (d) paths.push({ d });
     }
   };
   walk(root);
