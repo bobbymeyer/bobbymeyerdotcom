@@ -158,8 +158,10 @@ tags:
       <button id='girard-export-tif' class='ctrl-inline-btn'>TIF</button>
     </div>
   </aside>
-  <div id='girard-stage'></div>
-  <button id='girard-yardage-open' class='ctrl-inline-btn' title='Open full-screen yardage preview'>yardage</button>
+  <div id='girard-stage-wrap'>
+    <div id='girard-stage'></div>
+    <button id='girard-yardage-open' class='ctrl-inline-btn' title='Open full-screen yardage preview'>yardage</button>
+  </div>
   <aside id='girard-layers' class='girard-panel'>
     <select id='girard-add-layer'>
       <option value=''>+ add layer…</option>

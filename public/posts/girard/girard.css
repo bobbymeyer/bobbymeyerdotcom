@@ -17,8 +17,8 @@
 #girard-title             { order: 0; }
 #girard-composition-label { order: 1; }
 #girard-composition       { order: 2; }
-#girard-stage             { order: 3; }
-#girard-yardage-open      { order: 4; align-self: start; }
+#girard-stage-wrap        { order: 3; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
+#girard-stage-wrap > #girard-yardage-open { align-self: start; }
 #girard-layers-label      { order: 5; }
 #girard-layers            { order: 6; }
 
@@ -51,10 +51,10 @@
     align-self: start;
   }
   #girard-layers      { grid-row: 2; grid-column: 4; align-self: start; }
-  /* Yardage trigger sits under the stage column, left-aligned. */
-  #girard-yardage-open {
-    grid-row: 3; grid-column: 3;
-    justify-self: start;
+  /* Stage wrapper takes the centre cell; the yardage button stacks
+     under the stage with the wrapper's gap, no row 3 leap. */
+  #girard-stage-wrap {
+    grid-row: 2; grid-column: 3;
     align-self: start;
   }
 }
