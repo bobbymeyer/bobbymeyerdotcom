@@ -202,9 +202,11 @@ tags:
 <div id='girard-samples-modal' class='girard-modal' aria-hidden='true'>
   <div class='girard-modal-controls'>
     <span class='girard-modal-title'>sample library</span>
+    <input id='girard-samples-search' type='search' placeholder='search…' class='girard-samples-search' />
     <span id='girard-samples-count' class='girard-modal-size'></span>
     <button id='girard-samples-close' class='girard-modal-close' title='Close (Esc)'>×</button>
   </div>
+  <div id='girard-samples-tags' class='girard-samples-tags'></div>
   <div id='girard-samples-grid' class='girard-samples-grid'></div>
 </div>
 

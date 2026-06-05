@@ -2025,6 +2025,107 @@ const SAMPLES = {
   },
 };
 
+// Tag inference for the sample library. Each layer's fill kind maps
+// to a set of tags; some specific shape kinds add their own. Sample
+// names also carry strong hints ("stripe", "checker", …) we layer on
+// top. A sample can also declare its own tags via `sample.tags`.
+const FILL_TAG_MAP = {
+  triangles:   ['geometric', 'scatter'],
+  mesh:        ['grid', 'geometric'],
+  windowpane:  ['grid', 'geometric'],
+  graph:       ['grid', 'linear'],
+  weave:       ['textile', 'woven', 'dense'],
+  honeycomb:   ['geometric', 'hexagonal'],
+  manhattan:   ['architectural', 'dense'],
+  glyph:       ['typographic', 'abstract'],
+  maze:        ['linear', 'geometric'],
+  pinwheel:    ['geometric', 'radial'],
+  'flower-seal': ['floral', 'radial'],
+  bloom:       ['floral', 'organic'],
+  firecracker: ['radial', 'geometric'],
+  comb:        ['radial', 'geometric'],
+  voronoi:     ['organic', 'scatter'],
+  stones:      ['organic', 'scatter'],
+  twigs:       ['organic', 'branching'],
+  grass:       ['organic', 'foliage'],
+  fruit:       ['organic', 'foliage'],
+  slant:       ['stripes', 'diagonal'],
+  dashes:      ['textural'],
+  multiform:   ['abstract', 'scatter'],
+  split:       ['geometric'],
+  'arc-block': ['geometric', 'radial'],
+  'arc-split': ['geometric'],
+};
+const SHAPE_TAG_MAP = {
+  circle:      ['geometric'],
+  square:      ['geometric'],
+  diamond:     ['geometric'],
+  triangle:    ['geometric'],
+  'right-triangle': ['geometric'],
+  star:        ['geometric'],
+  text:        ['typographic'],
+  blossom:     ['floral'],
+  flower:      ['floral'],
+  leaf:        ['organic', 'foliage'],
+  jacks:       ['geometric'],
+  plus:        ['geometric'],
+  cross:       ['geometric'],
+  quatrefoil:  ['geometric'],
+  quadDots:    ['geometric'],
+};
+function sampleTags(name, sample) {
+  const tags = new Set(sample.tags || []);
+  for (const l of sample.layers || []) {
+    const k = l.fill?.kind;
+    (FILL_TAG_MAP[k] || []).forEach(t => tags.add(t));
+    if (k === 'shape') {
+      const sk = l.fill.shape?.kind;
+      (SHAPE_TAG_MAP[sk] || []).forEach(t => tags.add(t));
+    }
+  }
+  const n = name.toLowerCase();
+  if (/stripe|pole|raya|miller|lino|super|ribbon/.test(n))   tags.add('stripes');
+  if (/check/.test(n))                                       tags.add('checker');
+  if (/grid|lattice|graph|pane/.test(n))                     tags.add('grid');
+  if (/floral|flower|bloom|seal|fruit|leaves|petal/.test(n)) tags.add('floral');
+  if (/jute|weave|cloth/.test(n))                            tags.add('textile');
+  if (/circle|round|pebble|stone/.test(n))                   tags.add('organic');
+  if (/triang|hex|diamond|square/.test(n))                   tags.add('geometric');
+  return Array.from(tags).sort();
+}
+
+// Render a small SVG thumbnail for a sample by reconstructing its
+// pattern via loadSample, then tiling 2×2 into the card area. Mirrors
+// the yardage builder's approach but at a single fixed (small) size.
+function buildSampleThumb(samplePattern) {
+  const { w: tileW, h: tileH } = tileDims(samplePattern);
+  const root = el('svg', {
+    xmlns: SVG_NS,
+    viewBox: `0 0 ${tileW * 2} ${tileH * 2}`,
+    width: '100%',
+    height: '100%',
+    preserveAspectRatio: 'xMidYMid meet',
+  });
+  const tileGroup = buildTileGroup(samplePattern);
+  const unit = buildRepeatUnit(samplePattern, tileGroup);
+  const patternId = `thumb-${Math.random().toString(36).slice(2, 8)}`;
+  const tilePattern = el('pattern', {
+    id: patternId,
+    x: 0, y: 0,
+    width: unit.width,
+    height: unit.height,
+    patternUnits: 'userSpaceOnUse',
+  });
+  unit.content.forEach(node => tilePattern.appendChild(node));
+  root.appendChild(el('defs', {}, [tilePattern]));
+  root.appendChild(el('rect', {
+    width: tileW * 2,
+    height: tileH * 2,
+    fill: `url(#${patternId})`,
+  }));
+  return root;
+}
+
 function loadSample(name, current, clear) {
   const sample = SAMPLES[name];
   if (!sample) return current;
@@ -7334,19 +7435,76 @@ function mount() {
   const samplesOpenBtn  = document.getElementById('girard-samples-open');
   const samplesCloseBtn = document.getElementById('girard-samples-close');
   const samplesGrid     = document.getElementById('girard-samples-grid');
+  const samplesTagsEl   = document.getElementById('girard-samples-tags');
+  const samplesSearchEl = document.getElementById('girard-samples-search');
   const samplesCount    = document.getElementById('girard-samples-count');
-  const buildSamplesGrid = () => {
+
+  // Build the sample → tags index once. Reused by the tag-pill bar
+  // and the card filter; tag inference is pure so the result is
+  // stable for the session.
+  const sampleNames = Object.keys(SAMPLES).sort((a, b) => a.localeCompare(b));
+  const sampleTagsByName = new Map();
+  const allTagCounts = new Map();
+  for (const name of sampleNames) {
+    const tags = sampleTags(name, SAMPLES[name]);
+    sampleTagsByName.set(name, tags);
+    for (const t of tags) allTagCounts.set(t, (allTagCounts.get(t) || 0) + 1);
+  }
+  const allTags = [...allTagCounts.keys()].sort((a, b) => {
+    // Sort by count descending so the most-used tags appear first.
+    const d = allTagCounts.get(b) - allTagCounts.get(a);
+    return d !== 0 ? d : a.localeCompare(b);
+  });
+  const activeTags = new Set();
+  let searchTerm = '';
+
+  // Card thumbnail builder — uses loadSample to reconstruct the
+  // sample's pattern at default state and renders it as a 2×2 tile
+  // field. Heavy SVG nodes are built on demand; the modal opens
+  // immediately and cards fill in synchronously (62 samples × a small
+  // tile render is comfortably under a frame budget on modern devices,
+  // but if it becomes an issue we can swap to IntersectionObserver).
+  const renderSamplesGrid = () => {
     if (!samplesGrid) return;
     samplesGrid.replaceChildren();
-    const names = Object.keys(SAMPLES).sort((a, b) => a.localeCompare(b));
-    for (const name of names) {
+    const lowerSearch = searchTerm.trim().toLowerCase();
+    let shown = 0;
+    for (const name of sampleNames) {
+      const tags = sampleTagsByName.get(name);
+      if (activeTags.size > 0) {
+        // AND across active tags — selecting "geometric" + "radial"
+        // narrows to samples that hit both.
+        let ok = true;
+        for (const t of activeTags) if (!tags.includes(t)) { ok = false; break; }
+        if (!ok) continue;
+      }
+      if (lowerSearch && !name.toLowerCase().includes(lowerSearch)) continue;
+      shown++;
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'sample-card';
+      const thumbWrap = document.createElement('div');
+      thumbWrap.className = 'sample-card-thumb';
+      try {
+        const samplePattern = loadSample(name, defaultPattern(), true);
+        thumbWrap.appendChild(buildSampleThumb(samplePattern));
+      } catch (err) {
+        console.warn('thumbnail failed for', name, err);
+      }
+      card.appendChild(thumbWrap);
+      const meta = document.createElement('div');
+      meta.className = 'sample-card-meta';
       const title = document.createElement('span');
       title.className = 'sample-card-title';
       title.textContent = name;
-      card.appendChild(title);
+      meta.appendChild(title);
+      if (tags.length) {
+        const tagList = document.createElement('span');
+        tagList.className = 'sample-card-tags';
+        tagList.textContent = tags.slice(0, 3).join(' · ');
+        meta.appendChild(tagList);
+      }
+      card.appendChild(meta);
       card.addEventListener('click', () => {
         const clear = window.confirm(
           `Load "${name}"?\n\nOK: clear current design and load fresh.\nCancel: layer this sample on top of the current pattern.`
@@ -7356,11 +7514,54 @@ function mount() {
       });
       samplesGrid.appendChild(card);
     }
-    if (samplesCount) samplesCount.textContent = `${names.length} samples`;
+    if (samplesCount) {
+      const total = sampleNames.length;
+      samplesCount.textContent = shown === total ? `${total} samples` : `${shown} of ${total}`;
+    }
   };
+
+  const renderTagPills = () => {
+    if (!samplesTagsEl) return;
+    samplesTagsEl.replaceChildren();
+    for (const t of allTags) {
+      const pill = document.createElement('button');
+      pill.type = 'button';
+      pill.className = 'sample-tag-pill';
+      pill.dataset.tag = t;
+      pill.textContent = `${t} · ${allTagCounts.get(t)}`;
+      if (activeTags.has(t)) pill.classList.add('is-active');
+      pill.addEventListener('click', () => {
+        if (activeTags.has(t)) activeTags.delete(t);
+        else activeTags.add(t);
+        renderTagPills();
+        renderSamplesGrid();
+      });
+      samplesTagsEl.appendChild(pill);
+    }
+    if (activeTags.size > 0) {
+      const clear = document.createElement('button');
+      clear.type = 'button';
+      clear.className = 'sample-tag-pill is-clear';
+      clear.textContent = 'clear';
+      clear.addEventListener('click', () => {
+        activeTags.clear();
+        renderTagPills();
+        renderSamplesGrid();
+      });
+      samplesTagsEl.appendChild(clear);
+    }
+  };
+
+  if (samplesSearchEl) {
+    samplesSearchEl.addEventListener('input', () => {
+      searchTerm = samplesSearchEl.value || '';
+      renderSamplesGrid();
+    });
+  }
   const samplesOpen = () => {
     if (!samplesModal) return;
-    buildSamplesGrid();
+    renderTagPills();
+    renderSamplesGrid();
     samplesModal.classList.add('is-open');
     samplesModal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
