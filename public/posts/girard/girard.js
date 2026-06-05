@@ -337,6 +337,11 @@ function naiveRgbToCmyk(r, g, b) {
 //      channel so the COMMANDED ink, after the press's gain, prints
 //      at the target density.
 function profileRgbToCmyk(r, g, b, profileId) {
+  const user = iccProfiler.userProfiles.get(profileId);
+  if (user && user.parsed) {
+    const cmyk = lutRgbToCmyk(r, g, b, user.parsed);
+    if (cmyk) return cmyk;
+  }
   const p = PROFILE_PARAMS[profileId] || PROFILE_PARAMS['U.S. Web Coated (SWOP) v2'];
   const R = srgbToLinear(r / 255), G = srgbToLinear(g / 255), B = srgbToLinear(b / 255);
   const cInk = 1 - R, mInk = 1 - G, yInk = 1 - B;
@@ -373,6 +378,11 @@ function profileRgbToCmyk(r, g, b, profileId) {
 // TVI on the command ink to recover printed density, reverse BP lift,
 // merge K back into CMY, then linear → sRGB encode.
 function profileCmykToRgb(c, m, y, k, profileId) {
+  const user = iccProfiler.userProfiles.get(profileId);
+  if (user && user.parsed) {
+    const rgb = lutCmykToRgb(c, m, y, k, user.parsed);
+    if (rgb) return rgb;
+  }
   const p = PROFILE_PARAMS[profileId] || PROFILE_PARAMS['U.S. Web Coated (SWOP) v2'];
   // Forward TVI: command ink → apparent printed density.
   c = tviApply(c, p.tviC);
@@ -436,13 +446,17 @@ const iccProfiler = {
   loaded: false,
   loading: false,
   profileId: null,
+  // userProfiles: profileId → { bytes, parsed } for ICC files the user
+  // dropped in via the file picker. When a profileId has a real
+  // userProfile, profileRgbToCmyk / profileCmykToRgb route through its
+  // LUT instead of the synthesised math, and the PDF/TIFF embedders
+  // inline the original bytes.
+  userProfiles: new Map(),
   load: function(profileId) {
     if (this.loaded) { this.profileId = profileId; return Promise.resolve(); }
     if (this.loading) return Promise.resolve();
     this.loading = true;
     return new Promise(resolve => {
-      // No external library to fetch yet — the better math is bundled.
-      // Tiny artificial delay so the UI's "loading" state is visible.
       setTimeout(() => {
         this.loaded = true;
         this.loading = false;
@@ -452,6 +466,189 @@ const iccProfiler = {
     });
   },
 };
+
+// ---------- ICC v2 LUT parser ----------
+// Parses the bare minimum of an ICC profile to drive colour transforms:
+// header, tag table, and the mft1 (LUT8) / mft2 (LUT16) tags for A2B0
+// (device → PCS) and B2A0 (PCS → device). v4 mAB / mBA aren't handled;
+// most CMYK shop profiles still ship as v2 lut*Type tables. Returns
+// null on any unsupported shape so callers fall back to the synthesised
+// math without losing the profile binding.
+function parseIccProfile(bytes) {
+  if (!bytes || bytes.length < 128) return null;
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const readU32 = (o) => dv.getUint32(o, false);   // ICC is big-endian
+  const readU16 = (o) => dv.getUint16(o, false);
+  const readS15Fixed16 = (o) => dv.getInt32(o, false) / 65536;
+  const sig = String.fromCharCode(...bytes.slice(36, 40));
+  if (sig !== 'acsp') return null;
+  const colorSpace = String.fromCharCode(...bytes.slice(16, 20)).trim();
+  const pcs = String.fromCharCode(...bytes.slice(20, 24)).trim();
+  // Tag table starts at offset 128.
+  const tagCount = readU32(128);
+  const tags = {};
+  for (let i = 0; i < tagCount; i++) {
+    const o = 132 + i * 12;
+    const name = String.fromCharCode(...bytes.slice(o, o + 4));
+    tags[name] = { offset: readU32(o + 4), size: readU32(o + 8) };
+  }
+  const parseLutTag = (tag) => {
+    if (!tag) return null;
+    const start = tag.offset;
+    const type = String.fromCharCode(...bytes.slice(start, start + 4));
+    if (type !== 'mft1' && type !== 'mft2') return null;
+    const inChans = bytes[start + 8];
+    const outChans = bytes[start + 9];
+    const gridSize = bytes[start + 10];
+    // 3x3 matrix at start+12 .. start+12+36 (9 s15Fixed16 values).
+    const matrix = [];
+    for (let i = 0; i < 9; i++) matrix.push(readS15Fixed16(start + 12 + i * 4));
+    const is16 = type === 'mft2';
+    let off = start + 48;
+    let inTableEntries, outTableEntries;
+    if (is16) {
+      inTableEntries  = readU16(off);     off += 2;
+      outTableEntries = readU16(off);     off += 2;
+    } else {
+      inTableEntries = 256;
+      outTableEntries = 256;
+    }
+    const readSample = () => {
+      if (is16) { const v = readU16(off); off += 2; return v / 65535; }
+      const v = bytes[off]; off += 1; return v / 255;
+    };
+    const inputCurves = [];
+    for (let c = 0; c < inChans; c++) {
+      const curve = new Float64Array(inTableEntries);
+      for (let i = 0; i < inTableEntries; i++) curve[i] = readSample();
+      inputCurves.push(curve);
+    }
+    const clutCount = Math.pow(gridSize, inChans) * outChans;
+    const clut = new Float64Array(clutCount);
+    for (let i = 0; i < clutCount; i++) clut[i] = readSample();
+    const outputCurves = [];
+    for (let c = 0; c < outChans; c++) {
+      const curve = new Float64Array(outTableEntries);
+      for (let i = 0; i < outTableEntries; i++) curve[i] = readSample();
+      outputCurves.push(curve);
+    }
+    return { inChans, outChans, gridSize, matrix, inputCurves, clut, outputCurves };
+  };
+  return {
+    bytes,
+    colorSpace,    // 'RGB ', 'CMYK', etc.
+    pcs,           // 'XYZ ' or 'Lab '
+    a2b0: parseLutTag(tags['A2B0']),   // device → PCS
+    b2a0: parseLutTag(tags['B2A0']),   // PCS → device
+  };
+}
+
+// 1-D curve interpolation: t∈[0,1] → curve sample with linear
+// interpolation between adjacent entries.
+function lutCurve(curve, t) {
+  const n = curve.length;
+  if (n === 1) return curve[0];
+  const x = Math.max(0, Math.min(1, t)) * (n - 1);
+  const i = Math.floor(x), f = x - i;
+  return i >= n - 1 ? curve[n - 1] : curve[i] * (1 - f) + curve[i + 1] * f;
+}
+
+// N-dimensional CLUT lookup via multi-linear interpolation. `inputs`
+// is an array of N values in [0,1]; returns outChans-long array.
+// gridSize G means each axis has G samples; the table is flat row-
+// major with the LAST input axis varying fastest (ICC ordering).
+function lutClut(table, gridSize, inChans, outChans, inputs) {
+  const G = gridSize, G1 = G - 1;
+  // Index strides: last input changes fastest, so stride for axis i
+  // is G^(inChans-1-i) * outChans.
+  const strides = new Array(inChans);
+  let s = outChans;
+  for (let i = inChans - 1; i >= 0; i--) { strides[i] = s; s *= G; }
+  const idx = new Array(inChans), frac = new Array(inChans);
+  for (let i = 0; i < inChans; i++) {
+    const x = Math.max(0, Math.min(1, inputs[i])) * G1;
+    const fi = Math.floor(x);
+    idx[i] = Math.min(fi, G1 - 1 < 0 ? 0 : G1 - 1);
+    frac[i] = x - idx[i];
+    if (idx[i] >= G1) { idx[i] = G1 - 1 < 0 ? 0 : G1 - 1; frac[i] = idx[i] < 0 ? 0 : 1; }
+    if (G === 1) { idx[i] = 0; frac[i] = 0; }
+  }
+  // Multilinear: sum over 2^N corners.
+  const out = new Float64Array(outChans);
+  const corners = 1 << inChans;
+  for (let c = 0; c < corners; c++) {
+    let weight = 1;
+    let base = 0;
+    for (let i = 0; i < inChans; i++) {
+      const hi = (c >> i) & 1;
+      weight *= hi ? frac[i] : (1 - frac[i]);
+      base += (idx[i] + hi) * strides[i];
+    }
+    if (weight === 0) continue;
+    for (let k = 0; k < outChans; k++) out[k] += weight * table[base + k];
+  }
+  return out;
+}
+
+// Drive an mft1/mft2 LUT: input curves → CLUT → output curves.
+function applyLut(lut, inputs) {
+  if (!lut) return null;
+  const curved = inputs.map((v, i) => lutCurve(lut.inputCurves[i], v));
+  const clutOut = lutClut(lut.clut, lut.gridSize, lut.inChans, lut.outChans, curved);
+  return Array.from(clutOut, (v, i) => lutCurve(lut.outputCurves[i], v));
+}
+
+// PCS conversions. ICC v2 Lab PCS encoding: L*∈[0,100] maps to
+// [0,1] via L/100 (lut16: 0xFF00/0xFFFF, lut8: 0xFF/0xFF — close
+// enough). a*,b*∈[-128,127] map to [0,1] via (a+128)/255. XYZ PCS
+// encoding: X,Y,Z∈[0,2) map to [0,1] via v/2 (since 0x8000 represents
+// Y=1 in lut16). The conversions here invert those encodings.
+function srgbToLabPcs(r, g, b) {
+  // sRGB → XYZ D50 → Lab D50.
+  const { X, Y, Z } = srgbToXyzD50(r, g, b);
+  const Xn = 0.9642, Yn = 1.0000, Zn = 0.8249;     // D50 reference white
+  const f = (t) => t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116;
+  const fx = f(X / Xn), fy = f(Y / Yn), fz = f(Z / Zn);
+  const L = 116 * fy - 16;
+  const a = 500 * (fx - fy);
+  const bb = 200 * (fy - fz);
+  // ICC PCS encoding for lut16 (close enough for lut8 too).
+  return [L / 100, (a + 128) / 255, (bb + 128) / 255];
+}
+function labPcsToSrgb(L01, a01, b01) {
+  const L = L01 * 100, a = a01 * 255 - 128, b = b01 * 255 - 128;
+  const Xn = 0.9642, Yn = 1.0000, Zn = 0.8249;
+  const fy = (L + 16) / 116;
+  const fx = a / 500 + fy;
+  const fz = fy - b / 200;
+  const fInv = (t) => t > 0.20689655 ? t * t * t : (t - 16 / 116) / 7.787;
+  const X = Xn * fInv(fx), Y = Yn * fInv(fy), Z = Zn * fInv(fz);
+  return xyzD50ToSrgb(X, Y, Z);
+}
+// XYZ PCS encoding (lut16): each channel scaled by 1/2.
+function srgbToXyzPcs(r, g, b) {
+  const { X, Y, Z } = srgbToXyzD50(r, g, b);
+  return [X / 2, Y / 2, Z / 2];
+}
+function xyzPcsToSrgb(X01, Y01, Z01) {
+  return xyzD50ToSrgb(X01 * 2, Y01 * 2, Z01 * 2);
+}
+
+// LUT-backed sRGB → CMYK using a loaded CMYK profile's B2A0.
+function lutRgbToCmyk(r, g, b, parsed) {
+  if (!parsed || !parsed.b2a0 || parsed.colorSpace !== 'CMYK') return null;
+  const pcs = parsed.pcs === 'Lab ' ? srgbToLabPcs(r, g, b) : srgbToXyzPcs(r, g, b);
+  const cmyk = applyLut(parsed.b2a0, pcs);
+  if (!cmyk) return null;
+  return { c: cmyk[0], m: cmyk[1], y: cmyk[2], k: cmyk[3] };
+}
+// LUT-backed CMYK → sRGB using a loaded profile's A2B0.
+function lutCmykToRgb(c, m, y, k, parsed) {
+  if (!parsed || !parsed.a2b0 || parsed.colorSpace !== 'CMYK') return null;
+  const pcs = applyLut(parsed.a2b0, [c, m, y, k]);
+  if (!pcs) return null;
+  return parsed.pcs === 'Lab ' ? labPcsToSrgb(pcs[0], pcs[1], pcs[2]) : xyzPcsToSrgb(pcs[0], pcs[1], pcs[2]);
+}
 
 // ---------- Sample library ----------
 // Each entry is a partial pattern: a layers stack plus optional
@@ -4196,6 +4393,11 @@ function xyzD50ToSrgb(X, Y, Z) {
 // real-world CMYK profile.
 const _cmykIccCache = new Map();
 function buildCmykIccProfile(profileId) {
+  // User-uploaded profile takes precedence: embed the original bytes
+  // so the PDF/TIFF OutputIntent points at exactly the profile the
+  // shop expects, not our synthesised approximation.
+  const user = iccProfiler.userProfiles.get(profileId);
+  if (user && user.bytes) return user.bytes;
   if (_cmykIccCache.has(profileId)) return _cmykIccCache.get(profileId);
   const params = PROFILE_PARAMS[profileId];
   if (!params) return null;
@@ -6408,8 +6610,42 @@ function mount() {
       refreshIccStatus();
       iccProfiler.load(pattern.iccProfile).then(() => {
         refreshIccStatus();
-        rerenderUI();   // refresh CMYK readouts using new transform
+        rerenderUI();
       });
+    });
+  }
+  // File picker: parse the user's .icc binary into LUTs and bind it
+  // to the currently-selected profileId. From that point on, every
+  // RGB↔CMYK conversion for that profile routes through the LUT and
+  // every PDF/TIFF export embeds the original bytes verbatim.
+  const iccFileInp = document.getElementById('girard-icc-file');
+  if (iccFileInp) {
+    iccFileInp.addEventListener('change', () => {
+      const file = iccFileInp.files && iccFileInp.files[0];
+      if (!file) return;
+      file.arrayBuffer().then(buf => {
+        const bytes = new Uint8Array(buf);
+        const parsed = parseIccProfile(bytes);
+        if (!parsed) {
+          if (iccStatus) iccStatus.textContent = `Could not parse ${file.name} — not an ICC v2 mft1/mft2 profile.`;
+          return;
+        }
+        const profileId = pattern.iccProfile;
+        iccProfiler.userProfiles.set(profileId, { bytes, parsed, filename: file.name });
+        // Profile binding implies loaded state — synth math is replaced
+        // by LUT lookup for this profile.
+        iccProfiler.loaded = true;
+        iccProfiler.profileId = profileId;
+        // Drop the synth cache for this profileId so the embed path
+        // re-fetches via buildCmykIccProfile and gets the user bytes.
+        _cmykIccCache.delete(profileId);
+        if (iccStatus) iccStatus.textContent = `Loaded ${file.name} — LUT-based ${parsed.colorSpace.trim()} → ${parsed.pcs.trim()} transforms active for ${profileLabel(profileId)}.`;
+        rerenderUI();
+      }).catch(err => {
+        console.error('girard: ICC file read failed:', err);
+        if (iccStatus) iccStatus.textContent = `Failed to read ${file.name}.`;
+      });
+      iccFileInp.value = '';   // allow re-loading the same file
     });
   }
   refreshIccStatus();

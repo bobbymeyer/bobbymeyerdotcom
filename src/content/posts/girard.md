@@ -78,6 +78,10 @@ tags:
         <select id='girard-icc-profile'></select>
       </label>
       <button id='girard-icc-load' class='ctrl-inline-btn icc-load-btn'>load ICC profiler</button>
+      <label class='ctrl-inline-btn icc-load-btn' for='girard-icc-file' style='cursor:pointer;'>
+        load .icc file…
+      </label>
+      <input id='girard-icc-file' type='file' accept='.icc,.icm,application/vnd.iccprofile' style='display:none;' />
       <label class='ctrl ctrl-checkbox'>
         <input id='girard-soft-proof' type='checkbox' />
         <span>soft proof on stage</span>
