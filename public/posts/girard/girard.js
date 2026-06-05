@@ -4504,6 +4504,58 @@ function nText(n) {
   return '';
 }
 
+// CSS font-weight → numeric. SVG accepts both `400` and `bold`; the
+// font map is keyed by number so we have to canonicalise.
+const FONT_WEIGHT_MAP = { normal: 400, bold: 700, bolder: 900, lighter: 100 };
+function parseFontWeight(v) {
+  if (v == null) return 400;
+  const s = String(v).toLowerCase().trim();
+  if (FONT_WEIGHT_MAP[s] != null) return FONT_WEIGHT_MAP[s];
+  const n = parseInt(s, 10);
+  return isNaN(n) ? 400 : n;
+}
+
+// Parse the subset of `style` attribute properties the walker cares
+// about (opacity / mix-blend-mode). Returns { opacity, blendMode } —
+// undefined for keys not present so callers can fall back cleanly.
+function parseStyleAttr(s) {
+  const out = {};
+  if (!s) return out;
+  for (const decl of String(s).split(';')) {
+    const i = decl.indexOf(':');
+    if (i < 0) continue;
+    const k = decl.slice(0, i).trim().toLowerCase();
+    const v = decl.slice(i + 1).trim();
+    if (k === 'opacity') out.opacity = Number(v);
+    else if (k === 'mix-blend-mode') out.blendMode = v;
+    else if (k === 'fill-opacity') out.fillOpacity = Number(v);
+    else if (k === 'stroke-opacity') out.strokeOpacity = Number(v);
+  }
+  return out;
+}
+
+// SVG mix-blend-mode → PDF /BM name. CSS uses kebab-case; PDF uses
+// CamelCase. PDF 1.4+ supports the full Porter-Duff + separable
+// blending set, so the mapping is one-to-one for every standard mode.
+function svgBlendToPdf(bm) {
+  if (!bm || bm === 'normal') return 'Normal';
+  return String(bm).split('-').map(p => p ? p[0].toUpperCase() + p.slice(1) : '').join('');
+}
+
+// Per-export registry of /ExtGState resources used by the page. Keyed
+// by (ca, CA, blendMode) tuple → { name, ca, CA, BM }. The caller
+// materialises these into the page's Resources/ExtGState dict after
+// walking.
+function makeGsRegistry() { return new Map(); }
+function gsRefName(reg, ca, CA, BM) {
+  const k = `${ca.toFixed(4)}|${CA.toFixed(4)}|${BM}`;
+  const hit = reg.get(k);
+  if (hit) return hit.name;
+  const name = `GS${reg.size}`;
+  reg.set(k, { name, ca, CA, BM });
+  return name;
+}
+
 // `fontMap` is the per-export Map<family|weight|style, opentypeFont>
 // built by loadGlyphsForPattern. When supplied, text whose font is
 // loaded vectorizes inline; when omitted (or missing a needed font),
@@ -4515,7 +4567,7 @@ function canVectorize(svg, fontMap) {
     const tag = nTag(n);
     if (tag === 'text') {
       const family = nAttr(n, 'font-family') || 'sans-serif';
-      const w = parseInt(nAttr(n, 'font-weight') || '400', 10) || 400;
+      const w = parseFontWeight(nAttr(n, 'font-weight'));
       const s = nAttr(n, 'font-style') || 'normal';
       if (!fontMap || !fontMap.get(`${family}|${w}|${s}`)) ok = false;
     }
@@ -4729,17 +4781,32 @@ function emitOpentypePath(path, ops) {
 // `clipDefs` is the Map returned by indexClipPaths; if omitted (top-
 // level call) we build it from `node` so callers don't need to know.
 // `fontMap` is the per-export font dictionary used for text outlining.
-function walkSvgToPdfOps(node, state, ops, profileId, clipDefs, fontMap) {
+function walkSvgToPdfOps(node, state, ops, profileId, clipDefs, fontMap, gsRegistry) {
   if (!node) return;
   if (!clipDefs) clipDefs = indexClipPaths(node);
   if (!fontMap) fontMap = new Map();
+  if (!gsRegistry) gsRegistry = makeGsRegistry();
   const tag = nTag(node);
   if (!tag) return;
   if (tag === 'defs' || tag === 'clippath') return;
   const transform = nAttr(node, 'transform');
   const clipPath = nAttr(node, 'clip-path');
+  // Pull opacity / blend-mode from either explicit attrs or the
+  // `style` attribute (renderLayer writes group opacity / blend via
+  // style; per-cell text shapes use attrs directly).
+  const styleParsed = parseStyleAttr(nAttr(node, 'style'));
+  const rawOp     = nAttr(node, 'opacity');
+  const rawFillOp = nAttr(node, 'fill-opacity');
+  const rawStkOp  = nAttr(node, 'stroke-opacity');
+  const opacity      = rawOp     != null ? Number(rawOp)     : (styleParsed.opacity        != null ? styleParsed.opacity        : 1);
+  const fillOpacity  = rawFillOp != null ? Number(rawFillOp) : (styleParsed.fillOpacity    != null ? styleParsed.fillOpacity    : 1);
+  const strokeOpacity= rawStkOp  != null ? Number(rawStkOp)  : (styleParsed.strokeOpacity  != null ? styleParsed.strokeOpacity  : 1);
+  const blendMode = svgBlendToPdf(styleParsed.blendMode);
+  const ca = opacity * fillOpacity;
+  const CA = opacity * strokeOpacity;
+  const needGs = ca < 0.9995 || CA < 0.9995 || blendMode !== 'Normal';
   let pushed = false;
-  if (transform || clipPath) {
+  if (transform || clipPath || needGs) {
     ops.push('q');
     pushed = true;
   }
@@ -4756,6 +4823,7 @@ function walkSvgToPdfOps(node, state, ops, profileId, clipDefs, fontMap) {
       ops.push('W n');
     }
   }
+  if (needGs) ops.push(`/${gsRefName(gsRegistry, ca, CA, blendMode)} gs`);
 
   // Inherit state, override with this node's attrs.
   const fillA   = nAttr(node, 'fill');
@@ -4796,7 +4864,7 @@ function walkSvgToPdfOps(node, state, ops, profileId, clipDefs, fontMap) {
   };
 
   const recur = () => {
-    for (const c of nChildren(node)) walkSvgToPdfOps(c, { fill, stroke, strokeWidth: swPx }, ops, profileId, clipDefs, fontMap);
+    for (const c of nChildren(node)) walkSvgToPdfOps(c, { fill, stroke, strokeWidth: swPx }, ops, profileId, clipDefs, fontMap, gsRegistry);
   };
 
   switch (tag) {
@@ -4891,7 +4959,7 @@ function walkSvgToPdfOps(node, state, ops, profileId, clipDefs, fontMap) {
       const text = nText(node);
       if (!text) break;
       const family = nAttr(node, 'font-family') || 'sans-serif';
-      const fw = parseInt(nAttr(node, 'font-weight') || '400', 10) || 400;
+      const fw = parseFontWeight(nAttr(node, 'font-weight'));
       const fstyle = nAttr(node, 'font-style') || 'normal';
       const font = fontMap.get(`${family}|${fw}|${fstyle}`);
       if (!font) break;  // canVectorize would have rejected; defensive
@@ -4970,8 +5038,27 @@ function exportTilePdf(pattern, baseName) {
           ops.push(`0 0 ${vW.toFixed(3)} ${vH.toFixed(3)} re`);
           ops.push('f');
         }
-        walkSvgToPdfOps(tileSvgForVector.svg, { fill: '#000000', stroke: 'none', strokeWidth: 1 }, ops, profileId, undefined, fontMap);
+        const gsRegistry = makeGsRegistry();
+        walkSvgToPdfOps(tileSvgForVector.svg, { fill: '#000000', stroke: 'none', strokeWidth: 1 }, ops, profileId, undefined, fontMap, gsRegistry);
         ops.push('Q');
+        // Materialise any /ExtGState references used by the stream
+        // into the page's Resources/ExtGState dict. Each entry holds
+        // fill alpha (/ca), stroke alpha (/CA), and blend mode (/BM).
+        if (gsRegistry.size > 0) {
+          const { PDFName, PDFNumber } = window.PDFLib;
+          const resources = pdfDoc.context.obj({});
+          const extDict = pdfDoc.context.obj({});
+          for (const { name, ca, CA, BM } of gsRegistry.values()) {
+            extDict.set(PDFName.of(name), pdfDoc.context.obj({
+              Type: PDFName.of('ExtGState'),
+              ca: PDFNumber.of(ca),
+              CA: PDFNumber.of(CA),
+              BM: PDFName.of(BM),
+            }));
+          }
+          resources.set(PDFName.of('ExtGState'), extDict);
+          page.node.set(PDFName.of('Resources'), resources);
+        }
         page.pushOperators(...ops.map(s => PDFOperator.of(s + '\n')));
       } else if (iccProfiler.loaded) {
         // True CMYK content: convert pixels through the active profile
