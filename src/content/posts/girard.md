@@ -168,7 +168,7 @@ tags:
     <div id='girard-stage'></div>
     <div id='girard-stage-tools'>
       <button id='girard-yardage-open' class='ctrl-inline-btn' title='Open full-screen yardage preview'>yardage</button>
-      <label class='ctrl-inline-row stage-veil' title='Dim the surrounding tile margins'>
+      <label class='stage-veil' title='Dim the surrounding tile margins'>
         <span>veil</span>
         <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.2' />
         <button id='girard-veil-preview' class='ctrl-inline-btn' aria-pressed='false'>preview</button>
