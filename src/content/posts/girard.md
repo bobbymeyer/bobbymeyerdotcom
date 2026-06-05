@@ -129,5 +129,5 @@ tags:
 </div>
 
 <p class='girard-repo'>
-  source on <a href='https://github.com/bobbymeyer/bobbymeyerdotcom/tree/main/public/posts/girard' target='_blank' rel='noopener'>github</a>
+  named for <a href='https://en.wikipedia.org/wiki/Alexander_Girard' target='_blank' rel='noopener'>Alexander Girard</a>. source on <a href='https://github.com/bobbymeyer/bobbymeyerdotcom/tree/main/public/posts/girard' target='_blank' rel='noopener'>github</a>.
 </p>
