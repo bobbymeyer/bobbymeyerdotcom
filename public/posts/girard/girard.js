@@ -2584,7 +2584,10 @@ function tileDims(pattern) {
 function buildTileGroup(pattern) {
   const { w, h } = tileDims(pattern);
   const root = el('g');
+  // Solo: when any layer is solo'd, only solo'd layers render.
+  const anySolo = pattern.layers.some(l => l.solo);
   pattern.layers.forEach((layer, li) => {
+    if (anySolo && !layer.solo) return;
     // Locked layers carry a frozen RNG seed; everything else flows
     // from the project seed so a "roll" reshuffles them together.
     const rngSeed = (layer.locked && layer.lockedSeed != null)
@@ -5794,9 +5797,13 @@ function exportTileJpeg(pattern, baseName, quality = 0.92) {
 function renderLayerList(listEl, pattern, selected, handlers) {
   const items = pattern.layers.map((layer, i) => {
     const li = document.createElement('li');
+    const anySolo = pattern.layers.some(l => l.solo);
+    const dimmed = anySolo && !layer.solo;
     li.className = 'layer-item'
       + (i === selected ? ' selected' : '')
-      + (layer.locked ? ' is-locked' : '');
+      + (layer.locked ? ' is-locked' : '')
+      + (layer.solo ? ' is-solo' : '')
+      + (dimmed ? ' is-dimmed' : '');
     const label = document.createElement('span');
     label.className = 'layer-label';
     label.textContent = `${i + 1}. ${layerLabel(layer)}`;
@@ -5820,6 +5827,15 @@ function renderLayerList(listEl, pattern, selected, handlers) {
       'layer-lock' + (layer.locked ? ' is-locked' : '')
     );
     actions.appendChild(lockBtn);
+    const soloBtn = btn(
+      'S',
+      layer.solo
+        ? 'unsolo'
+        : 'solo (hide all other layers in the preview)',
+      () => handlers.solo(i),
+      'layer-solo' + (layer.solo ? ' is-solo' : '')
+    );
+    actions.appendChild(soloBtn);
     actions.appendChild(btn('↑', 'move up',   () => handlers.move(i, -1)));
     actions.appendChild(btn('↓', 'move down', () => handlers.move(i, +1)));
     actions.appendChild(btn('×', 'delete',    () => handlers.remove(i)));
@@ -6982,6 +6998,15 @@ function mount() {
         layer.locked = true;
         layer.lockedSeed = (pattern.seed + i * 9973) | 0;
       }
+      rerenderUI();
+    },
+    // Solo: when any layer is solo'd, only solo'd layers render.
+    // Mixer convention — toggling all off returns to "everyone visible."
+    // Independent of lock; a layer can be both.
+    solo: (i) => {
+      const layer = pattern.layers[i];
+      if (!layer) return;
+      layer.solo = !layer.solo;
       rerenderUI();
     },
   };

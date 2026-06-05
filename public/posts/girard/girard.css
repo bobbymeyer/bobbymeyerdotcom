@@ -996,3 +996,18 @@ button.ctrl:hover {
   pointer-events: none;
   user-select: none;
 }
+
+/* Solo toggle on the layer list. Yellow-ish active state matches the
+   mixer convention; dimmed rows fade in the list when something
+   elsewhere is solo'd. */
+.layer-actions .layer-solo {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.layer-actions .layer-solo.is-solo {
+  background: #e9c33b;
+  color: #1a1a1a;
+}
+.layer-item.is-solo .layer-label { color: #c9a328; font-weight: 600; }
+.layer-item.is-dimmed .layer-label { opacity: 0.35; }
