@@ -574,3 +574,16 @@ button.ctrl {
 button.ctrl:hover {
   background: #444;
 }
+
+.girard-repo {
+  margin-top: 32px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: rgba(0, 0, 0, 0.55);
+}
+.girard-repo a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.girard-repo a:hover { color: #000; }
