@@ -4446,7 +4446,13 @@ function canVectorize(svg) {
     if (!ok || !n) return;
     if (n.tag === 'text') ok = false;
     if (n.tag === 'use' || n.tag === 'mask' || n.tag === 'filter') ok = false;
-    if (n.attrs && n.attrs['clip-path']) ok = false;
+    if (n.attrs && n.attrs['clip-path']) {
+      // buildTileSvg wraps everything in a rect-clip matching the
+      // tile bounds — that's effectively the page MediaBox in PDF, so
+      // we can ignore it. Anything else (slant fill's per-row clips,
+      // etc.) falls back to raster.
+      if (!/girard-export-clip/.test(n.attrs['clip-path'])) ok = false;
+    }
     (n.children || []).forEach(walk);
   };
   walk(svg);
