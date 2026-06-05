@@ -6830,9 +6830,99 @@ function mount() {
       yardSize.textContent = `${fmt(w)} × ${fmt(h)} ${u}`;
     }
   };
+  // ----- Undo / redo history -----
+  // Past: snapshots taken at save-points before each "burst" of edits.
+  // Future: states the user undid out of, replayable via redo.
+  // Bursts collapse via a 500 ms debounce on scheduleSave so dragging
+  // a slider is one undo step, not 50.
+  const _hist = { past: [], future: [], max: 50, saveTimer: null, applying: false };
+  const _snap = () => JSON.parse(JSON.stringify(pattern));
+  let _lastSavedSnap = _snap();
+  const _commitSave = () => {
+    const cur = _snap();
+    // Skip no-op rerenders so identical snapshots don't pollute past.
+    if (JSON.stringify(cur) === JSON.stringify(_lastSavedSnap)) return;
+    _hist.past.push(_lastSavedSnap);
+    if (_hist.past.length > _hist.max) _hist.past.shift();
+    _lastSavedSnap = cur;
+    _hist.future = [];
+  };
+  const _flushPendingSave = () => {
+    if (!_hist.saveTimer) return;
+    clearTimeout(_hist.saveTimer);
+    _hist.saveTimer = null;
+    _commitSave();
+  };
+  const scheduleSave = () => {
+    if (_hist.applying) return;   // undo / redo isn't itself a save-point
+    if (_hist.saveTimer) clearTimeout(_hist.saveTimer);
+    _hist.saveTimer = setTimeout(() => {
+      _commitSave();
+      _hist.saveTimer = null;
+    }, 500);
+  };
+  // Restore a snapshot into the live pattern and mirror it onto every
+  // top-level UI input that doesn't get rebuilt by rerenderUI(). Layer
+  // list + config form are handled by rerenderUI itself.
+  const applyPatternToUI = () => {
+    seed.value = pattern.seed;
+    repeat.value = pattern.repeat;
+    if (aspectW && aspectH) {
+      if (pattern.aspectW && pattern.aspectH) {
+        aspectW.value = pattern.aspectW; aspectH.value = pattern.aspectH;
+      } else {
+        const a = pattern.aspect ?? 1;
+        if (a >= 1) { aspectW.value = Math.round(a * 10) / 10; aspectH.value = 1; }
+        else        { aspectW.value = 1; aspectH.value = Math.round((1 / a) * 10) / 10; }
+      }
+    }
+    if (veil) veil.value = pattern.surroundVeil;
+    if (physRepeat) physRepeat.value = pattern.physicalRepeat;
+    if (physUnit) physUnit.value = pattern.physicalUnit;
+    if (colorModeSel) colorModeSel.value = pattern.colorMode || 'srgb';
+    if (iccProfileSel) iccProfileSel.value = pattern.iccProfile || 'sRGB IEC61966-2.1';
+    if (exportWidthInp) exportWidthInp.value = pattern.exportWidth ?? 1024;
+    if (exportFlattenInp) exportFlattenInp.checked = !!pattern.exportFlatten;
+    if (exportBgInp) exportBgInp.value = pattern.exportBackground || '#ffffff';
+    refreshColorwaySelect();
+    refreshProjectPalette();
+    refreshPhysicalOverlay();
+    rerenderUI();
+  };
+  const undo = () => {
+    _flushPendingSave();
+    if (_hist.past.length === 0) return;
+    _hist.future.push(_snap());
+    pattern = _hist.past.pop();
+    _lastSavedSnap = JSON.parse(JSON.stringify(pattern));
+    _hist.applying = true;
+    applyPatternToUI();
+    _hist.applying = false;
+  };
+  const redo = () => {
+    if (_hist.future.length === 0) return;
+    _hist.past.push(_snap());
+    pattern = _hist.future.pop();
+    _lastSavedSnap = JSON.parse(JSON.stringify(pattern));
+    _hist.applying = true;
+    applyPatternToUI();
+    _hist.applying = false;
+  };
+  document.addEventListener('keydown', (e) => {
+    const meta = e.metaKey || e.ctrlKey;
+    if (!meta) return;
+    // Ignore when typing into form fields so Cmd-Z in an input still
+    // undoes the input's text, not the pattern.
+    const t = e.target;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+    else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); redo(); }
+  });
+
   const rerenderSvg = () => {
     stage.replaceChildren(buildSvg(pattern));
     rerenderYardage();
+    scheduleSave();
     // If any layer uses a web font, load it then redraw once it's ready
     // (SVG text needs the face present to measure/paint correctly).
     const fonts = patternFonts(pattern);
