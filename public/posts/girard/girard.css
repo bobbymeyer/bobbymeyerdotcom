@@ -617,53 +617,90 @@ button.ctrl:hover {
   z-index: 2;
 }
 
-/* ----- Yardage view ----- */
-/* The N×N tile-field preview that sits below the stage row. Designers
-   use it to read scale and rhythm at body-distance, not just at the
-   single-tile level the stage shows. */
-#girard-yardage {
-  order: 6;            /* mobile: after the layers panel */
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
+/* ----- Yardage modal ----- */
+/* Full-viewport overlay that renders the tile field at body scale.
+   Toggled by the "yardage" button in project settings. Hidden by
+   default (display: none); .is-open lights it up. Clicking the dim
+   backdrop or pressing Esc closes. */
+.girard-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(20, 20, 22, 0.86);
+  padding: 48px 32px 32px;
+  box-sizing: border-box;
+  align-items: stretch;
+  justify-content: center;
 }
-#girard-yardage .girard-yardage-controls {
+.girard-modal.is-open { display: flex; flex-direction: column; }
+.girard-modal-controls {
   display: flex;
-  align-items: end;
-  flex-wrap: wrap;
+  align-items: center;
   gap: 16px;
+  padding-bottom: 12px;
+  color: #f5f5f5;
 }
-#girard-yardage .girard-yardage-controls .ctrl-inline { width: auto; min-width: 0; }
-#girard-yardage .girard-yardage-controls .ctrl-inline select { width: auto; }
-#girard-yardage .girard-yardage-size {
-  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
-  color: #666;
-  letter-spacing: 0.04em;
+.girard-modal-title {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.girard-modal-tiles {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #ccc;
+}
+.girard-modal-tiles select {
+  font: inherit;
+  background: #1a1a1a;
+  color: #f5f5f5;
+  border: 1px solid #444;
+  padding: 4px 8px;
+  text-transform: none;
+}
+.girard-modal-size {
   margin-left: auto;
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.04em;
+  color: #bbb;
 }
-#girard-yardage-stage {
-  width: 100%;
+.girard-modal-close {
+  background: transparent;
+  border: 1px solid #555;
+  color: #f5f5f5;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.girard-modal-close:hover { background: #333; }
+.girard-modal-stage {
+  flex: 1 1 auto;
+  min-height: 0;
   background-image:
-    linear-gradient(45deg, #ddd 25%, transparent 25%),
-    linear-gradient(-45deg, #ddd 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #ddd 75%),
-    linear-gradient(-45deg, transparent 75%, #ddd 75%);
+    linear-gradient(45deg, #444 25%, transparent 25%),
+    linear-gradient(-45deg, #444 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #444 75%),
+    linear-gradient(-45deg, transparent 75%, #444 75%);
   background-size: 24px 24px;
   background-position: 0 0, 0 12px, 12px -12px, -12px 0;
-  background-color: #fff;
-  aspect-ratio: 1 / 1;
+  background-color: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-#girard-yardage-stage svg { display: block; width: 100%; height: 100%; }
-
-@media (min-width: 1100px) {
-  /* Desktop: yardage gets its own row spanning the centre columns,
-     same horizontal reach as the stage. */
-  #girard-yardage {
-    grid-row: 3;
-    grid-column: 2 / span 3;
-    align-self: start;
-  }
+.girard-modal-stage svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 /* Project palette: horizontal strip of swatches under the generator

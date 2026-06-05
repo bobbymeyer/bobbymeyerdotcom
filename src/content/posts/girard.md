@@ -57,6 +57,7 @@ tags:
             <option value='in'>in</option>
             <option value='cm'>cm</option>
           </select>
+          <button id='girard-yardage-open' class='ctrl-inline-btn' title='Open full-screen yardage preview'>yardage</button>
         </div>
       </div>
       <div class='ctrl ctrl-inline'>
@@ -173,23 +174,25 @@ tags:
     <ul id='girard-layer-list'></ul>
     <div id='girard-layer-config'></div>
   </aside>
-  <section id='girard-yardage'>
-    <header class='girard-yardage-controls'>
-      <h3 class='panel-heading'>yardage</h3>
-      <label class='ctrl ctrl-inline'>
-        <span>tiles</span>
-        <select id='girard-yardage-tiles'>
-          <option value='2'>2 × 2</option>
-          <option value='3'>3 × 3</option>
-          <option value='4' selected>4 × 4</option>
-          <option value='6'>6 × 6</option>
-          <option value='8'>8 × 8</option>
-        </select>
-      </label>
-      <span id='girard-yardage-size' class='girard-yardage-size'></span>
-    </header>
-    <div id='girard-yardage-stage'></div>
-  </section>
+</div>
+
+<div id='girard-yardage-modal' class='girard-modal' aria-hidden='true'>
+  <div class='girard-modal-controls'>
+    <span class='girard-modal-title'>yardage</span>
+    <label class='girard-modal-tiles'>
+      <span>tiles</span>
+      <select id='girard-yardage-tiles'>
+        <option value='2'>2 × 2</option>
+        <option value='3'>3 × 3</option>
+        <option value='4' selected>4 × 4</option>
+        <option value='6'>6 × 6</option>
+        <option value='8'>8 × 8</option>
+      </select>
+    </label>
+    <span id='girard-yardage-size' class='girard-modal-size'></span>
+    <button id='girard-yardage-close' class='girard-modal-close' title='Close (Esc)'>×</button>
+  </div>
+  <div id='girard-yardage-stage' class='girard-modal-stage'></div>
 </div>
 
 <p class='girard-repo'>

@@ -6687,6 +6687,11 @@ function mount() {
   //                  select, where the surrounding DOM has to change.
   const rerenderYardage = () => {
     if (!yardStage) return;
+    // Skip rebuilding while the modal is closed — the SVG isn't shown
+    // and `rerenderYardage` rides on every parameter tick. We refresh
+    // on open instead.
+    const modalEl = document.getElementById('girard-yardage-modal');
+    if (modalEl && !modalEl.classList.contains('is-open')) return;
     const n = Number(yardTiles?.value) || 4;
     yardStage.replaceChildren(buildYardageSvg(pattern, n));
     if (yardSize) {
@@ -6831,6 +6836,42 @@ function mount() {
   }
   refreshPhysicalOverlay();
   if (yardTiles) yardTiles.addEventListener('change', () => rerenderYardage());
+
+  // Yardage modal: full-viewport overlay that renders the tile field.
+  // Hidden by default; toggled by the "yardage" button. ESC and a
+  // click on the dim backdrop also close it.
+  const yardModal    = document.getElementById('girard-yardage-modal');
+  const yardOpenBtn  = document.getElementById('girard-yardage-open');
+  const yardCloseBtn = document.getElementById('girard-yardage-close');
+  const yardageOpen = () => {
+    if (!yardModal) return;
+    yardModal.classList.add('is-open');
+    yardModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    rerenderYardage();
+  };
+  const yardageClose = () => {
+    if (!yardModal) return;
+    yardModal.classList.remove('is-open');
+    yardModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  };
+  const yardageToggle = () => {
+    if (yardModal?.classList.contains('is-open')) yardageClose();
+    else yardageOpen();
+  };
+  if (yardOpenBtn)  yardOpenBtn.addEventListener('click', yardageToggle);
+  if (yardCloseBtn) yardCloseBtn.addEventListener('click', yardageClose);
+  if (yardModal) {
+    yardModal.addEventListener('click', (e) => {
+      // Backdrop click closes; clicks inside the SVG / controls bubble
+      // to those elements and don't reach here as the modal's target.
+      if (e.target === yardModal) yardageClose();
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && yardModal?.classList.contains('is-open')) yardageClose();
+  });
 
   // ----- Project palette + colorways -----
   // The project palette is the fallback used by any layer whose own
