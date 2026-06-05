@@ -2411,7 +2411,11 @@ function parseSvgShape(svgText) {
   // exactly the way the browser would render them.
   const host = typeof document !== 'undefined' ? document.createElement('div') : null;
   if (host && document.body) {
-    host.setAttribute('style', 'position:absolute;left:-99999px;top:0;width:0;height:0;overflow:hidden;visibility:hidden;');
+    // Offscreen + 0×0 + overflow:hidden keeps it invisible. NOT
+    // using visibility:hidden because that cascades into every
+    // descendant and the visibility filter below would then skip
+    // every shape in the import.
+    host.setAttribute('style', 'position:absolute;left:-99999px;top:0;width:0;height:0;overflow:hidden;');
     host.innerHTML = svgText;
     document.body.appendChild(host);
     try {
