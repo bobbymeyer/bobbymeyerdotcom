@@ -4159,6 +4159,43 @@ function arrayBufferToBase64(buf) {
   return btoa(s);
 }
 
+// Yardage preview: render N×N copies of the tile via SVG <pattern>
+// so the designer can see the print "in the field." Reuses the same
+// tile group buildSvg builds; the surround veil is skipped here since
+// the whole point is to see contiguous tiles.
+function buildYardageSvg(pattern, tileCount) {
+  const { w: tileW, h: tileH } = tileDims(pattern);
+  const n = Math.max(1, tileCount | 0 || 4);
+  const viewW = tileW * n, viewH = tileH * n;
+  const root = el('svg', {
+    xmlns: SVG_NS,
+    viewBox: `0 0 ${viewW} ${viewH}`,
+    width: '100%',
+    height: '100%',
+    preserveAspectRatio: 'xMidYMid meet',
+  });
+  const tileGroup = buildTileGroup(pattern);
+  if (pattern.softProof && iccProfiler.loaded) {
+    applySoftProof(tileGroup, pattern.iccProfile || 'U.S. Web Coated (SWOP) v2');
+  }
+  const unit = buildRepeatUnit(pattern, tileGroup);
+  const patternId = 'girard-yardage-tile';
+  const tilePattern = el('pattern', {
+    id: patternId,
+    x: 0, y: 0,
+    width: unit.width,
+    height: unit.height,
+    patternUnits: 'userSpaceOnUse',
+  });
+  unit.content.forEach(node => tilePattern.appendChild(node));
+  root.appendChild(el('defs', {}, [tilePattern]));
+  root.appendChild(el('rect', {
+    width: viewW, height: viewH,
+    fill: `url(#${patternId})`,
+  }));
+  return root;
+}
+
 // Build a deployable repeat-unit SVG: just the one tile that tiles
 // seamlessly when laid out edge-to-edge. No veil, no surround, no
 // extra margin. Geometry that crosses an edge is wrap-painted at the
@@ -6467,6 +6504,9 @@ function mount() {
   const aspectH   = document.getElementById('girard-aspect-h');
   const physRepeat = document.getElementById('girard-physical-repeat');
   const physUnit   = document.getElementById('girard-physical-unit');
+  const yardStage  = document.getElementById('girard-yardage-stage');
+  const yardTiles  = document.getElementById('girard-yardage-tiles');
+  const yardSize   = document.getElementById('girard-yardage-size');
   const veil      = document.getElementById('girard-veil');
   const sampleSel = document.getElementById('girard-sample');
   const loadBtn   = document.getElementById('girard-load-sample');
@@ -6497,14 +6537,28 @@ function mount() {
   //   rerenderUI():  rebuilds the layer list and the config form
   //                  itself. Called on add / remove / reorder /
   //                  select, where the surrounding DOM has to change.
+  const rerenderYardage = () => {
+    if (!yardStage) return;
+    const n = Number(yardTiles?.value) || 4;
+    yardStage.replaceChildren(buildYardageSvg(pattern, n));
+    if (yardSize) {
+      const w = (Number(pattern.physicalRepeat) || 0) * n;
+      const h = w / (pattern.aspect || 1);
+      const u = pattern.physicalUnit || 'in';
+      const fmt = (v) => (Math.round(v * 100) / 100).toString();
+      yardSize.textContent = `${fmt(w)} × ${fmt(h)} ${u}`;
+    }
+  };
   const rerenderSvg = () => {
     stage.replaceChildren(buildSvg(pattern));
+    rerenderYardage();
     // If any layer uses a web font, load it then redraw once it's ready
     // (SVG text needs the face present to measure/paint correctly).
     const fonts = patternFonts(pattern);
     if (fonts.length) {
       Promise.all(fonts.map(ensureFont)).then(() => {
         stage.replaceChildren(buildSvg(pattern));
+        rerenderYardage();
       });
     }
   };
@@ -6628,6 +6682,7 @@ function mount() {
     });
   }
   refreshPhysicalOverlay();
+  if (yardTiles) yardTiles.addEventListener('change', () => rerenderYardage());
 
   veil.addEventListener('input', () => {
     pattern.surroundVeil = Number(veil.value);

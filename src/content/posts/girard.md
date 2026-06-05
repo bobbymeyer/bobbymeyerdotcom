@@ -136,6 +136,23 @@ tags:
     <ul id='girard-layer-list'></ul>
     <div id='girard-layer-config'></div>
   </aside>
+  <section id='girard-yardage'>
+    <header class='girard-yardage-controls'>
+      <h3 class='panel-heading'>yardage</h3>
+      <label class='ctrl ctrl-inline'>
+        <span>tiles</span>
+        <select id='girard-yardage-tiles'>
+          <option value='2'>2 × 2</option>
+          <option value='3'>3 × 3</option>
+          <option value='4' selected>4 × 4</option>
+          <option value='6'>6 × 6</option>
+          <option value='8'>8 × 8</option>
+        </select>
+      </label>
+      <span id='girard-yardage-size' class='girard-yardage-size'></span>
+    </header>
+    <div id='girard-yardage-stage'></div>
+  </section>
 </div>
 
 <p class='girard-repo'>
