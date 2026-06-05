@@ -26,47 +26,55 @@ tags:
 
   <aside id='girard-composition' class='girard-panel'>
     <div class='ctrl-row'>
-      <div class='ctrl ctrl-inline'>
-        <span>seed</span>
-        <div class='ctrl-inline-row'>
-          <input id='girard-seed' type='number' value='1' min='0' max='99999' />
-          <button id='girard-roll' class='ctrl-inline-btn'>roll</button>
-        </div>
-      </div>
-      <label class='ctrl'>
-        <span>repeat</span>
-        <select id='girard-repeat'>
-          <option value='square'>square</option>
-          <option value='half-drop'>half-drop</option>
-          <option value='half-brick'>half-brick</option>
-        </select>
-      </label>
-      <div class='ctrl ctrl-inline'>
-        <span>aspect (w : h)</span>
-        <div class='ctrl-inline-row aspect-inputs'>
-          <input id='girard-aspect-w' type='number' value='1' min='1' max='999' step='1' />
-          <span class='aspect-sep'>:</span>
-          <input id='girard-aspect-h' type='number' value='1' min='1' max='999' step='1' />
-        </div>
-      </div>
-      <div class='ctrl ctrl-inline'>
-        <span>repeat (physical)</span>
-        <div class='ctrl-inline-row'>
-          <input id='girard-physical-repeat' type='number' value='24' min='0.1' max='999' step='0.1' />
-          <select id='girard-physical-unit'>
-            <option value='in'>in</option>
-            <option value='cm'>cm</option>
-          </select>
-        </div>
-      </div>
-      <div class='ctrl ctrl-inline'>
-        <span>sample</span>
-        <div class='ctrl-inline-row'>
-          <select id='girard-sample'></select>
-          <button id='girard-load-sample' class='ctrl-inline-btn'>load</button>
-        </div>
-      </div>
+      <button id='girard-samples-open' class='ctrl-inline-btn' title='Browse the sample library'>sample library</button>
+      <!-- Hidden until the library modal lands; preserves the existing
+           load-by-name handler so nothing else has to change yet. -->
+      <select id='girard-sample' class='is-hidden'></select>
+      <button id='girard-load-sample' class='is-hidden'>load</button>
     </div>
+    <details class='girard-section' open>
+      <summary>rng<span class='section-hint' id='girard-rng-hint'></span></summary>
+      <div class='ctrl-row'>
+        <div class='ctrl ctrl-inline'>
+          <span>seed</span>
+          <div class='ctrl-inline-row'>
+            <input id='girard-seed' type='number' value='1' min='0' max='99999' />
+            <button id='girard-roll' class='ctrl-inline-btn'>roll</button>
+          </div>
+        </div>
+      </div>
+    </details>
+    <details class='girard-section'>
+      <summary>tile<span class='section-hint' id='girard-tile-hint'></span></summary>
+      <div class='ctrl-row'>
+        <label class='ctrl'>
+          <span>repeat style</span>
+          <select id='girard-repeat'>
+            <option value='square'>square</option>
+            <option value='half-drop'>half-drop</option>
+            <option value='half-brick'>half-brick</option>
+          </select>
+        </label>
+        <div class='ctrl ctrl-inline'>
+          <span>aspect (w : h)</span>
+          <div class='ctrl-inline-row aspect-inputs'>
+            <input id='girard-aspect-w' type='number' value='1' min='1' max='999' step='1' />
+            <span class='aspect-sep'>:</span>
+            <input id='girard-aspect-h' type='number' value='1' min='1' max='999' step='1' />
+          </div>
+        </div>
+        <div class='ctrl ctrl-inline'>
+          <span>physical size</span>
+          <div class='ctrl-inline-row'>
+            <input id='girard-physical-repeat' type='number' value='24' min='0.1' max='999' step='0.1' />
+            <select id='girard-physical-unit'>
+              <option value='in'>in</option>
+              <option value='cm'>cm</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </details>
     <details class='girard-section' open>
       <summary>palette<span class='section-hint' id='girard-palette-hint'></span></summary>
       <div class='ctrl-row'>
@@ -189,6 +197,15 @@ tags:
     <ul id='girard-layer-list'></ul>
     <div id='girard-layer-config'></div>
   </aside>
+</div>
+
+<div id='girard-samples-modal' class='girard-modal' aria-hidden='true'>
+  <div class='girard-modal-controls'>
+    <span class='girard-modal-title'>sample library</span>
+    <span id='girard-samples-count' class='girard-modal-size'></span>
+    <button id='girard-samples-close' class='girard-modal-close' title='Close (Esc)'>×</button>
+  </div>
+  <div id='girard-samples-grid' class='girard-samples-grid'></div>
 </div>
 
 <div id='girard-yardage-modal' class='girard-modal' aria-hidden='true'>

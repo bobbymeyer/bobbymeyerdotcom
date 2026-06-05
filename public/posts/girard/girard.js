@@ -6772,6 +6772,7 @@ function mount() {
   seed.addEventListener('input', () => {
     pattern.seed = Number(seed.value) | 0;
     rerenderSvg();
+    if (typeof _refreshHints === 'function') _refreshHints();
   });
 
   roll.addEventListener('click', () => {
@@ -6779,11 +6780,13 @@ function mount() {
     seed.value = s;
     pattern.seed = s;
     rerenderSvg();
+    if (typeof _refreshHints === 'function') _refreshHints();
   });
 
   repeat.addEventListener('change', () => {
     pattern.repeat = repeat.value;
     rerenderSvg();
+    if (typeof _refreshHints === 'function') _refreshHints();
   });
 
   const syncAspect = () => {
@@ -6794,6 +6797,7 @@ function mount() {
     pattern.aspect = w / h;
     rerenderSvg();
     refreshPhysicalOverlay();
+    if (typeof _refreshHints === 'function') _refreshHints();
   };
   if (aspectW) aspectW.addEventListener('input', syncAspect);
   if (aspectH) aspectH.addEventListener('input', syncAspect);
@@ -6834,6 +6838,7 @@ function mount() {
     physRepeat.addEventListener('input', () => {
       pattern.physicalRepeat = Math.max(0.1, Number(physRepeat.value) || 0);
       refreshPhysicalOverlay();
+      if (typeof _refreshHints === 'function') _refreshHints();
     });
   }
   if (physUnit) {
@@ -6852,6 +6857,7 @@ function mount() {
         if (physRepeat) physRepeat.value = pattern.physicalRepeat;
       }
       refreshPhysicalOverlay();
+      if (typeof _refreshHints === 'function') _refreshHints();
     });
   }
   refreshPhysicalOverlay();
@@ -7189,6 +7195,8 @@ function mount() {
   // fields (soft proof, export background, ICC profile select) hide
   // when they don't apply to the current settings, so the form isn't
   // cluttered with controls that wouldn't do anything.
+  const rngHint     = document.getElementById('girard-rng-hint');
+  const tileHint    = document.getElementById('girard-tile-hint');
   const paletteHint = document.getElementById('girard-palette-hint');
   const colourHint  = document.getElementById('girard-colour-hint');
   const exportHint  = document.getElementById('girard-export-hint');
@@ -7196,6 +7204,19 @@ function mount() {
   const softProofWrap  = document.getElementById('girard-soft-proof-wrap');
   const exportBgWrap   = document.getElementById('girard-export-bg-wrap');
   const refreshSectionState = () => {
+    if (rngHint) {
+      rngHint.textContent = `seed ${pattern.seed ?? 1}`;
+    }
+    if (tileHint) {
+      const repeat = pattern.repeat || 'square';
+      const aspect = pattern.aspectW && pattern.aspectH
+        ? `${pattern.aspectW}:${pattern.aspectH}`
+        : (pattern.aspect && Math.abs(pattern.aspect - 1) > 1e-3
+            ? (pattern.aspect >= 1 ? `${Math.round(pattern.aspect * 10) / 10}:1` : `1:${Math.round((1 / pattern.aspect) * 10) / 10}`)
+            : '1:1');
+      const size = `${pattern.physicalRepeat ?? 24}${pattern.physicalUnit || 'in'}`;
+      tileHint.textContent = `${repeat} · ${aspect} · ${size}`;
+    }
     if (paletteHint) {
       const n = (pattern.palette || []).length;
       paletteHint.textContent = `${n} colour${n === 1 ? '' : 's'} · ${pattern.colorway || 'main'}`;
@@ -7272,16 +7293,13 @@ function mount() {
     });
   }
 
-  loadBtn.addEventListener('click', () => {
-    const name = sampleSel.value;
+  // Apply a named sample by mirroring the loadSample result onto all
+  // the UI inputs that drive top-level state, then redraw. Shared by
+  // the (legacy hidden) sample select and the new library modal.
+  const applySample = (name, clear) => {
     if (!name) return;
-    // OK = clear and load fresh. Cancel = layer on top of current.
-    const clear = window.confirm(
-      `Load "${name}"?\n\nOK: clear current design and load fresh.\nCancel: layer this sample on top of the current pattern.`
-    );
     pattern = loadSample(name, pattern, clear);
     selected = pattern.layers.length - 1;
-    // Mirror any incoming top-level fields onto their UI controls.
     seed.value = pattern.seed;
     repeat.value = pattern.repeat;
     if (aspectW && aspectH) {
@@ -7297,6 +7315,71 @@ function mount() {
     refreshColorwaySelect();
     refreshProjectPalette();
     rerenderUI();
+  };
+
+  loadBtn.addEventListener('click', () => {
+    const name = sampleSel.value;
+    if (!name) return;
+    const clear = window.confirm(
+      `Load "${name}"?\n\nOK: clear current design and load fresh.\nCancel: layer this sample on top of the current pattern.`
+    );
+    applySample(name, clear);
+  });
+
+  // Sample library modal: opens to a grid of clickable sample names.
+  // Tag pills + thumbnail previews land in the next pass; the modal
+  // shell is here now so the button isn't dead and the markup is
+  // wired through.
+  const samplesModal    = document.getElementById('girard-samples-modal');
+  const samplesOpenBtn  = document.getElementById('girard-samples-open');
+  const samplesCloseBtn = document.getElementById('girard-samples-close');
+  const samplesGrid     = document.getElementById('girard-samples-grid');
+  const samplesCount    = document.getElementById('girard-samples-count');
+  const buildSamplesGrid = () => {
+    if (!samplesGrid) return;
+    samplesGrid.replaceChildren();
+    const names = Object.keys(SAMPLES).sort((a, b) => a.localeCompare(b));
+    for (const name of names) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      card.className = 'sample-card';
+      const title = document.createElement('span');
+      title.className = 'sample-card-title';
+      title.textContent = name;
+      card.appendChild(title);
+      card.addEventListener('click', () => {
+        const clear = window.confirm(
+          `Load "${name}"?\n\nOK: clear current design and load fresh.\nCancel: layer this sample on top of the current pattern.`
+        );
+        applySample(name, clear);
+        samplesClose();
+      });
+      samplesGrid.appendChild(card);
+    }
+    if (samplesCount) samplesCount.textContent = `${names.length} samples`;
+  };
+  const samplesOpen = () => {
+    if (!samplesModal) return;
+    buildSamplesGrid();
+    samplesModal.classList.add('is-open');
+    samplesModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  };
+  const samplesClose = () => {
+    if (!samplesModal) return;
+    samplesModal.classList.remove('is-open');
+    samplesModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  };
+  if (samplesOpenBtn)  samplesOpenBtn.addEventListener('click', samplesOpen);
+  if (samplesCloseBtn) samplesCloseBtn.addEventListener('click', samplesClose);
+  if (samplesModal) {
+    samplesModal.addEventListener('click', (e) => {
+      if (e.target === samplesModal) samplesClose();
+    });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && samplesModal?.classList.contains('is-open')) samplesClose();
   });
 
   rerenderUI();
