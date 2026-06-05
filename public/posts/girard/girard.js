@@ -4997,7 +4997,10 @@ function walkSvgToPdfOps(node, state, ops, profileId, clipDefs, fontMap, gsRegis
 // reader needing the typeface installed.
 const PDF_LIB_URL = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 function exportTilePdf(pattern, baseName) {
-  rasterizeForExport(pattern, { forceBackground: true }).then(({ canvas, W, H }) =>
+  // PDF supports alpha natively (both vector and raster paths) so we
+  // honour pattern.exportFlatten: when false, the page has no opaque
+  // background and the pattern paints onto transparency.
+  rasterizeForExport(pattern, { forceBackground: !!pattern.exportFlatten }).then(({ canvas, W, H }) =>
     loadScript(PDF_LIB_URL).then(async () => {
       const { PDFDocument } = window.PDFLib;
       const pdfDoc = await PDFDocument.create();
@@ -5023,20 +5026,33 @@ function exportTilePdf(pattern, baseName) {
       const vW = tileSvgForVector.width, vH = tileSvgForVector.height;
       const page = pdfDoc.addPage([vector ? vW : W, vector ? vH : H]);
       if (vector) {
-        const { PDFOperator } = window.PDFLib;
+        const { PDFOperator, PDFName } = window.PDFLib;
         const profileId = pattern.iccProfile || 'U.S. Web Coated (SWOP) v2';
+        // Mark the page contents as a transparency group. Without this
+        // most viewers ignore /BM (blend mode) entries on ExtGStates —
+        // blend modes are only defined inside a transparency context.
+        const groupCS = iccProfiler.loaded ? 'DeviceCMYK' : 'DeviceRGB';
+        page.node.set(PDFName.of('Group'), pdfDoc.context.obj({
+          Type: PDFName.of('Group'),
+          S: PDFName.of('Transparency'),
+          CS: PDFName.of(groupCS),
+          I: true,
+        }));
         const ops = [];
         // Top-level CTM: flip Y so SVG y-down coordinates work directly.
         ops.push('q');
         ops.push(`1 0 0 -1 0 ${vH.toFixed(3)} cm`);
-        // Background paint (the SVG itself doesn't always cover the
-        // unit). Use the export background colour, converted to the
-        // active colour space.
-        const bgPaint = pdfColor(pattern.exportBackground || '#ffffff', profileId, false);
-        if (bgPaint) {
-          ops.push(bgPaint);
-          ops.push(`0 0 ${vW.toFixed(3)} ${vH.toFixed(3)} re`);
-          ops.push('f');
+        // Background paint. Only emitted when the user has asked to
+        // flatten alpha onto a solid background; otherwise the page
+        // stays transparent and viewers / placement apps composite as
+        // they see fit.
+        if (pattern.exportFlatten) {
+          const bgPaint = pdfColor(pattern.exportBackground || '#ffffff', profileId, false);
+          if (bgPaint) {
+            ops.push(bgPaint);
+            ops.push(`0 0 ${vW.toFixed(3)} ${vH.toFixed(3)} re`);
+            ops.push('f');
+          }
         }
         const gsRegistry = makeGsRegistry();
         walkSvgToPdfOps(tileSvgForVector.svg, { fill: '#000000', stroke: 'none', strokeWidth: 1 }, ops, profileId, undefined, fontMap, gsRegistry);
@@ -5277,8 +5293,8 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
   const createColorWidget = (initial, onColorChange) => {
     const table = document.createElement('table');
     table.className = 'palette-table';
-    const cols = ['', 'R', 'G', 'B', 'A'];
-    if (colorMode === 'cmyk') cols.push('C', 'M', 'Y', 'K');
+    const isCmyk = colorMode === 'cmyk';
+    const cols = isCmyk ? ['', 'C', 'M', 'Y', 'K'] : ['', 'R', 'G', 'B', 'A'];
     const thead = document.createElement('thead');
     const headRow = document.createElement('tr');
     for (const label of cols) {
@@ -5308,16 +5324,17 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
     const cmykInputs = {};
     const refresh = () => {
       picker.value = hexOf(rgba);
-      rgbInputs.r.value = rgba.r;
-      rgbInputs.g.value = rgba.g;
-      rgbInputs.b.value = rgba.b;
-      rgbInputs.a.value = rgba.a;
-      if (colorMode === 'cmyk') {
+      if (isCmyk) {
         const c = hexToCmyk(formatColor(rgba));
         cmykInputs.c.value = Math.round(c.c * 100);
         cmykInputs.m.value = Math.round(c.m * 100);
         cmykInputs.y.value = Math.round(c.y * 100);
         cmykInputs.k.value = Math.round(c.k * 100);
+      } else {
+        rgbInputs.r.value = rgba.r;
+        rgbInputs.g.value = rgba.g;
+        rgbInputs.b.value = rgba.b;
+        rgbInputs.a.value = rgba.a;
       }
     };
     const fire = () => { onColorChange(formatColor(rgba)); refresh(); };
@@ -5328,25 +5345,7 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
       fire();
     });
 
-    for (const axis of ['r', 'g', 'b', 'a']) {
-      const td = document.createElement('td');
-      const inp = document.createElement('input');
-      inp.type = 'number';
-      inp.min = 0;
-      inp.max = axis === 'a' ? 1 : 255;
-      inp.step = axis === 'a' ? 0.05 : 1;
-      inp.value = axis === 'a' ? rgba.a : rgba[axis];
-      inp.addEventListener('input', () => {
-        const v = Number(inp.value);
-        rgba[axis] = axis === 'a' ? Math.max(0, Math.min(1, v)) : Math.max(0, Math.min(255, v));
-        fire();
-      });
-      td.appendChild(inp);
-      tr.appendChild(td);
-      rgbInputs[axis] = inp;
-    }
-
-    if (colorMode === 'cmyk') {
+    if (isCmyk) {
       const cmyk = hexToCmyk(formatColor(rgba));
       for (const axis of ['c', 'm', 'y', 'k']) {
         const td = document.createElement('td');
@@ -5363,6 +5362,24 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
         td.appendChild(inp);
         tr.appendChild(td);
         cmykInputs[axis] = inp;
+      }
+    } else {
+      for (const axis of ['r', 'g', 'b', 'a']) {
+        const td = document.createElement('td');
+        const inp = document.createElement('input');
+        inp.type = 'number';
+        inp.min = 0;
+        inp.max = axis === 'a' ? 1 : 255;
+        inp.step = axis === 'a' ? 0.05 : 1;
+        inp.value = axis === 'a' ? rgba.a : rgba[axis];
+        inp.addEventListener('input', () => {
+          const v = Number(inp.value);
+          rgba[axis] = axis === 'a' ? Math.max(0, Math.min(1, v)) : Math.max(0, Math.min(255, v));
+          fire();
+        });
+        td.appendChild(inp);
+        tr.appendChild(td);
+        rgbInputs[axis] = inp;
       }
     }
 
@@ -5467,9 +5484,9 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
         // Header row — column labels (R G B A, plus C M Y K in CMYK mode).
         const thead = document.createElement('thead');
         const headRow = document.createElement('tr');
-        const cols = ['', 'R', 'G', 'B', 'A'];
-        if (colorMode === 'cmyk') cols.push('C', 'M', 'Y', 'K');
-        if (colorMode === 'cmyk' && iccProfiler.loaded) cols.push('ΔE');
+        const isCmyk = colorMode === 'cmyk';
+        const cols = isCmyk ? ['', 'C', 'M', 'Y', 'K'] : ['', 'R', 'G', 'B', 'A'];
+        if (isCmyk && iccProfiler.loaded) cols.push('ΔE');
         cols.push('');
         for (const label of cols) {
           const th = document.createElement('th');
@@ -5495,8 +5512,8 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
           swatchTd.appendChild(picker);
           tr.appendChild(swatchTd);
 
-          // R / G / B / A number inputs.
-          for (const axis of ['r', 'g', 'b', 'a']) {
+          // sRGB mode: R / G / B / A number inputs.
+          if (!isCmyk) for (const axis of ['r', 'g', 'b', 'a']) {
             const td = document.createElement('td');
             const inp = document.createElement('input');
             inp.type = 'number';
@@ -5518,9 +5535,9 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
             tr.appendChild(td);
           }
 
-          // C / M / Y / K readouts when project is in CMYK mode.
-          if (colorMode === 'cmyk') {
-            const cmyk = hexToCmyk(formatColor(rgba));
+          // CMYK mode: C / M / Y / K inputs replace the RGBA columns.
+          const cmyk = isCmyk ? hexToCmyk(formatColor(rgba)) : null;
+          if (isCmyk) {
             for (const axis of ['c', 'm', 'y', 'k']) {
               const td = document.createElement('td');
               const inp = document.createElement('input');
