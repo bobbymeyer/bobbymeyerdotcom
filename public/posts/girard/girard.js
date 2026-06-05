@@ -1996,6 +1996,21 @@ function el(tag, attrs, children) {
   return node;
 }
 
+// Append `count` circles around (cx, cy) at ringR with petalR each.
+// Shared by shape:blossom and fill:flower-seal (both painted petals
+// and its punch-mask negative). Starts at -π/2 (12 o'clock).
+function appendPetalRing(host, { cx = 0, cy = 0, ringR, petalR, count, fill, extraAttrs = null }) {
+  for (let i = 0; i < count; i++) {
+    const a = -Math.PI / 2 + (Math.PI * 2 * i) / count;
+    const attrs = {
+      cx: cx + Math.cos(a) * ringR,
+      cy: cy + Math.sin(a) * ringR,
+      r: petalR, fill,
+    };
+    host.appendChild(el('circle', extraAttrs ? { ...attrs, ...extraAttrs } : attrs));
+  }
+}
+
 // Shape.size is a fraction (0..1) of the smaller cell dimension.
 // Lets shapes scale with the grid instead of needing absolute pixels.
 function shapeNode(shape, cw, rh, fill, ctx) {
@@ -2073,12 +2088,12 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       // A simple flower: n round petals in a ring with a centre dot.
       const g = el('g', {});
       const n = Math.max(4, shape.petals | 0 || 5);
-      const pr = dim * (shape.petal ?? 0.26);
-      const off = dim * (shape.spread ?? 0.3);
-      for (let i = 0; i < n; i++) {
-        const a = (2 * Math.PI * i) / n - Math.PI / 2;
-        g.appendChild(el('circle', { cx: Math.cos(a) * off, cy: Math.sin(a) * off, r: pr, fill }));
-      }
+      appendPetalRing(g, {
+        count: n,
+        ringR: dim * (shape.spread ?? 0.3),
+        petalR: dim * (shape.petal ?? 0.26),
+        fill,
+      });
       g.appendChild(el('circle', { cx: 0, cy: 0, r: dim * (shape.centerSize ?? 0.13), fill: shape.centerColor || '#ffffff' }));
       return g;
     }
@@ -2272,6 +2287,34 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       return el('g', {});
   }
 }
+
+// Glyph alphabet for the rectangle-only entries of fill:glyph. Each
+// recipe takes (t, m, e) — bar thickness, centred-bar offset, far-edge
+// position — and returns a list of [x, y, w, h] in normalised cell
+// coords (0..1). The geometric glyphs (diamond / disc / ring) stay
+// inline in the dispatcher since they paint circles / polygons rather
+// than rectangles. Adding a new rect-based glyph is now one line.
+const GLYPH_RECT_RECIPES = {
+  plus:     (t, m, e) => [[m, 0, t, 1], [0, m, 1, t]],
+  hbeam:    (t, m, e) => [[0, 0, t, 1], [e, 0, t, 1], [0, m, 1, t]],
+  lbracket: (t, m, e) => [[0, 0, t, 1], [0, 0, 0.5, t], [0, e, 0.5, t]],
+  rbracket: (t, m, e) => [[e, 0, t, 1], [0.5, 0, 0.5, t], [0.5, e, 0.5, t]],
+  vdash:    (t, m, e) => [[m, 0.16, t, 0.68]],
+  hdash:    (t, m, e) => [[0.06, 0.22, 0.88, 0.56]],
+  block:    (t, m, e) => [[0.16, 0.14, 0.68, 0.72]],
+  hbars:    (t, m, e) => [[0, 0, 1, t], [0, m, 1, t], [0, e, 1, t]],
+  vbars:    (t, m, e) => [[0, 0, t, 1], [m, 0, t, 1], [e, 0, t, 1]],
+  hpair:    (t, m, e) => [[0, 0, 1, t], [0, e, 1, t]],
+  vpair:    (t, m, e) => [[0, 0, t, 1], [e, 0, t, 1]],
+  ibeam:    (t, m, e) => [[0, 0, 1, t], [0, e, 1, t], [m, 0, t, 1]],
+  tbar:     (t, m, e) => [[0, 0, 1, t], [m, t, t, e]],
+  ubar:     (t, m, e) => [[0, 0, t, 1], [e, 0, t, 1], [0, e, 1, t]],
+  lbar:     (t, m, e) => [[0, 0, t, 1], [0, e, 1, t]],
+  comb:     (t, m, e) => [[0, 0, t, 1], [t, 0, e, t], [t, m, e, t], [t, e, e, t]],
+  frame:    (t, m, e) => [[0, 0, 1, t], [0, e, 1, t], [0, 0, t, 1], [e, 0, t, 1]],
+  solid:    () => [[0, 0, 1, 1]],
+  blank:    () => [],
+};
 
 // ---------- Layer rendering ----------
 // Tile dimensions. aspect = width / height (default 1 = square). The
@@ -2783,14 +2826,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
           x: 0, y: 0, width: 1, height: 1,
         });
         mask.appendChild(el('circle', { cx: 0.5, cy: 0.5, r: 0.5, fill: '#fff' }));
-        for (let i = 0; i < n; i++) {
-          const a = (Math.PI * 2 * i) / n - Math.PI / 2;
-          mask.appendChild(el('circle', {
-            cx: 0.5 + Math.cos(a) * petalOffN,
-            cy: 0.5 + Math.sin(a) * petalOffN,
-            r: petalRN, fill: '#000',
-          }));
-        }
+        appendPetalRing(mask, { cx: 0.5, cy: 0.5, ringR: petalOffN, petalR: petalRN, count: n, fill: '#000' });
         if (centerRN > 0) {
           mask.appendChild(el('circle', { cx: 0.5, cy: 0.5, r: centerRN, fill: '#000' }));
         }
@@ -2804,15 +2840,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         parent.appendChild(el('circle', { cx, cy, r: sealR, fill: sealColor }));
       }
       if (!isTransparent(flowerColor) && sealR > 0) {
-        for (let i = 0; i < n; i++) {
-          const a = (Math.PI * 2 * i) / n - Math.PI / 2;
-          parent.appendChild(el('circle', {
-            cx: cx + Math.cos(a) * petalOff,
-            cy: cy + Math.sin(a) * petalOff,
-            r: petalR,
-            fill: flowerColor,
-          }));
-        }
+        appendPetalRing(parent, { cx, cy, ringR: petalOff, petalR, count: n, fill: flowerColor });
         if (centerR > 0) {
           parent.appendChild(el('circle', { cx, cy, r: centerR, fill: flowerColor }));
         }
@@ -3272,41 +3300,20 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const name = fill.columns
         ? fill.columns[mod(ci, fill.columns.length)]
         : glyphs[Math.floor(crng() * glyphs.length)];
-      switch (name) {
-        case 'plus':     R(m, 0, t, 1); R(0, m, 1, t); break;
-        case 'hbeam':    R(0, 0, t, 1); R(e, 0, t, 1); R(0, m, 1, t); break;
-        case 'lbracket': R(0, 0, t, 1); R(0, 0, 0.5, t); R(0, e, 0.5, t); break;
-        case 'rbracket': R(e, 0, t, 1); R(0.5, 0, 0.5, t); R(0.5, e, 0.5, t); break;
-        case 'vdash':    R(m, 0.16, t, 0.68); break;
-        case 'hdash':    R(0.06, 0.22, 0.88, 0.56); break;
-        case 'block':    R(0.16, 0.14, 0.68, 0.72); break;
-        case 'diamond': {
-          const cx2 = ix + iw / 2, cy2 = iy + ih / 2, r = dim * 0.56;
-          parent.appendChild(el('polygon', {
-            points: `${cx2},${cy2 - r} ${cx2 + r},${cy2} ${cx2},${cy2 + r} ${cx2 - r},${cy2}`,
-            fill: fg,
-          }));
-          break;
-        }
-        case 'hbars': R(0, 0, 1, t); R(0, m, 1, t); R(0, e, 1, t); break;
-        case 'vbars': R(0, 0, t, 1); R(m, 0, t, 1); R(e, 0, t, 1); break;
-        case 'hpair': R(0, 0, 1, t); R(0, e, 1, t); break;
-        case 'vpair': R(0, 0, t, 1); R(e, 0, t, 1); break;
-        case 'ibeam': R(0, 0, 1, t); R(0, e, 1, t); R(m, 0, t, 1); break;
-        case 'tbar':  R(0, 0, 1, t); R(m, t, t, e); break;
-        case 'ubar':  R(0, 0, t, 1); R(e, 0, t, 1); R(0, e, 1, t); break;
-        case 'lbar':  R(0, 0, t, 1); R(0, e, 1, t); break;
-        case 'comb':  R(0, 0, t, 1); R(t, 0, e, t); R(t, m, e, t); R(t, e, e, t); break;
-        case 'frame': R(0, 0, 1, t); R(0, e, 1, t); R(0, 0, t, 1); R(e, 0, t, 1); break;
-        case 'solid': R(0, 0, 1, 1); break;
-        case 'blank': break;
-        case 'disc':
-          parent.appendChild(el('circle', { cx: ix + iw / 2, cy: iy + ih / 2, r: dim * 0.42, fill: fg }));
-          break;
-        case 'ring':
-          parent.appendChild(el('circle', { cx: ix + iw / 2, cy: iy + ih / 2, r: dim * 0.42, fill: fg }));
-          parent.appendChild(el('circle', { cx: ix + iw / 2, cy: iy + ih / 2, r: dim * (0.42 - t * 0.62), fill: bg }));
-          break;
+      const rects = GLYPH_RECT_RECIPES[name];
+      if (rects) {
+        for (const [x, y, w, h] of rects(t, m, e)) R(x, y, w, h);
+      } else if (name === 'diamond') {
+        const cx2 = ix + iw / 2, cy2 = iy + ih / 2, r = dim * 0.56;
+        parent.appendChild(el('polygon', {
+          points: `${cx2},${cy2 - r} ${cx2 + r},${cy2} ${cx2},${cy2 + r} ${cx2 - r},${cy2}`,
+          fill: fg,
+        }));
+      } else if (name === 'disc') {
+        parent.appendChild(el('circle', { cx: ix + iw / 2, cy: iy + ih / 2, r: dim * 0.42, fill: fg }));
+      } else if (name === 'ring') {
+        parent.appendChild(el('circle', { cx: ix + iw / 2, cy: iy + ih / 2, r: dim * 0.42, fill: fg }));
+        parent.appendChild(el('circle', { cx: ix + iw / 2, cy: iy + ih / 2, r: dim * (0.42 - t * 0.62), fill: bg }));
       }
       break;
     }
