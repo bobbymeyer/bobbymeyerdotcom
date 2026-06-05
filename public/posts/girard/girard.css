@@ -665,3 +665,58 @@ button.ctrl:hover {
     align-self: start;
   }
 }
+
+/* Project palette: horizontal strip of swatches under the generator
+   controls. Each swatch is a native colour input with a remove × on
+   top; the final + appends a new colour. Compact because the per-cell
+   numeric editing lives on the layer palette one level down. */
+.girard-project-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.girard-project-palette .project-swatch {
+  position: relative;
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+}
+.girard-project-palette .project-swatch input[type='color'] {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #ccc;
+  background: none;
+  cursor: pointer;
+}
+.girard-project-palette .project-swatch button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 14px;
+  height: 14px;
+  font-size: 10px;
+  line-height: 1;
+  padding: 0;
+  border: none;
+  background: #1a1a1a;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 80ms ease;
+}
+.girard-project-palette .project-swatch:hover button { opacity: 1; }
+.girard-project-palette .project-swatch-add {
+  width: 28px;
+  height: 28px;
+  border: 1px dashed #999;
+  background: transparent;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+}
+.girard-project-palette .project-swatch-add:hover {
+  background: #f5f5f5;
+  color: #1a1a1a;
+}

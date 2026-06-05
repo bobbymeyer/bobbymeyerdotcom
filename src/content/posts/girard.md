@@ -98,6 +98,43 @@ tags:
       </label>
       <p id='girard-icc-status' class='icc-status'>Fast math conversion in use. Load profiler for ICC-accurate colour.</p>
     </div>
+    <h4 class='panel-subheading'>palette</h4>
+    <div class='ctrl-row'>
+      <label class='ctrl'>
+        <span>scheme</span>
+        <select id='girard-palette-scheme'>
+          <option value='mono'>mono (single hue)</option>
+          <option value='analogous'>analogous (±30°)</option>
+          <option value='complement'>complementary</option>
+          <option value='split'>split complementary</option>
+          <option value='triad'>triadic (120°)</option>
+          <option value='square'>tetradic / square (90°)</option>
+          <option value='tonal'>tonal (muted drift)</option>
+          <option value='value-ramp'>value ramp (one hue, stepped L)</option>
+          <option value='hue-ramp'>hue ramp (equal sweep)</option>
+        </select>
+      </label>
+      <div class='ctrl ctrl-inline'>
+        <span>base · count</span>
+        <div class='ctrl-inline-row'>
+          <input id='girard-palette-base' type='color' value='#e94e3b' />
+          <input id='girard-palette-count' type='number' value='5' min='2' max='16' step='1' />
+          <button id='girard-palette-generate' class='ctrl-inline-btn'>generate</button>
+        </div>
+      </div>
+    </div>
+    <div id='girard-palette-swatches' class='girard-project-palette'></div>
+    <div class='ctrl-row'>
+      <div class='ctrl ctrl-inline'>
+        <span>colorway</span>
+        <div class='ctrl-inline-row'>
+          <select id='girard-colorway-select'></select>
+          <input id='girard-colorway-name' type='text' placeholder='new name' />
+          <button id='girard-colorway-save' class='ctrl-inline-btn'>save as</button>
+          <button id='girard-colorway-delete' class='ctrl-inline-btn' title='delete active colorway'>×</button>
+        </div>
+      </div>
+    </div>
     <h4 class='panel-subheading'>export</h4>
     <div class='ctrl-row'>
       <label class='ctrl'>

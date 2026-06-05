@@ -229,7 +229,17 @@ const defaultPattern = () => ({
   seed: 1,
   tileSize: 480,
   repeat: 'square',                                  // square | half-drop | half-brick
+  // Project palette. Mirrors colorways[colorway] so the existing
+  // per-layer fallback logic keeps working unchanged; the colorways
+  // map below is the canonical store.
   palette: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'],
+  // Colorways: named alternate ink sets for the same composition.
+  // The active name is `colorway`; switching it copies the named list
+  // into `palette` so layers without their own palette pick it up.
+  // Layers that set `layer.palette` opt out of colorway swaps — that
+  // mirrors the authorial intent of samples that hard-code colour.
+  colorway: 'main',
+  colorways: { main: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'] },
   surroundVeil: 0.2,
   // Project-level colour mode. 'srgb' shows RGB pickers; 'cmyk' adds
   // CMYK readouts on every picker and exports targets the chosen
@@ -284,6 +294,140 @@ function linearToSrgb(v) {
   if (v >= 1) return 1;
   return v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055;
 }
+
+// ---------- OKLCH + colour theory ----------
+// Björn Ottosson's OKLab transform — perceptually uniform, so equal
+// hue steps look equal and lightness ramps step evenly. Used to drive
+// the palette generators (mono / analogous / complementary / etc.)
+// so the output reads as a designed palette, not a numeric stunt.
+function linearRgbToOklab(r, g, b) {
+  const l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
+  const m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
+  const s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
+  const l_ = Math.cbrt(l), m_ = Math.cbrt(m), s_ = Math.cbrt(s);
+  return [
+    0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_,
+    1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_,
+    0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_,
+  ];
+}
+function oklabToLinearRgb(L, a, b) {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+  return [
+     4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
+    -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
+    -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s,
+  ];
+}
+function hexToOklch(hex) {
+  const c = parseColor(hex);
+  const lr = srgbToLinear(c.r / 255);
+  const lg = srgbToLinear(c.g / 255);
+  const lb = srgbToLinear(c.b / 255);
+  const [L, a, b] = linearRgbToOklab(lr, lg, lb);
+  const C = Math.hypot(a, b);
+  let H = (Math.atan2(b, a) * 180) / Math.PI;
+  if (H < 0) H += 360;
+  return [L, C, H];
+}
+function oklchToHex(L, C, H) {
+  const rad = (H * Math.PI) / 180;
+  const a = C * Math.cos(rad), b = C * Math.sin(rad);
+  const [lr, lg, lb] = oklabToLinearRgb(L, a, b);
+  const clamp = (v) => Math.max(0, Math.min(1, v));
+  const to8 = (lv) => Math.round(linearToSrgb(clamp(lv)) * 255);
+  return '#' + [to8(lr), to8(lg), to8(lb)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+// Colour-theory palette schemes. Each takes (baseHex, count) and
+// returns a list of hex colours. Lightness / chroma profiles favour
+// readability over saturation; ramps span roughly 0.22 → 0.92 L for
+// good print contrast. Schemes are designed to be deterministic, not
+// random — random palettes are still available via the existing roll.
+const PALETTE_SCHEMES = {
+  mono: (base, n) => {
+    // Single hue / chroma, stepped lightness — useful for shade
+    // variants of a single ink colour.
+    const [, C, H] = hexToOklch(base);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const t = n > 1 ? i / (n - 1) : 0.5;
+      out.push(oklchToHex(0.92 - t * 0.7, C, H));
+    }
+    return out;
+  },
+  analogous: (base, n) => {
+    // Hues spanning ±30° around the base.
+    const [L, C, H] = hexToOklch(base);
+    const span = 60;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const t = n > 1 ? i / (n - 1) : 0.5;
+      out.push(oklchToHex(L, C, (H + (t - 0.5) * span + 360) % 360));
+    }
+    return out;
+  },
+  complement: (base, n) => {
+    // Two hues 180° apart, alternating, with mild lightness offsets
+    // for separation.
+    const [L, C, H] = hexToOklch(base);
+    const H2 = (H + 180) % 360;
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const h = i % 2 === 0 ? H : H2;
+      const lv = Math.max(0.18, Math.min(0.94, L + ((i % 2) - 0.5) * 0.18));
+      out.push(oklchToHex(lv, C, h));
+    }
+    return out;
+  },
+  split: (base, n) => {
+    // Base + the two hues flanking its complement (180° ± 30°).
+    const [L, C, H] = hexToOklch(base);
+    const hues = [H, (H + 150) % 360, (H + 210) % 360];
+    return Array.from({ length: n }, (_, i) => oklchToHex(L, C, hues[i % 3]));
+  },
+  triad: (base, n) => {
+    // Three hues 120° apart.
+    const [L, C, H] = hexToOklch(base);
+    const hues = [H, (H + 120) % 360, (H + 240) % 360];
+    return Array.from({ length: n }, (_, i) => oklchToHex(L, C, hues[i % 3]));
+  },
+  square: (base, n) => {
+    // Four hues 90° apart.
+    const [L, C, H] = hexToOklch(base);
+    const hues = [H, (H + 90) % 360, (H + 180) % 360, (H + 270) % 360];
+    return Array.from({ length: n }, (_, i) => oklchToHex(L, C, hues[i % 4]));
+  },
+  tonal: (base, n) => {
+    // Small hue drift, similar value — the muted modernist look.
+    const [L, C, H] = hexToOklch(base);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const t = n > 1 ? i / (n - 1) : 0.5;
+      const h = (H + (t - 0.5) * 30 + 360) % 360;
+      const lv = L + (Math.sin(t * Math.PI) - 0.5) * 0.1;
+      out.push(oklchToHex(Math.max(0.2, Math.min(0.9, lv)), C * 0.85, h));
+    }
+    return out;
+  },
+  'value-ramp': (base, n) => {
+    // Same hue / chroma, lightness stepped 0.95 → 0.2.
+    const [, C, H] = hexToOklch(base);
+    return Array.from({ length: n }, (_, i) => {
+      const t = n > 1 ? i / (n - 1) : 0.5;
+      return oklchToHex(0.95 - t * 0.75, C, H);
+    });
+  },
+  'hue-ramp': (base, n) => {
+    // Equal-spaced hues at the base's lightness / chroma — full wheel
+    // sweep, useful for high-key crayon palettes.
+    const [L, C] = hexToOklch(base);
+    return Array.from({ length: n }, (_, i) => oklchToHex(L, C, (i * 360 / n) % 360));
+  },
+};
 
 // Per-profile parameters governing K generation, total ink limit, and
 // black-point offset. Values picked to roughly match published TVI
@@ -1915,9 +2059,13 @@ function loadSample(name, current, clear) {
     }
   }
   if (clear) {
+    const base = defaultPattern();
+    const palette = sample.palette || base.palette;
     return {
-      ...defaultPattern(),
-      ...(sample.palette ? { palette: sample.palette } : {}),
+      ...base,
+      palette,
+      colorway: 'main',
+      colorways: { main: [...palette] },
       ...(sample.repeat ? { repeat: sample.repeat } : {}),
       layers,
     };
@@ -6684,6 +6832,134 @@ function mount() {
   refreshPhysicalOverlay();
   if (yardTiles) yardTiles.addEventListener('change', () => rerenderYardage());
 
+  // ----- Project palette + colorways -----
+  // The project palette is the fallback used by any layer whose own
+  // palette is empty; the colorways map stores named alternates of
+  // that palette. Editing a swatch updates both the active palette and
+  // its entry in the map so a saved colorway evolves with the user's
+  // tweaks until they save a new one.
+  const paletteSchemeSel  = document.getElementById('girard-palette-scheme');
+  const paletteBaseInp    = document.getElementById('girard-palette-base');
+  const paletteCountInp   = document.getElementById('girard-palette-count');
+  const paletteGenBtn     = document.getElementById('girard-palette-generate');
+  const paletteSwatchesEl = document.getElementById('girard-palette-swatches');
+  const colorwaySelectEl  = document.getElementById('girard-colorway-select');
+  const colorwayNameInp   = document.getElementById('girard-colorway-name');
+  const colorwaySaveBtn   = document.getElementById('girard-colorway-save');
+  const colorwayDelBtn    = document.getElementById('girard-colorway-delete');
+
+  const ensureColorways = () => {
+    if (!pattern.colorways) pattern.colorways = {};
+    if (!pattern.colorway) pattern.colorway = 'main';
+    if (!pattern.colorways[pattern.colorway]) {
+      pattern.colorways[pattern.colorway] = [...(pattern.palette || [])];
+    }
+  };
+
+  const refreshColorwaySelect = () => {
+    if (!colorwaySelectEl) return;
+    ensureColorways();
+    colorwaySelectEl.replaceChildren();
+    for (const name of Object.keys(pattern.colorways)) {
+      const opt = document.createElement('option');
+      opt.value = name;
+      opt.textContent = name;
+      if (name === pattern.colorway) opt.selected = true;
+      colorwaySelectEl.appendChild(opt);
+    }
+  };
+
+  const refreshProjectPalette = () => {
+    if (!paletteSwatchesEl) return;
+    ensureColorways();
+    paletteSwatchesEl.replaceChildren();
+    (pattern.palette || []).forEach((color, i) => {
+      const wrap = document.createElement('span');
+      wrap.className = 'project-swatch';
+      const picker = document.createElement('input');
+      picker.type = 'color';
+      picker.value = (color || '#000000').slice(0, 7);
+      picker.addEventListener('input', () => {
+        pattern.palette[i] = picker.value;
+        pattern.colorways[pattern.colorway] = [...pattern.palette];
+        rerenderSvg();
+      });
+      wrap.appendChild(picker);
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.textContent = '×';
+      rm.title = 'remove';
+      rm.addEventListener('click', () => {
+        pattern.palette.splice(i, 1);
+        pattern.colorways[pattern.colorway] = [...pattern.palette];
+        refreshProjectPalette();
+        rerenderSvg();
+      });
+      wrap.appendChild(rm);
+      paletteSwatchesEl.appendChild(wrap);
+    });
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'project-swatch-add';
+    add.textContent = '+';
+    add.addEventListener('click', () => {
+      pattern.palette = [...(pattern.palette || []), '#888888'];
+      pattern.colorways[pattern.colorway] = [...pattern.palette];
+      refreshProjectPalette();
+      rerenderSvg();
+    });
+    paletteSwatchesEl.appendChild(add);
+  };
+
+  if (paletteGenBtn) {
+    paletteGenBtn.addEventListener('click', () => {
+      const scheme = paletteSchemeSel?.value || 'analogous';
+      const base = paletteBaseInp?.value || '#e94e3b';
+      const n = Math.max(2, Math.min(16, Number(paletteCountInp?.value) || 5));
+      const gen = PALETTE_SCHEMES[scheme];
+      if (!gen) return;
+      pattern.palette = gen(base, n);
+      pattern.colorways[pattern.colorway] = [...pattern.palette];
+      refreshProjectPalette();
+      rerenderSvg();
+    });
+  }
+  if (colorwaySelectEl) {
+    colorwaySelectEl.addEventListener('change', () => {
+      const name = colorwaySelectEl.value;
+      if (!pattern.colorways[name]) return;
+      pattern.colorway = name;
+      pattern.palette = [...pattern.colorways[name]];
+      refreshProjectPalette();
+      rerenderSvg();
+    });
+  }
+  if (colorwaySaveBtn) {
+    colorwaySaveBtn.addEventListener('click', () => {
+      const name = (colorwayNameInp?.value || '').trim();
+      if (!name) return;
+      pattern.colorways[name] = [...pattern.palette];
+      pattern.colorway = name;
+      if (colorwayNameInp) colorwayNameInp.value = '';
+      refreshColorwaySelect();
+      refreshProjectPalette();
+    });
+  }
+  if (colorwayDelBtn) {
+    colorwayDelBtn.addEventListener('click', () => {
+      const names = Object.keys(pattern.colorways);
+      if (names.length <= 1) return;   // always keep at least one
+      delete pattern.colorways[pattern.colorway];
+      pattern.colorway = Object.keys(pattern.colorways)[0];
+      pattern.palette = [...pattern.colorways[pattern.colorway]];
+      refreshColorwaySelect();
+      refreshProjectPalette();
+      rerenderSvg();
+    });
+  }
+  refreshColorwaySelect();
+  refreshProjectPalette();
+
   veil.addEventListener('input', () => {
     pattern.surroundVeil = Number(veil.value);
     // Slider use cancels the "preview" toggle (which forces veil=1).
@@ -6897,6 +7173,8 @@ function mount() {
       }
     }
     veil.value = pattern.surroundVeil;
+    refreshColorwaySelect();
+    refreshProjectPalette();
     rerenderUI();
   });
 
