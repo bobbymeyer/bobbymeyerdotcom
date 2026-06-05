@@ -8,6 +8,19 @@
   color: #1a1a1a;
 }
 
+/* Mobile / single-column: regroup the panels with their labels.
+   DOM order interleaves labels (so desktop's row-1 grid can pick them
+   up); the flex layout doesn't know that and would otherwise show
+   "project settings" + "layers" stacked above any panel. The desktop
+   grid below overrides placement with explicit grid-row / grid-column,
+   so these `order` values only take effect on mobile. */
+#girard-title             { order: 0; }
+#girard-composition-label { order: 1; }
+#girard-composition       { order: 2; }
+#girard-stage             { order: 3; }
+#girard-layers-label      { order: 4; }
+#girard-layers            { order: 5; }
+
 /* Desktop: break out of the post's max-w-3xl container and lay the
    tool as a 5-column × 2-row grid. Outer 1fr columns absorb leftover
    space (margin auto). Row 1 is the title/label row (auto height,
