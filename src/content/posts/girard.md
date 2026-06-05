@@ -53,7 +53,16 @@ tags:
             <option value='square'>square</option>
             <option value='half-drop'>half-drop</option>
             <option value='half-brick'>half-brick</option>
+            <option value='drop'>drop (custom %)</option>
+            <option value='brick'>brick (custom %)</option>
+            <option value='mirror-x'>mirror horizontal</option>
+            <option value='mirror-y'>mirror vertical</option>
+            <option value='mirror-xy'>mirror both (kaleidoscope)</option>
           </select>
+        </label>
+        <label class='ctrl' id='girard-repeat-fraction-wrap'>
+          <span>offset %</span>
+          <input id='girard-repeat-fraction' type='number' value='50' min='0' max='100' step='1' />
         </label>
         <div class='ctrl ctrl-inline'>
           <span>aspect (w : h)</span>

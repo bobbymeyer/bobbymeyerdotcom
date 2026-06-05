@@ -4165,18 +4165,49 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
 // ---------- Repeat unit (SVG <pattern> body) ----------
 function buildRepeatUnit(pattern, tileGroup) {
   const { w, h } = tileDims(pattern);
-  switch (pattern.repeat) {
-    case 'half-drop': {
-      const g1 = tileGroup.cloneNode(true);
-      const g2 = tileGroup.cloneNode(true);
-      g2.setAttribute('transform', `translate(${w} ${h / 2})`);
+  const repeat = pattern.repeat || 'square';
+  // Custom drop / brick fractions; default 0.5 so a user typing
+  // `drop` without setting a fraction still gets a half-drop.
+  const dropFr  = Math.max(0, Math.min(1, pattern.dropFraction  ?? 0.5));
+  const brickFr = Math.max(0, Math.min(1, pattern.brickFraction ?? 0.5));
+  const clone = () => tileGroup.cloneNode(true);
+  switch (repeat) {
+    // Drop column: the right-hand tile in a 2W×H unit shifts down.
+    // half-drop is the textile-standard 0.5; `drop` keeps that name
+    // free for explicit fractions (1/3 = 60° / diamond drop, etc.).
+    case 'half-drop':
+    case 'drop': {
+      const off = h * (repeat === 'half-drop' ? 0.5 : dropFr);
+      const g1 = clone(), g2 = clone();
+      g2.setAttribute('transform', `translate(${w} ${off})`);
       return { width: w * 2, height: h, content: [g1, g2] };
     }
-    case 'half-brick': {
-      const g1 = tileGroup.cloneNode(true);
-      const g2 = tileGroup.cloneNode(true);
-      g2.setAttribute('transform', `translate(${w / 2} ${h})`);
+    // Brick row: the second row shifts right.
+    case 'half-brick':
+    case 'brick': {
+      const off = w * (repeat === 'half-brick' ? 0.5 : brickFr);
+      const g1 = clone(), g2 = clone();
+      g2.setAttribute('transform', `translate(${off} ${h})`);
       return { width: w, height: h * 2, content: [g1, g2] };
+    }
+    // Mirror repeats: each axis flips the next tile. mirror-xy is
+    // the four-tile kaleidoscope (think Rorschach quilt).
+    case 'mirror-x': {
+      const g1 = clone(), g2 = clone();
+      g2.setAttribute('transform', `translate(${w * 2} 0) scale(-1 1)`);
+      return { width: w * 2, height: h, content: [g1, g2] };
+    }
+    case 'mirror-y': {
+      const g1 = clone(), g2 = clone();
+      g2.setAttribute('transform', `translate(0 ${h * 2}) scale(1 -1)`);
+      return { width: w, height: h * 2, content: [g1, g2] };
+    }
+    case 'mirror-xy': {
+      const g1 = clone(), g2 = clone(), g3 = clone(), g4 = clone();
+      g2.setAttribute('transform', `translate(${w * 2} 0) scale(-1 1)`);
+      g3.setAttribute('transform', `translate(0 ${h * 2}) scale(1 -1)`);
+      g4.setAttribute('transform', `translate(${w * 2} ${h * 2}) scale(-1 -1)`);
+      return { width: w * 2, height: h * 2, content: [g1, g2, g3, g4] };
     }
     default:
       return { width: w, height: h, content: [tileGroup] };
@@ -6939,6 +6970,7 @@ function mount() {
       }
     }
     if (veil) veil.value = pattern.surroundVeil;
+    if (typeof syncRepeatFractionUI === 'function') syncRepeatFractionUI();
     if (physRepeat) physRepeat.value = pattern.physicalRepeat;
     if (physUnit) physUnit.value = pattern.physicalUnit;
     if (colorModeSel) colorModeSel.value = pattern.colorMode || 'srgb';
@@ -7068,11 +7100,40 @@ function mount() {
     if (typeof _refreshHints === 'function') _refreshHints();
   });
 
+  // The offset fraction input is shared between `drop` and `brick`
+  // styles. It writes to dropFraction or brickFraction depending on
+  // the current style, and hides for repeat styles that don't take
+  // a fraction (square / half-* / mirror-*).
+  const repeatFractionWrap = document.getElementById('girard-repeat-fraction-wrap');
+  const repeatFractionInp  = document.getElementById('girard-repeat-fraction');
+  const repeatTakesFraction = (r) => r === 'drop' || r === 'brick';
+  const syncRepeatFractionUI = () => {
+    const r = repeat.value;
+    if (repeatFractionWrap) {
+      repeatFractionWrap.classList.toggle('is-hidden', !repeatTakesFraction(r));
+    }
+    if (repeatFractionInp) {
+      const v = r === 'brick' ? (pattern.brickFraction ?? 0.5) : (pattern.dropFraction ?? 0.5);
+      repeatFractionInp.value = Math.round(v * 100);
+    }
+  };
   repeat.addEventListener('change', () => {
     pattern.repeat = repeat.value;
+    syncRepeatFractionUI();
     rerenderSvg();
     if (typeof _refreshHints === 'function') _refreshHints();
   });
+  if (repeatFractionInp) {
+    repeatFractionInp.addEventListener('input', () => {
+      const pct = Math.max(0, Math.min(100, Number(repeatFractionInp.value) || 0));
+      const fr = pct / 100;
+      if (pattern.repeat === 'brick') pattern.brickFraction = fr;
+      else pattern.dropFraction = fr;
+      rerenderSvg();
+      if (typeof _refreshHints === 'function') _refreshHints();
+    });
+  }
+  syncRepeatFractionUI();
 
   const syncAspect = () => {
     const w = Math.max(0.1, Number(aspectW.value) || 1);
