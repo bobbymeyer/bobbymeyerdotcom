@@ -2598,6 +2598,22 @@ function buildTileGroup(pattern) {
   return root;
 }
 
+// Build a polygon `points` string for a line segment that tapers
+// from width w1 at (x1, y1) to width w2 at (x2, y2). Used by stroke-
+// based fills (twigs, grass) when the layer's taper > 0 so each
+// segment narrows along its length. Result is a quadrilateral.
+function taperedLinePoints(x1, y1, x2, y2, w1, w2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.hypot(dx, dy) || 1;
+  const nx = -dy / len, ny = dx / len;     // unit normal
+  const ax = x1 + nx * w1 / 2, ay = y1 + ny * w1 / 2;
+  const bx = x2 + nx * w2 / 2, by = y2 + ny * w2 / 2;
+  const cx = x2 - nx * w2 / 2, cy = y2 - ny * w2 / 2;
+  const dx2 = x1 - nx * w1 / 2, dy2 = y1 - ny * w1 / 2;
+  return `${ax.toFixed(2)},${ay.toFixed(2)} ${bx.toFixed(2)},${by.toFixed(2)} `
+       + `${cx.toFixed(2)},${cy.toFixed(2)} ${dx2.toFixed(2)},${dy2.toFixed(2)}`;
+}
+
 // Recursive layer renderer. (x, y, w, h) is the layer's canvas in
 // user-space units (the tile for top-level layers; the parent cell
 // for nested layers).
@@ -3682,11 +3698,25 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       for (const s of [-1, 1]) {
         seg(cur.x, cur.y, dir + s * (0.3 + crng() * 0.2), step * 0.85, stemColor, sw * 0.8);
       }
+      // Taper: convert each line into a tapered quadrilateral that
+      // narrows from full width at its start to (1 - taper) at its
+      // end. Stacked across twig segments this paints a continuous
+      // root → tip narrowing.
+      const taper = Math.max(0, Math.min(1, layer.taper ?? 0));
       drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, ox, oy) => {
-        for (const s of segs) host.appendChild(el('line', {
-          x1: s.x1 + ox, y1: s.y1 + oy, x2: s.x2 + ox, y2: s.y2 + oy,
-          stroke: s.c, 'stroke-width': s.w, 'stroke-linecap': 'round',
-        }));
+        for (const s of segs) {
+          if (taper > 0) {
+            host.appendChild(el('polygon', {
+              points: taperedLinePoints(s.x1 + ox, s.y1 + oy, s.x2 + ox, s.y2 + oy, s.w, s.w * (1 - taper)),
+              fill: s.c,
+            }));
+          } else {
+            host.appendChild(el('line', {
+              x1: s.x1 + ox, y1: s.y1 + oy, x2: s.x2 + ox, y2: s.y2 + oy,
+              stroke: s.c, 'stroke-width': s.w, 'stroke-linecap': 'round',
+            }));
+          }
+        }
       });
       break;
     }
@@ -3962,11 +3992,21 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const pod = crng() < (fill.podChance ?? 0.4);
       const podLen = len * 0.07, podW = sw * 2.4;
       const podDeg = (ang * 180 / Math.PI + 90).toFixed(1);
+      const grassTaper = Math.max(0, Math.min(1, layer.taper ?? 0));
       drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, ox, oy) => {
-        for (const [x1, y1, x2, y2] of lines) host.appendChild(el('line', {
-          x1: x1 + ox, y1: y1 + oy, x2: x2 + ox, y2: y2 + oy,
-          stroke: color, 'stroke-width': sw, 'stroke-linecap': 'round',
-        }));
+        for (const [x1, y1, x2, y2] of lines) {
+          if (grassTaper > 0) {
+            host.appendChild(el('polygon', {
+              points: taperedLinePoints(x1 + ox, y1 + oy, x2 + ox, y2 + oy, sw, sw * (1 - grassTaper)),
+              fill: color,
+            }));
+          } else {
+            host.appendChild(el('line', {
+              x1: x1 + ox, y1: y1 + oy, x2: x2 + ox, y2: y2 + oy,
+              stroke: color, 'stroke-width': sw, 'stroke-linecap': 'round',
+            }));
+          }
+        }
         if (pod) {
           const g = el('g', { transform: `translate(${(tipX + ox).toFixed(1)} ${(tipY + oy).toFixed(1)}) rotate(${podDeg})` });
           g.appendChild(el('ellipse', { cx: 0, cy: -podLen, rx: podW, ry: podLen, fill: color }));
@@ -6091,12 +6131,19 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
   const mirror = addCtrl('mirror', 'select', mirrorState, {
     options: ['none', 'horizontal', 'vertical', 'both'],
   });
+  // Taper: stroke-using fills (twigs, grass) narrow from full width
+  // at each segment's start to (1 - taper) at its end. 0 = uniform.
+  const taper = addCtrl('taper', 'number', layer.taper ?? 0, { min: 0, max: 1, step: 0.05 });
   blend.addEventListener('change', () => { layer.blendMode = blend.value; onChange(); });
   op.addEventListener('input',  () => { layer.opacity = Number(op.value); onChange(); });
   mirror.addEventListener('change', () => {
     const v = mirror.value;
     layer.flipX = v === 'horizontal' || v === 'both';
     layer.flipY = v === 'vertical'   || v === 'both';
+    onChange();
+  });
+  taper.addEventListener('input', () => {
+    layer.taper = Math.max(0, Math.min(1, Number(taper.value) || 0));
     onChange();
   });
 
