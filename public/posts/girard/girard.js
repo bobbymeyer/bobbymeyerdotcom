@@ -2543,8 +2543,13 @@ function shapeNode(shape, cw, rh, fill, ctx) {
     const name = shape.kind.slice(7);
     const custom = _currentCustomShapes[name];
     if (!custom || !custom.paths || custom.paths.length === 0) return el('g', {});
+    // Custom shapes default to 1.0 (fit the cell by the longer axis)
+    // instead of the catalog's 0.6 — imported artwork wants to be
+    // seen, not breathing-room-padded. The slider still drives the
+    // multiplier from there.
+    const customDim = Math.min(cw, rh) * (shape.size ?? 1.0);
     const [vx, vy, vw, vh] = custom.viewBox;
-    const scale = dim / Math.max(vw, vh || 1, 1);
+    const scale = customDim / Math.max(vw, vh || 1, 1);
     const tx = -(vx + vw / 2) * scale;
     const ty = -(vy + vh / 2) * scale;
     const g = el('g', { transform: `translate(${tx.toFixed(3)} ${ty.toFixed(3)}) scale(${scale.toFixed(6)})` });
@@ -6784,11 +6789,23 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
       ],
     });
     shapeKind.addEventListener('change', () => {
-      layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
+      const oldKind = layer.fill.shape?.kind || '';
+      const newKind = shapeKind.value;
+      const wasCustom = oldKind.startsWith('custom:');
+      const isCustom = newKind.startsWith('custom:');
+      layer.fill.shape = { ...(layer.fill.shape || {}), kind: newKind };
+      // Toggle the size default when crossing the custom boundary —
+      // imported artwork wants to fill the cell (1.0); catalog shapes
+      // want breathing room (0.6).
+      if (wasCustom !== isCustom) {
+        layer.fill.shape.size = isCustom ? 1.0 : 0.6;
+      }
       onChange();
       rebuild();
     });
-    const size = addCtrl('size (× cell)', 'number', layer.fill.shape?.size ?? 0.6, { min: 0.05, max: 1.5, step: 0.05 });
+    const isCustom = (layer.fill.shape?.kind || '').startsWith('custom:');
+    const sizeDefault = isCustom ? 1.0 : 0.6;
+    const size = addCtrl('size (× cell)', 'number', layer.fill.shape?.size ?? sizeDefault, { min: 0.05, max: 1.5, step: 0.05 });
     size.addEventListener('input', () => {
       layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), size: Number(size.value) };
       onChange();
