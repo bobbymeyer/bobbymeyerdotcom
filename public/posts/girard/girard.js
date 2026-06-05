@@ -3900,6 +3900,44 @@ function buildEmbeddedFontStyle(pattern) {
     });
 }
 
+// opentype.js lazy-loaded once for vector text outlining. TTF binaries
+// come from jsDelivr's @fontsource mirror (Google Fonts WOFF2s would
+// need a wasm decoder; TTF is parseable straight out of opentype.js).
+const OPENTYPE_URL = 'https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.min.js';
+const _ttfCache = new Map();  // family|weight|style → opentype.Font
+function fontSlug(family) { return family.toLowerCase().replace(/ /g, '-'); }
+async function loadGlyphsForPattern(pattern) {
+  const families = patternFonts(pattern);
+  if (!families.length) return new Map();
+  try { await loadScript(OPENTYPE_URL); }
+  catch { return new Map(); }
+  if (!window.opentype) return new Map();
+  const map = new Map();
+  const fetches = [];
+  for (const family of families) {
+    const slug = fontSlug(family);
+    for (const w of [400, 700, 900]) {
+      for (const style of ['normal', 'italic']) {
+        const key = `${family}|${w}|${style}`;
+        if (_ttfCache.has(key)) { map.set(key, _ttfCache.get(key)); continue; }
+        fetches.push((async () => {
+          const url = `https://cdn.jsdelivr.net/npm/@fontsource/${slug}/files/${slug}-latin-${w}-${style}.ttf`;
+          try {
+            const r = await fetch(url);
+            if (!r.ok) return;
+            const buf = await r.arrayBuffer();
+            const font = window.opentype.parse(buf);
+            _ttfCache.set(key, font);
+            map.set(key, font);
+          } catch {}
+        })());
+      }
+    }
+  }
+  await Promise.all(fetches);
+  return map;
+}
+
 function arrayBufferToBase64(buf) {
   let s = '';
   const bytes = new Uint8Array(buf);
@@ -4459,13 +4497,28 @@ function nChildren(n) {
   if (n.children) return Array.from(n.children);
   return [];
 }
+function nText(n) {
+  if (!n) return '';
+  if (typeof n.textContent === 'string') return n.textContent;
+  if (typeof n.text === 'string') return n.text;
+  return '';
+}
 
-function canVectorize(svg) {
+// `fontMap` is the per-export Map<family|weight|style, opentypeFont>
+// built by loadGlyphsForPattern. When supplied, text whose font is
+// loaded vectorizes inline; when omitted (or missing a needed font),
+// the presence of any <text> forces raster fallback.
+function canVectorize(svg, fontMap) {
   let ok = true;
   const walk = (n) => {
     if (!ok || !n) return;
     const tag = nTag(n);
-    if (tag === 'text') ok = false;
+    if (tag === 'text') {
+      const family = nAttr(n, 'font-family') || 'sans-serif';
+      const w = parseInt(nAttr(n, 'font-weight') || '400', 10) || 400;
+      const s = nAttr(n, 'font-style') || 'normal';
+      if (!fontMap || !fontMap.get(`${family}|${w}|${s}`)) ok = false;
+    }
     if (tag === 'use' || tag === 'mask' || tag === 'filter') ok = false;
     // clip-path is now handled — we walk the defs and emit `W n` inside
     // a saved graphics state, so every clipPath the patterns produce
@@ -4650,13 +4703,36 @@ function emitClipShapeOps(clipNode, ops) {
   }
 }
 
+// Emit PDF path operators for an opentype.js Path. TTF outlines are
+// quadratic; we convert Q → C inline since PDF only has cubic curves.
+function emitOpentypePath(path, ops) {
+  const fmt = v => v.toFixed(3);
+  let px = 0, py = 0;
+  for (const cmd of path.commands) {
+    if (cmd.type === 'M') { ops.push(`${fmt(cmd.x)} ${fmt(cmd.y)} m`); px = cmd.x; py = cmd.y; }
+    else if (cmd.type === 'L') { ops.push(`${fmt(cmd.x)} ${fmt(cmd.y)} l`); px = cmd.x; py = cmd.y; }
+    else if (cmd.type === 'C') { ops.push(`${fmt(cmd.x1)} ${fmt(cmd.y1)} ${fmt(cmd.x2)} ${fmt(cmd.y2)} ${fmt(cmd.x)} ${fmt(cmd.y)} c`); px = cmd.x; py = cmd.y; }
+    else if (cmd.type === 'Q') {
+      const c1x = px + (2 / 3) * (cmd.x1 - px);
+      const c1y = py + (2 / 3) * (cmd.y1 - py);
+      const c2x = cmd.x + (2 / 3) * (cmd.x1 - cmd.x);
+      const c2y = cmd.y + (2 / 3) * (cmd.y1 - cmd.y);
+      ops.push(`${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(cmd.x)} ${fmt(cmd.y)} c`);
+      px = cmd.x; py = cmd.y;
+    }
+    else if (cmd.type === 'Z') ops.push('h');
+  }
+}
+
 // Walk a tile SVG tree, accumulating PDF operator strings. State:
 // current fill / stroke / strokeWidth / linecap / linejoin / opacity.
 // `clipDefs` is the Map returned by indexClipPaths; if omitted (top-
 // level call) we build it from `node` so callers don't need to know.
-function walkSvgToPdfOps(node, state, ops, profileId, clipDefs) {
+// `fontMap` is the per-export font dictionary used for text outlining.
+function walkSvgToPdfOps(node, state, ops, profileId, clipDefs, fontMap) {
   if (!node) return;
   if (!clipDefs) clipDefs = indexClipPaths(node);
+  if (!fontMap) fontMap = new Map();
   const tag = nTag(node);
   if (!tag) return;
   if (tag === 'defs' || tag === 'clippath') return;
@@ -4720,7 +4796,7 @@ function walkSvgToPdfOps(node, state, ops, profileId, clipDefs) {
   };
 
   const recur = () => {
-    for (const c of nChildren(node)) walkSvgToPdfOps(c, { fill, stroke, strokeWidth: swPx }, ops, profileId, clipDefs);
+    for (const c of nChildren(node)) walkSvgToPdfOps(c, { fill, stroke, strokeWidth: swPx }, ops, profileId, clipDefs, fontMap);
   };
 
   switch (tag) {
@@ -4811,6 +4887,34 @@ function walkSvgToPdfOps(node, state, ops, profileId, clipDefs) {
       closePaint(fs);
       break;
     }
+    case 'text': {
+      const text = nText(node);
+      if (!text) break;
+      const family = nAttr(node, 'font-family') || 'sans-serif';
+      const fw = parseInt(nAttr(node, 'font-weight') || '400', 10) || 400;
+      const fstyle = nAttr(node, 'font-style') || 'normal';
+      const font = fontMap.get(`${family}|${fw}|${fstyle}`);
+      if (!font) break;  // canVectorize would have rejected; defensive
+      const fontSize = Number(nAttr(node, 'font-size') || 16);
+      const anchor = nAttr(node, 'text-anchor') || 'start';
+      const baseline = nAttr(node, 'dominant-baseline') || 'alphabetic';
+      let tx = Number(nAttr(node, 'x') || 0);
+      let ty = Number(nAttr(node, 'y') || 0);
+      const advance = font.getAdvanceWidth(text, fontSize);
+      if (anchor === 'middle') tx -= advance / 2;
+      else if (anchor === 'end') tx -= advance;
+      if (baseline === 'central' || baseline === 'middle') {
+        // Centre by the visual midline: (ascender + descender) / 2.
+        const upm = font.unitsPerEm || 1000;
+        const mid = ((font.ascender || upm * 0.8) + (font.descender || -upm * 0.2)) / 2;
+        ty -= (mid * fontSize) / upm;
+      }
+      const fs = emitFillStroke();
+      const path = font.getPath(text, tx, ty, fontSize);
+      emitOpentypePath(path, ops);
+      closePaint(fs);
+      break;
+    }
     default:
       // Walk children for unrecognised wrappers.
       recur();
@@ -4846,7 +4950,8 @@ function exportTilePdf(pattern, baseName) {
       // the SVG uses features the emitter doesn't handle (text shapes,
       // clip paths), fall back to the raster path.
       const tileSvgForVector = buildTileSvg(pattern, { skipSoftProof: true });
-      const vector = canVectorize(tileSvgForVector.svg);
+      const fontMap = await loadGlyphsForPattern(pattern);
+      const vector = canVectorize(tileSvgForVector.svg, fontMap);
       const vW = tileSvgForVector.width, vH = tileSvgForVector.height;
       const page = pdfDoc.addPage([vector ? vW : W, vector ? vH : H]);
       if (vector) {
@@ -4865,7 +4970,7 @@ function exportTilePdf(pattern, baseName) {
           ops.push(`0 0 ${vW.toFixed(3)} ${vH.toFixed(3)} re`);
           ops.push('f');
         }
-        walkSvgToPdfOps(tileSvgForVector.svg, { fill: '#000000', stroke: 'none', strokeWidth: 1 }, ops, profileId);
+        walkSvgToPdfOps(tileSvgForVector.svg, { fill: '#000000', stroke: 'none', strokeWidth: 1 }, ops, profileId, undefined, fontMap);
         ops.push('Q');
         page.pushOperators(...ops.map(s => PDFOperator.of(s + '\n')));
       } else if (iccProfiler.loaded) {
