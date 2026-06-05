@@ -976,3 +976,23 @@ button.ctrl:hover {
   text-transform: uppercase;
   color: #999;
 }
+
+/* Layer-list lock toggle + lock state. The button shows 🔓 or 🔒
+   depending on the layer; locked rows fade the title so the row is
+   visibly held aside. Selected styling still wins so you can see
+   which locked layer you're inspecting. */
+.layer-actions .layer-lock {
+  font-size: 12px;
+  line-height: 1;
+}
+.layer-item.is-locked .layer-label {
+  opacity: 0.55;
+  font-style: italic;
+}
+/* Locked-layer config: visible but inert. Lock toggle stays clickable
+   because it's on the layer list, not in here. */
+#girard-layer-config.is-locked {
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+}

@@ -2585,7 +2585,12 @@ function buildTileGroup(pattern) {
   const { w, h } = tileDims(pattern);
   const root = el('g');
   pattern.layers.forEach((layer, li) => {
-    renderLayer(root, layer, 0, 0, w, h, pattern.palette, pattern.seed + li * 9973);
+    // Locked layers carry a frozen RNG seed; everything else flows
+    // from the project seed so a "roll" reshuffles them together.
+    const rngSeed = (layer.locked && layer.lockedSeed != null)
+      ? layer.lockedSeed
+      : pattern.seed + li * 9973;
+    renderLayer(root, layer, 0, 0, w, h, pattern.palette, rngSeed);
   });
   return root;
 }
@@ -5789,7 +5794,9 @@ function exportTileJpeg(pattern, baseName, quality = 0.92) {
 function renderLayerList(listEl, pattern, selected, handlers) {
   const items = pattern.layers.map((layer, i) => {
     const li = document.createElement('li');
-    li.className = 'layer-item' + (i === selected ? ' selected' : '');
+    li.className = 'layer-item'
+      + (i === selected ? ' selected' : '')
+      + (layer.locked ? ' is-locked' : '');
     const label = document.createElement('span');
     label.className = 'layer-label';
     label.textContent = `${i + 1}. ${layerLabel(layer)}`;
@@ -5798,13 +5805,21 @@ function renderLayerList(listEl, pattern, selected, handlers) {
 
     const actions = document.createElement('span');
     actions.className = 'layer-actions';
-    const btn = (text, title, fn) => {
+    const btn = (text, title, fn, extraClass) => {
       const b = document.createElement('button');
       b.textContent = text;
       b.title = title;
+      if (extraClass) b.className = extraClass;
       b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
       return b;
     };
+    const lockBtn = btn(
+      layer.locked ? '🔒' : '🔓',
+      layer.locked ? 'unlock (will react to roll again)' : 'lock (freezes the layer against roll + edits)',
+      () => handlers.lock(i),
+      'layer-lock' + (layer.locked ? ' is-locked' : '')
+    );
+    actions.appendChild(lockBtn);
     actions.appendChild(btn('↑', 'move up',   () => handlers.move(i, -1)));
     actions.appendChild(btn('↓', 'move down', () => handlers.move(i, +1)));
     actions.appendChild(btn('×', 'delete',    () => handlers.remove(i)));
@@ -5819,6 +5834,10 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
   const colorMode = opts.colorMode || 'srgb';
   const iccProfile = opts.iccProfile || 'U.S. Web Coated (SWOP) v2';
   rootHost.replaceChildren();
+  // Mirror the layer's lock state onto the form so CSS can dim it
+  // and block pointer events. The lock toggle itself lives on the
+  // layer list, not in this panel, so the user always has an exit.
+  rootHost.classList.toggle('is-locked', !!(layer && layer.locked));
   if (!layer) return;
   // `host` is the *current* append target. Starts as the root panel
   // body, gets reassigned to a fresh <details> body each time
@@ -6947,6 +6966,22 @@ function mount() {
       pattern.layers.splice(i, 1);
       if (selected >= pattern.layers.length) selected = pattern.layers.length - 1;
       if (selected < 0) selected = 0;
+      rerenderUI();
+    },
+    // Locking freezes the layer's RNG seed at lock-time so subsequent
+    // "roll"s (or any other change to pattern.seed) don't shuffle this
+    // layer. Unlocking drops the frozen seed and the layer re-joins the
+    // global RNG flow.
+    lock: (i) => {
+      const layer = pattern.layers[i];
+      if (!layer) return;
+      if (layer.locked) {
+        layer.locked = false;
+        delete layer.lockedSeed;
+      } else {
+        layer.locked = true;
+        layer.lockedSeed = (pattern.seed + i * 9973) | 0;
+      }
       rerenderUI();
     },
   };
