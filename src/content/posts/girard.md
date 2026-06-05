@@ -157,6 +157,17 @@ tags:
       </details>
     </details>
     <details class='girard-section'>
+      <summary>shapes<span class='section-hint' id='girard-shapes-hint'></span></summary>
+      <div class='ctrl-row'>
+        <label class='ctrl-inline-btn' for='girard-shape-file' style='cursor:pointer;'>
+          import SVG…
+        </label>
+        <input id='girard-shape-file' type='file' accept='.svg,image/svg+xml' multiple style='display:none;' />
+      </div>
+      <div id='girard-shape-list' class='girard-shape-list'></div>
+      <p class='icc-status'>SVG paths render with the cell's palette colour. Pasting an icon from Iconify, Heroicons, etc. works as long as it has a viewBox.</p>
+    </details>
+    <details class='girard-section'>
       <summary>export<span class='section-hint' id='girard-export-hint'></span></summary>
       <div class='ctrl-row'>
         <label class='ctrl'>

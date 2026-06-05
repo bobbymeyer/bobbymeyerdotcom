@@ -261,6 +261,10 @@ const defaultPattern = () => ({
   exportWidth: 1024,
   exportFlatten: false,
   exportBackground: '#ffffff',
+  // User-imported custom shapes, keyed by name. Each entry is
+  // { viewBox: [vx, vy, vw, vh], paths: [{ d }] }. Layers reference
+  // them via fill.shape.kind = `custom:NAME`.
+  customShapes: {},
   // Physical size of one repeat. Pixels are the rendering unit; this
   // is the printed scale of one tile. Used by the units overlay and
   // by features that need real-world scale (yardage preview, future
@@ -2269,11 +2273,110 @@ function appendPetalRing(host, { cx = 0, cy = 0, ringR, petalR, count, fill, ext
 
 // Shape.size is a fraction (0..1) of the smaller cell dimension.
 // Lets shapes scale with the grid instead of needing absolute pixels.
+// Parse a user-supplied SVG document into a shape descriptor the
+// shapeNode catalog can render. Strips presentation (fill / stroke
+// from the source) so the cell's palette colour drives the result;
+// converts non-path elements (rect, circle, polygon, …) to path
+// d-strings so the renderer has one code path. Returns null on bad
+// input; the caller can surface a friendly message.
+function parseSvgShape(svgText) {
+  if (!svgText) return null;
+  const doc = new DOMParser().parseFromString(svgText, 'image/svg+xml');
+  const root = doc.documentElement;
+  if (!root || root.tagName.toLowerCase() !== 'svg') return null;
+  if (doc.getElementsByTagName('parsererror').length) return null;
+  const vbAttr = root.getAttribute('viewBox');
+  let vx = 0, vy = 0, vw = 100, vh = 100;
+  if (vbAttr) {
+    const parts = vbAttr.split(/[\s,]+/).map(Number);
+    if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+      [vx, vy, vw, vh] = parts;
+    }
+  } else {
+    const wAttr = parseFloat(root.getAttribute('width')) || 100;
+    const hAttr = parseFloat(root.getAttribute('height')) || 100;
+    vw = wAttr; vh = hAttr;
+  }
+  const paths = [];
+  const walk = (node) => {
+    for (const child of Array.from(node.children || [])) {
+      const tag = child.tagName.toLowerCase();
+      if (tag === 'path') {
+        const d = child.getAttribute('d');
+        if (d) paths.push({ d });
+      } else if (tag === 'circle') {
+        const cx = +child.getAttribute('cx') || 0;
+        const cy = +child.getAttribute('cy') || 0;
+        const r  = +child.getAttribute('r')  || 0;
+        if (r > 0) {
+          // Two arcs trace a closed circle without trusting browser
+          // arc-flag semantics across SVG → path conversions.
+          paths.push({ d: `M ${cx - r} ${cy} a ${r} ${r} 0 1 0 ${r * 2} 0 a ${r} ${r} 0 1 0 ${-r * 2} 0 Z` });
+        }
+      } else if (tag === 'ellipse') {
+        const cx = +child.getAttribute('cx') || 0;
+        const cy = +child.getAttribute('cy') || 0;
+        const rx = +child.getAttribute('rx') || 0;
+        const ry = +child.getAttribute('ry') || 0;
+        if (rx > 0 && ry > 0) {
+          paths.push({ d: `M ${cx - rx} ${cy} a ${rx} ${ry} 0 1 0 ${rx * 2} 0 a ${rx} ${ry} 0 1 0 ${-rx * 2} 0 Z` });
+        }
+      } else if (tag === 'rect') {
+        const x = +child.getAttribute('x') || 0;
+        const y = +child.getAttribute('y') || 0;
+        const w = +child.getAttribute('width')  || 0;
+        const h = +child.getAttribute('height') || 0;
+        if (w > 0 && h > 0) {
+          paths.push({ d: `M ${x} ${y} h ${w} v ${h} h ${-w} Z` });
+        }
+      } else if (tag === 'polygon' || tag === 'polyline') {
+        const pts = (child.getAttribute('points') || '').match(/-?\d*\.?\d+/g) || [];
+        if (pts.length >= 4) {
+          let d = `M ${pts[0]} ${pts[1]}`;
+          for (let i = 2; i + 1 < pts.length; i += 2) d += ` L ${pts[i]} ${pts[i + 1]}`;
+          if (tag === 'polygon') d += ' Z';
+          paths.push({ d });
+        }
+      } else if (tag === 'line') {
+        // Lines have no fill — skip unless we want a stroke pass later.
+      } else if (tag === 'g' || tag === 'svg' || tag === 'defs') {
+        walk(child);
+      }
+    }
+  };
+  walk(root);
+  if (paths.length === 0) return null;
+  return { viewBox: [vx, vy, vw, vh], paths };
+}
+
+// Set by buildTileGroup so the shape catalog can resolve `custom:NAME`
+// kinds without threading a `pattern` arg through every shapeNode call
+// site. Renders are synchronous so the module-level reference is safe.
+let _currentCustomShapes = {};
+
 function shapeNode(shape, cw, rh, fill, ctx) {
   const dim = Math.min(cw, rh) * (shape.size ?? 0.6);
   // Optional stroke. strokeWidth is a fraction of the smaller cell
   // dim so outlines scale with the grid.
   const sAttrs = strokeAttrs(ctx?.stroke ?? shape.stroke, shape.strokeWidth, Math.min(cw, rh), '#000000');
+
+  // Custom user-imported shape: `kind` is `custom:NAME`, where NAME
+  // indexes into _currentCustomShapes. Renders the parsed paths
+  // scaled and centred to `dim`, picking up the cell's fill colour.
+  if (shape.kind && shape.kind.startsWith('custom:')) {
+    const name = shape.kind.slice(7);
+    const custom = _currentCustomShapes[name];
+    if (!custom || !custom.paths || custom.paths.length === 0) return el('g', {});
+    const [vx, vy, vw, vh] = custom.viewBox;
+    const scale = dim / Math.max(vw, vh || 1, 1);
+    const tx = -(vx + vw / 2) * scale;
+    const ty = -(vy + vh / 2) * scale;
+    const g = el('g', { transform: `translate(${tx.toFixed(3)} ${ty.toFixed(3)}) scale(${scale.toFixed(6)})` });
+    for (const p of custom.paths) {
+      g.appendChild(el('path', { d: p.d, fill, ...sAttrs }));
+    }
+    return g;
+  }
 
   switch (shape.kind) {
     case 'circle':
@@ -2582,6 +2685,7 @@ function tileDims(pattern) {
 }
 
 function buildTileGroup(pattern) {
+  _currentCustomShapes = pattern.customShapes || {};
   const { w, h } = tileDims(pattern);
   const root = el('g');
   // Solo: when any layer is solo'd, only solo'd layers render.
@@ -6489,8 +6593,15 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
       addColorCtrl('color', layer.fill.color || '#8a8a8a', (v) => { layer.fill.color = v; onChange(); });
     }
   } else if (layer.fill.kind === 'shape') {
+    // Custom user-imported shapes pile onto the catalog with a
+    // `custom:NAME` prefix so the renderer can dispatch on the
+    // namespace.
+    const customNames = Object.keys((opts.customShapes || {}));
     const shapeKind = addCtrl('shape', 'select', layer.fill.shape?.kind || 'circle', {
-      options: ['circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'leaf', 'onion', 'flower', 'blossom', 'barbell', 'plus', 'cross', 'quadDots', 'jacks'],
+      options: [
+        'circle', 'square', 'triangle', 'right-triangle', 'diamond', 'text', 'star', 'quatrefoil', 'spike', 'lens', 'leaf', 'onion', 'flower', 'blossom', 'barbell', 'plus', 'cross', 'quadDots', 'jacks',
+        ...customNames.map(n => `custom:${n}`),
+      ],
     });
     shapeKind.addEventListener('change', () => {
       layer.fill.shape = { ...(layer.fill.shape || {}), kind: shapeKind.value };
@@ -7122,6 +7233,7 @@ function mount() {
     buildConfigForm(configEl, pattern.layers[selected], rerenderSvg, {
       colorMode: pattern.colorMode || 'srgb',
       iccProfile: pattern.iccProfile || 'U.S. Web Coated (SWOP) v2',
+      customShapes: pattern.customShapes || {},
     });
   };
 
@@ -7646,6 +7758,66 @@ function mount() {
   // the summary hints in step when state changes. Closures resolve
   // the name lazily, so the order here doesn't matter.
   _refreshHints = refreshSectionState;
+
+  // ----- Custom SVG shape import -----
+  // Each imported SVG is parsed into a path-only descriptor and
+  // stashed on pattern.customShapes by its filename (sans extension).
+  // The layer config shape-kind dropdown picks them up via the
+  // `custom:NAME` prefix; the renderer reads them via the module-level
+  // _currentCustomShapes pointer that buildTileGroup updates per draw.
+  const shapeFileInp = document.getElementById('girard-shape-file');
+  const shapeListEl  = document.getElementById('girard-shape-list');
+  const shapesHint   = document.getElementById('girard-shapes-hint');
+  const refreshShapeList = () => {
+    if (!shapeListEl) return;
+    shapeListEl.replaceChildren();
+    const names = Object.keys(pattern.customShapes || {});
+    for (const name of names) {
+      const chip = document.createElement('span');
+      chip.className = 'shape-chip';
+      const label = document.createElement('span');
+      label.className = 'shape-chip-name';
+      label.textContent = name;
+      chip.appendChild(label);
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.textContent = '×';
+      rm.title = 'remove';
+      rm.addEventListener('click', () => {
+        delete pattern.customShapes[name];
+        refreshShapeList();
+        rerenderUI();
+      });
+      chip.appendChild(rm);
+      shapeListEl.appendChild(chip);
+    }
+    if (shapesHint) shapesHint.textContent = names.length ? `${names.length} imported` : '';
+  };
+  if (shapeFileInp) {
+    shapeFileInp.addEventListener('change', () => {
+      const files = Array.from(shapeFileInp.files || []);
+      if (!files.length) return;
+      let imported = 0, failed = [];
+      const reads = files.map(f => f.text().then(text => {
+        const parsed = parseSvgShape(text);
+        if (!parsed) { failed.push(f.name); return; }
+        const baseName = f.name.replace(/\.svg$/i, '').replace(/[^a-zA-Z0-9_-]/g, '-');
+        let name = baseName || 'shape';
+        // Deduplicate against existing names.
+        let suffix = 1;
+        while (pattern.customShapes[name]) name = `${baseName}-${++suffix}`;
+        pattern.customShapes[name] = parsed;
+        imported++;
+      }));
+      Promise.all(reads).then(() => {
+        if (failed.length) console.warn('girard: could not parse', failed.join(', '));
+        refreshShapeList();
+        rerenderUI();
+        shapeFileInp.value = '';   // allow re-importing the same file
+      });
+    });
+  }
+  refreshShapeList();
 
   // Export — the clean deployable repeat unit. Wait for any web fonts
   // to be ready first (text-shape layers need real metrics).

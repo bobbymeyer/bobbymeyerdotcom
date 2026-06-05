@@ -1011,3 +1011,33 @@ button.ctrl:hover {
 }
 .layer-item.is-solo .layer-label { color: #c9a328; font-weight: 600; }
 .layer-item.is-dimmed .layer-label { opacity: 0.35; }
+
+/* Imported custom-shape chips — name + remove × on each. Used by the
+   "shapes" details section in project settings. */
+.girard-shape-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.shape-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 10px;
+  background: #f3f3f3;
+  border: 1px solid #ddd;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.shape-chip button {
+  width: 16px;
+  height: 16px;
+  background: transparent;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+}
+.shape-chip button:hover { color: #000; }
