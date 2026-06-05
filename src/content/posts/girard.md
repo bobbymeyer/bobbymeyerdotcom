@@ -74,89 +74,102 @@ tags:
         </div>
       </div>
     </div>
-    <h4 class='panel-subheading'>colour</h4>
-    <div class='ctrl-row'>
-      <label class='ctrl'>
-        <span>mode</span>
-        <select id='girard-color-mode'>
-          <option value='srgb'>sRGB (screen / digital)</option>
-          <option value='cmyk'>CMYK (print)</option>
-        </select>
-      </label>
-      <label class='ctrl'>
-        <span>icc profile</span>
-        <select id='girard-icc-profile'></select>
-      </label>
-      <button id='girard-icc-load' class='ctrl-inline-btn icc-load-btn'>load ICC profiler</button>
-      <label class='ctrl-inline-btn icc-load-btn' for='girard-icc-file' style='cursor:pointer;'>
-        load .icc file…
-      </label>
-      <input id='girard-icc-file' type='file' accept='.icc,.icm,application/vnd.iccprofile' style='display:none;' />
-      <label class='ctrl ctrl-checkbox'>
-        <input id='girard-soft-proof' type='checkbox' />
-        <span>soft proof on stage</span>
-      </label>
-      <p id='girard-icc-status' class='icc-status'>Fast math conversion in use. Load profiler for ICC-accurate colour.</p>
-    </div>
-    <h4 class='panel-subheading'>palette</h4>
-    <div class='ctrl-row'>
-      <label class='ctrl'>
-        <span>scheme</span>
-        <select id='girard-palette-scheme'>
-          <option value='mono'>mono (single hue)</option>
-          <option value='analogous'>analogous (±30°)</option>
-          <option value='complement'>complementary</option>
-          <option value='split'>split complementary</option>
-          <option value='triad'>triadic (120°)</option>
-          <option value='square'>tetradic / square (90°)</option>
-          <option value='tonal'>tonal (muted drift)</option>
-          <option value='value-ramp'>value ramp (one hue, stepped L)</option>
-          <option value='hue-ramp'>hue ramp (equal sweep)</option>
-        </select>
-      </label>
-      <div class='ctrl ctrl-inline'>
-        <span>base · count</span>
-        <div class='ctrl-inline-row'>
-          <input id='girard-palette-base' type='color' value='#e94e3b' />
-          <input id='girard-palette-count' type='number' value='5' min='2' max='16' step='1' />
-          <button id='girard-palette-generate' class='ctrl-inline-btn'>generate</button>
+    <details class='girard-section' open>
+      <summary>palette<span class='section-hint' id='girard-palette-hint'></span></summary>
+      <div class='ctrl-row'>
+        <label class='ctrl'>
+          <span>scheme</span>
+          <select id='girard-palette-scheme'>
+            <option value='mono'>mono (single hue)</option>
+            <option value='analogous'>analogous (±30°)</option>
+            <option value='complement'>complementary</option>
+            <option value='split'>split complementary</option>
+            <option value='triad'>triadic (120°)</option>
+            <option value='square'>tetradic / square (90°)</option>
+            <option value='tonal'>tonal (muted drift)</option>
+            <option value='value-ramp'>value ramp (one hue, stepped L)</option>
+            <option value='hue-ramp'>hue ramp (equal sweep)</option>
+          </select>
+        </label>
+        <div class='ctrl ctrl-inline'>
+          <span>base · count</span>
+          <div class='ctrl-inline-row'>
+            <input id='girard-palette-base' type='color' value='#e94e3b' />
+            <input id='girard-palette-count' type='number' value='5' min='2' max='16' step='1' />
+            <button id='girard-palette-generate' class='ctrl-inline-btn'>generate</button>
+          </div>
         </div>
       </div>
-    </div>
-    <div id='girard-palette-swatches' class='girard-project-palette'></div>
-    <div class='ctrl-row'>
-      <div class='ctrl ctrl-inline'>
-        <span>colorway</span>
-        <div class='ctrl-inline-row'>
-          <select id='girard-colorway-select'></select>
-          <input id='girard-colorway-name' type='text' placeholder='new name' />
-          <button id='girard-colorway-save' class='ctrl-inline-btn'>save as</button>
-          <button id='girard-colorway-delete' class='ctrl-inline-btn' title='delete active colorway'>×</button>
+      <div id='girard-palette-swatches' class='girard-project-palette'></div>
+      <div class='ctrl-row'>
+        <div class='ctrl ctrl-inline'>
+          <span>colorway</span>
+          <div class='ctrl-inline-row'>
+            <select id='girard-colorway-select'></select>
+            <input id='girard-colorway-name' type='text' placeholder='new name' />
+            <button id='girard-colorway-save' class='ctrl-inline-btn'>save as</button>
+            <button id='girard-colorway-delete' class='ctrl-inline-btn' title='delete active colorway'>×</button>
+          </div>
         </div>
       </div>
-    </div>
-    <h4 class='panel-subheading'>export</h4>
-    <div class='ctrl-row'>
-      <label class='ctrl'>
-        <span>size (px, longer side)</span>
-        <input id='girard-export-width' type='number' value='1024' min='64' max='8192' step='32' />
-      </label>
-      <label class='ctrl ctrl-checkbox'>
-        <input id='girard-export-flatten' type='checkbox' />
-        <span>flatten alpha onto background</span>
-      </label>
-      <label class='ctrl'>
-        <span>background (when flattening)</span>
-        <input id='girard-export-bg' type='color' value='#ffffff' />
-      </label>
-    </div>
-    <div class='export-buttons'>
-      <button id='girard-export-svg' class='ctrl-inline-btn'>SVG</button>
-      <button id='girard-export-png' class='ctrl-inline-btn'>PNG</button>
-      <button id='girard-export-jpg' class='ctrl-inline-btn'>JPG</button>
-      <button id='girard-export-pdf' class='ctrl-inline-btn'>PDF</button>
-      <button id='girard-export-tif' class='ctrl-inline-btn'>TIF</button>
-    </div>
+    </details>
+    <details class='girard-section'>
+      <summary>colour<span class='section-hint' id='girard-colour-hint'></span></summary>
+      <div class='ctrl-row'>
+        <label class='ctrl'>
+          <span>mode</span>
+          <select id='girard-color-mode'>
+            <option value='srgb'>sRGB (screen / digital)</option>
+            <option value='cmyk'>CMYK (print)</option>
+          </select>
+        </label>
+        <label class='ctrl' id='girard-icc-profile-wrap'>
+          <span>icc profile</span>
+          <select id='girard-icc-profile'></select>
+        </label>
+        <label class='ctrl ctrl-checkbox' id='girard-soft-proof-wrap'>
+          <input id='girard-soft-proof' type='checkbox' />
+          <span>soft proof on stage</span>
+        </label>
+      </div>
+      <details class='girard-subsection' id='girard-icc-advanced'>
+        <summary>advanced ICC</summary>
+        <div class='ctrl-row'>
+          <button id='girard-icc-load' class='ctrl-inline-btn icc-load-btn'
+            title='Load the built-in ICC profiler for gamma-correct, K-generated CMYK math.'>load ICC profiler</button>
+          <label class='ctrl-inline-btn icc-load-btn' for='girard-icc-file' style='cursor:pointer;'
+            title='Drop in a vendor .icc file for press-accurate LUT-based conversion.'>
+            load .icc file…
+          </label>
+          <input id='girard-icc-file' type='file' accept='.icc,.icm,application/vnd.iccprofile' style='display:none;' />
+        </div>
+        <p id='girard-icc-status' class='icc-status'>Fast math conversion in use. Load profiler for ICC-accurate colour.</p>
+      </details>
+    </details>
+    <details class='girard-section'>
+      <summary>export<span class='section-hint' id='girard-export-hint'></span></summary>
+      <div class='ctrl-row'>
+        <label class='ctrl'>
+          <span>size (px, longer side)</span>
+          <input id='girard-export-width' type='number' value='1024' min='64' max='8192' step='32' />
+        </label>
+        <label class='ctrl ctrl-checkbox'>
+          <input id='girard-export-flatten' type='checkbox' />
+          <span>flatten alpha onto background</span>
+        </label>
+        <label class='ctrl' id='girard-export-bg-wrap'>
+          <span>background (when flattening)</span>
+          <input id='girard-export-bg' type='color' value='#ffffff' />
+        </label>
+      </div>
+      <div class='export-buttons'>
+        <button id='girard-export-svg' class='ctrl-inline-btn'>SVG</button>
+        <button id='girard-export-png' class='ctrl-inline-btn'>PNG</button>
+        <button id='girard-export-jpg' class='ctrl-inline-btn'>JPG</button>
+        <button id='girard-export-pdf' class='ctrl-inline-btn'>PDF</button>
+        <button id='girard-export-tif' class='ctrl-inline-btn'>TIF</button>
+      </div>
+    </details>
   </aside>
   <div id='girard-stage-wrap'>
     <div id='girard-stage'></div>

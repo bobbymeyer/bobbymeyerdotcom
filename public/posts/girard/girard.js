@@ -5714,14 +5714,20 @@ function renderLayerList(listEl, pattern, selected, handlers) {
 }
 
 // ---------- Per-layer config form ----------
-function buildConfigForm(host, layer, onChange, opts = {}) {
+function buildConfigForm(rootHost, layer, onChange, opts = {}) {
   const colorMode = opts.colorMode || 'srgb';
   const iccProfile = opts.iccProfile || 'U.S. Web Coated (SWOP) v2';
-  host.replaceChildren();
+  rootHost.replaceChildren();
   if (!layer) return;
+  // `host` is the *current* append target. Starts as the root panel
+  // body, gets reassigned to a fresh <details> body each time
+  // addHeader runs. Existing helpers (addCtrl, addPair, addColorCtrl,
+  // renderSwatches) keep appending to `host`, so they automatically
+  // land in the active section.
+  let host = rootHost;
   // Self-rebuild for controls that change which fields are visible
   // (fill kind, vary on/off, solid colour mode).
-  const rebuild = () => buildConfigForm(host, layer, onChange);
+  const rebuild = () => buildConfigForm(rootHost, layer, onChange, opts);
 
   // Compact colour editor laid out as a single-row table matching the
   // palette table format: header labels (R/G/B/A and optionally
@@ -5873,11 +5879,25 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
     host.appendChild(p);
     return p;
   };
+  // Each addHeader opens a new collapsible <details> section anchored
+  // on the root panel. Subsequent ctrls land in its body until the
+  // next addHeader. The first section ("fill") and the always-relevant
+  // "palette" stay open by default; the rest fold so the panel isn't
+  // wall-to-wall controls for one selected layer.
+  const DEFAULT_OPEN = new Set(['fill', 'palette']);
   const addHeader = (text) => {
-    const h = document.createElement('h4');
-    h.className = 'config-section';
-    h.textContent = text;
-    host.appendChild(h);
+    const det = document.createElement('details');
+    det.className = 'config-section-details';
+    if (DEFAULT_OPEN.has(text)) det.open = true;
+    const sum = document.createElement('summary');
+    sum.className = 'config-section';
+    sum.textContent = text;
+    det.appendChild(sum);
+    const body = document.createElement('div');
+    body.className = 'config-section-body';
+    det.appendChild(body);
+    rootHost.appendChild(det);
+    host = body;
   };
 
   // --- Blend + opacity (universal) ---
@@ -6950,6 +6970,7 @@ function mount() {
       rerenderSvg();
     });
     paletteSwatchesEl.appendChild(add);
+    if (typeof _refreshHints === 'function') _refreshHints();
   };
 
   if (paletteGenBtn) {
@@ -7056,13 +7077,18 @@ function mount() {
     return entry ? entry.label : (id || 'sRGB');
   };
   const refreshIccStatus = () => {
-    if (!iccStatus) return;
-    iccStatus.textContent = iccProfiler.loaded
-      ? `Profile-aware conversion enabled — ${profileLabel(pattern.iccProfile)} (gamma-correct, K-generated, ink-limited; full ICC v4 LUTs land next pass).`
-      : iccProfiler.loading
-      ? 'Loading ICC profiler…'
-      : 'Fast math conversion in use. Load profiler for profile-aware (gamma + K-generation + ink limit) colour.';
+    if (iccStatus) {
+      iccStatus.textContent = iccProfiler.loaded
+        ? `Profile-aware conversion enabled — ${profileLabel(pattern.iccProfile)} (gamma-correct, K-generated, ink-limited; full ICC v4 LUTs land next pass).`
+        : iccProfiler.loading
+        ? 'Loading ICC profiler…'
+        : 'Fast math conversion in use. Load profiler for profile-aware (gamma + K-generation + ink limit) colour.';
+    }
+    if (typeof _refreshHints === 'function') _refreshHints();
   };
+  // Forward-declared so refreshIccStatus / refreshProjectPalette can
+  // pipe section-hint updates in before refreshSectionState exists.
+  let _refreshHints = null;
   if (colorModeSel) {
     colorModeSel.value = pattern.colorMode || 'srgb';
     colorModeSel.addEventListener('change', () => {
@@ -7151,8 +7177,62 @@ function mount() {
   }
   if (exportBgInp) {
     exportBgInp.value = pattern.exportBackground ?? '#ffffff';
-    exportBgInp.addEventListener('input', () => { pattern.exportBackground = exportBgInp.value; });
+    exportBgInp.addEventListener('input', () => {
+      pattern.exportBackground = exportBgInp.value;
+      refreshSectionState();
+    });
   }
+
+  // ----- Collapsed-section hints + conditional fields -----
+  // Each <details> section gets a one-line state hint in its summary
+  // so users can read what's inside without expanding. Conditional
+  // fields (soft proof, export background, ICC profile select) hide
+  // when they don't apply to the current settings, so the form isn't
+  // cluttered with controls that wouldn't do anything.
+  const paletteHint = document.getElementById('girard-palette-hint');
+  const colourHint  = document.getElementById('girard-colour-hint');
+  const exportHint  = document.getElementById('girard-export-hint');
+  const iccProfileWrap = document.getElementById('girard-icc-profile-wrap');
+  const softProofWrap  = document.getElementById('girard-soft-proof-wrap');
+  const exportBgWrap   = document.getElementById('girard-export-bg-wrap');
+  const refreshSectionState = () => {
+    if (paletteHint) {
+      const n = (pattern.palette || []).length;
+      paletteHint.textContent = `${n} colour${n === 1 ? '' : 's'} · ${pattern.colorway || 'main'}`;
+    }
+    if (colourHint) {
+      const mode = (pattern.colorMode || 'srgb').toUpperCase();
+      const icc = iccProfiler.loaded ? ` · ${profileLabel(pattern.iccProfile)}` : '';
+      colourHint.textContent = mode + icc;
+    }
+    if (exportHint) {
+      const px = pattern.exportWidth ?? 1024;
+      exportHint.textContent = `${px}px${pattern.exportFlatten ? ' · flattened' : ''}`;
+    }
+    // ICC profile only matters in CMYK mode.
+    if (iccProfileWrap) iccProfileWrap.classList.toggle('is-hidden', (pattern.colorMode || 'srgb') !== 'cmyk');
+    // Soft proof needs ICC loaded to do anything.
+    if (softProofWrap)  softProofWrap.classList.toggle('is-hidden', !iccProfiler.loaded);
+    // Export background only matters when flattening alpha onto it.
+    if (exportBgWrap)   exportBgWrap.classList.toggle('is-hidden', !pattern.exportFlatten);
+  };
+  if (exportFlattenInp) {
+    exportFlattenInp.addEventListener('change', refreshSectionState);
+  }
+  if (exportWidthInp) {
+    exportWidthInp.addEventListener('input', refreshSectionState);
+  }
+  if (colorModeSel) {
+    colorModeSel.addEventListener('change', refreshSectionState);
+  }
+  if (iccProfileSel) {
+    iccProfileSel.addEventListener('change', refreshSectionState);
+  }
+  refreshSectionState();
+  // Expose to the colour / palette refreshers below so they can keep
+  // the summary hints in step when state changes. Closures resolve
+  // the name lazily, so the order here doesn't matter.
+  _refreshHints = refreshSectionState;
 
   // Export — the clean deployable repeat unit. Wait for any web fonts
   // to be ready first (text-shape layers need real metrics).

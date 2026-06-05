@@ -764,3 +764,101 @@ button.ctrl:hover {
   background: #f5f5f5;
   color: #1a1a1a;
 }
+
+/* ----- Collapsible sections ----- */
+/* Native <details>/<summary> as panel sections. Summary acts as the
+   former panel-subheading and carries a one-line state hint on the
+   right. Default open / closed is set per-section in markup. */
+.girard-section,
+.girard-subsection {
+  border-top: 1px solid #e5e5e5;
+  padding-top: 12px;
+  margin-top: 4px;
+}
+.girard-section > summary,
+.girard-subsection > summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  user-select: none;
+  padding-bottom: 8px;
+}
+.girard-section > summary::-webkit-details-marker,
+.girard-subsection > summary::-webkit-details-marker { display: none; }
+.girard-section > summary::before,
+.girard-subsection > summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 10px;
+  font-size: 9px;
+  color: #666;
+  transition: transform 100ms ease;
+}
+.girard-section[open] > summary::before,
+.girard-subsection[open] > summary::before { transform: rotate(90deg); }
+.section-hint {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: 10px;
+  text-transform: none;
+  letter-spacing: 0.04em;
+  color: #888;
+  text-align: right;
+}
+.girard-subsection {
+  border-top-color: #f0f0f0;
+  margin-top: 12px;
+  padding-top: 8px;
+}
+.girard-subsection > summary {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #666;
+}
+
+/* Conditional fields: hidden via .is-hidden class JS toggles, so the
+   form isn't visually crowded with controls that don't apply. */
+.is-hidden { display: none !important; }
+
+/* Layer-config sections: same disclosure pattern as the project
+   settings, narrower padding because they nest one panel deeper. */
+.config-section-details {
+  border-top: 1px solid #eee;
+  padding-top: 8px;
+  margin-top: 4px;
+}
+.config-section-details:first-of-type { border-top: none; padding-top: 0; margin-top: 0; }
+.config-section-details > summary {
+  cursor: pointer;
+  list-style: none;
+  font-weight: 700;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 4px 0 8px;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.config-section-details > summary::-webkit-details-marker { display: none; }
+.config-section-details > summary::before {
+  content: '▸';
+  display: inline-block;
+  width: 10px;
+  font-size: 9px;
+  color: #666;
+  transition: transform 100ms ease;
+}
+.config-section-details[open] > summary::before { transform: rotate(90deg); }
+.config-section-details > .config-section-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 16px;
+}
