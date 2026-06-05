@@ -4613,8 +4613,6 @@ function buildYardageSvg(pattern, tileCount) {
   const root = el('svg', {
     xmlns: SVG_NS,
     viewBox: `0 0 ${viewW} ${viewH}`,
-    width: '100%',
-    height: '100%',
     preserveAspectRatio: 'xMidYMid meet',
   });
   const tileGroup = buildTileGroup(pattern);
@@ -7073,6 +7071,10 @@ function mount() {
     if (modalEl && !modalEl.classList.contains('is-open')) return;
     const n = Number(yardTiles?.value) || 4;
     yardStage.replaceChildren(buildYardageSvg(pattern, n));
+    // CSS var drives the SVG's aspect-ratio so the field renders at
+    // its real shape (letterbox in the surrounding modal area, not
+    // forced square).
+    yardStage.style.setProperty('--girard-yardage-aspect', String(pattern.aspect || 1));
     if (yardSize) {
       const w = (Number(pattern.physicalRepeat) || 0) * n;
       const h = w / (pattern.aspect || 1);

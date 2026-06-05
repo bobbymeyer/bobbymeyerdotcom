@@ -713,8 +713,25 @@ button.ctrl:hover {
 }
 .girard-modal-close:hover { background: #333; }
 .girard-modal-stage {
+  /* Outer area centres the rendered field — letterbox lives here so
+     the field itself sits at its natural aspect, no distortion. */
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.girard-modal-stage svg {
+  /* Field renders at its real aspect ratio (the JS sets aspect-ratio
+     via a CSS var derived from pattern.aspect). max-w / max-h clamp
+     to the modal, but otherwise the SVG keeps its viewBox shape. */
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  aspect-ratio: var(--girard-yardage-aspect, 1);
+  /* Checker backs the field, not the surrounding letterbox area, so
+     transparent tiles still read as transparent. */
   background-image:
     linear-gradient(45deg, #444 25%, transparent 25%),
     linear-gradient(-45deg, #444 25%, transparent 25%),
@@ -723,14 +740,6 @@ button.ctrl:hover {
   background-size: 24px 24px;
   background-position: 0 0, 0 12px, 12px -12px, -12px 0;
   background-color: #222;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.girard-modal-stage svg {
-  display: block;
-  width: 100%;
-  height: 100%;
 }
 
 /* Project palette: horizontal strip of swatches under the generator
