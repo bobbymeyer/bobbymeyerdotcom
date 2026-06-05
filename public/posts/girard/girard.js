@@ -4440,20 +4440,37 @@ function exportTileTiff(pattern, baseName) {
 // (text, clipPath, filters, masks). Callers check `canVectorize()`
 // before committing to the vector path; if false they fall back to
 // raster.
+// Node accessors that work on both real SVG DOM nodes and the plain
+// {tag, attrs, children} objects used in unit tests.
+function nTag(n) {
+  if (!n) return null;
+  const t = n.tag || n.tagName;
+  return t ? String(t).toLowerCase() : null;
+}
+function nAttr(n, k) {
+  if (!n) return null;
+  if (n.attrs) return n.attrs[k];
+  if (n.getAttribute) return n.getAttribute(k);
+  return null;
+}
+function nChildren(n) {
+  if (!n) return [];
+  if (Array.isArray(n.children)) return n.children;
+  if (n.children) return Array.from(n.children);
+  return [];
+}
+
 function canVectorize(svg) {
   let ok = true;
   const walk = (n) => {
     if (!ok || !n) return;
-    if (n.tag === 'text') ok = false;
-    if (n.tag === 'use' || n.tag === 'mask' || n.tag === 'filter') ok = false;
-    if (n.attrs && n.attrs['clip-path']) {
-      // buildTileSvg wraps everything in a rect-clip matching the
-      // tile bounds — that's effectively the page MediaBox in PDF, so
-      // we can ignore it. Anything else (slant fill's per-row clips,
-      // etc.) falls back to raster.
-      if (!/girard-export-clip/.test(n.attrs['clip-path'])) ok = false;
-    }
-    (n.children || []).forEach(walk);
+    const tag = nTag(n);
+    if (tag === 'text') ok = false;
+    if (tag === 'use' || tag === 'mask' || tag === 'filter') ok = false;
+    // clip-path is now handled — we walk the defs and emit `W n` inside
+    // a saved graphics state, so every clipPath the patterns produce
+    // round-trips into PDF natively.
+    nChildren(n).forEach(walk);
   };
   walk(svg);
   return ok;
@@ -4584,25 +4601,96 @@ function svgPathToPdf(d) {
   return out;
 }
 
+// Build a map of clipPath id → defining element by walking the tree
+// once. Patterns put clipPaths either in a top-level <defs> (slant
+// fill is the main example) or directly under <svg>. We accept both.
+function indexClipPaths(root) {
+  const map = new Map();
+  const walk = (n) => {
+    if (!n) return;
+    if (nTag(n) === 'clippath') {
+      const id = nAttr(n, 'id');
+      if (id) map.set(id, n);
+    }
+    nChildren(n).forEach(walk);
+  };
+  walk(root);
+  return map;
+}
+
+// Emit path-only PDF operators (no paint) for the children of a
+// clipPath element. Followed by `W n` this becomes the active clip.
+function emitClipShapeOps(clipNode, ops) {
+  for (const child of nChildren(clipNode)) {
+    const tag = nTag(child);
+    if (tag === 'rect') {
+      const x = +nAttr(child, 'x') || 0, y = +nAttr(child, 'y') || 0;
+      const w = +nAttr(child, 'width') || 0, h = +nAttr(child, 'height') || 0;
+      ops.push(`${x.toFixed(3)} ${y.toFixed(3)} ${w.toFixed(3)} ${h.toFixed(3)} re`);
+    } else if (tag === 'polygon' || tag === 'polyline') {
+      const pts = (nAttr(child, 'points') || '').match(/-?\d*\.?\d+/g) || [];
+      if (pts.length >= 4) {
+        ops.push(`${pts[0]} ${pts[1]} m`);
+        for (let p = 2; p + 1 < pts.length; p += 2) ops.push(`${pts[p]} ${pts[p + 1]} l`);
+        if (tag === 'polygon') ops.push('h');
+      }
+    } else if (tag === 'path') {
+      const d = nAttr(child, 'd');
+      if (d) svgPathToPdf(d).forEach(o => ops.push(o));
+    } else if (tag === 'circle') {
+      const cx = +nAttr(child, 'cx') || 0, cy = +nAttr(child, 'cy') || 0, r = +nAttr(child, 'r') || 0;
+      const k = 0.5522847 * r;
+      ops.push(`${(cx - r).toFixed(3)} ${cy.toFixed(3)} m`);
+      ops.push(`${(cx - r).toFixed(3)} ${(cy + k).toFixed(3)} ${(cx - k).toFixed(3)} ${(cy + r).toFixed(3)} ${cx.toFixed(3)} ${(cy + r).toFixed(3)} c`);
+      ops.push(`${(cx + k).toFixed(3)} ${(cy + r).toFixed(3)} ${(cx + r).toFixed(3)} ${(cy + k).toFixed(3)} ${(cx + r).toFixed(3)} ${cy.toFixed(3)} c`);
+      ops.push(`${(cx + r).toFixed(3)} ${(cy - k).toFixed(3)} ${(cx + k).toFixed(3)} ${(cy - r).toFixed(3)} ${cx.toFixed(3)} ${(cy - r).toFixed(3)} c`);
+      ops.push(`${(cx - k).toFixed(3)} ${(cy - r).toFixed(3)} ${(cx - r).toFixed(3)} ${(cy - k).toFixed(3)} ${(cx - r).toFixed(3)} ${cy.toFixed(3)} c`);
+      ops.push('h');
+    }
+  }
+}
+
 // Walk a tile SVG tree, accumulating PDF operator strings. State:
 // current fill / stroke / strokeWidth / linecap / linejoin / opacity.
-function walkSvgToPdfOps(node, state, ops, profileId) {
-  if (!node || !node.tag) return;
-  if (node.tag === 'defs') return;        // ignored at top level
-  const attrs = node.attrs || {};
+// `clipDefs` is the Map returned by indexClipPaths; if omitted (top-
+// level call) we build it from `node` so callers don't need to know.
+function walkSvgToPdfOps(node, state, ops, profileId, clipDefs) {
+  if (!node) return;
+  if (!clipDefs) clipDefs = indexClipPaths(node);
+  const tag = nTag(node);
+  if (!tag) return;
+  if (tag === 'defs' || tag === 'clippath') return;
+  const transform = nAttr(node, 'transform');
+  const clipPath = nAttr(node, 'clip-path');
   let pushed = false;
-  if (attrs.transform) {
+  if (transform || clipPath) {
     ops.push('q');
-    const [a, b, c, d, e, f] = parseSvgTransform(attrs.transform);
-    ops.push(`${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${e.toFixed(3)} ${f.toFixed(3)} cm`);
     pushed = true;
+  }
+  if (transform) {
+    const [a, b, c, d, e, f] = parseSvgTransform(transform);
+    ops.push(`${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${e.toFixed(3)} ${f.toFixed(3)} cm`);
+  }
+  if (clipPath) {
+    // Accept url(#id), url("#id"), url('#id').
+    const m = /url\(["']?#([^"')]+)["']?\)/.exec(clipPath);
+    const def = m && clipDefs.get(m[1]);
+    if (def) {
+      emitClipShapeOps(def, ops);
+      ops.push('W n');
+    }
   }
 
   // Inherit state, override with this node's attrs.
-  const fill   = attrs.fill   != null ? attrs.fill   : state.fill;
-  const stroke = attrs.stroke != null ? attrs.stroke : state.stroke;
-  const swPx   = attrs['stroke-width'] != null ? Number(attrs['stroke-width']) : state.strokeWidth;
+  const fillA   = nAttr(node, 'fill');
+  const strokeA = nAttr(node, 'stroke');
+  const swA     = nAttr(node, 'stroke-width');
+  const fill   = fillA   != null ? fillA   : state.fill;
+  const stroke = strokeA != null ? strokeA : state.stroke;
+  const swPx   = swA     != null ? Number(swA) : state.strokeWidth;
 
+  const lcA = nAttr(node, 'stroke-linecap');
+  const ljA = nAttr(node, 'stroke-linejoin');
   const emitFillStroke = () => {
     const f = pdfColor(fill, profileId, false);
     const s = pdfColor(stroke, profileId, true);
@@ -4612,13 +4700,13 @@ function walkSvgToPdfOps(node, state, ops, profileId) {
     if (hasStroke) {
       ops.push(s);
       ops.push(`${swPx.toFixed(3)} w`);
-      if (attrs['stroke-linecap']) {
+      if (lcA) {
         const lcMap = { butt: 0, round: 1, square: 2 };
-        ops.push(`${lcMap[attrs['stroke-linecap']] ?? 0} J`);
+        ops.push(`${lcMap[lcA] ?? 0} J`);
       }
-      if (attrs['stroke-linejoin']) {
+      if (ljA) {
         const ljMap = { miter: 0, round: 1, bevel: 2 };
-        ops.push(`${ljMap[attrs['stroke-linejoin']] ?? 0} j`);
+        ops.push(`${ljMap[ljA] ?? 0} j`);
       }
     }
     return { hasFill, hasStroke };
@@ -4631,15 +4719,19 @@ function walkSvgToPdfOps(node, state, ops, profileId) {
     else ops.push('n');
   };
 
-  switch (node.tag) {
+  const recur = () => {
+    for (const c of nChildren(node)) walkSvgToPdfOps(c, { fill, stroke, strokeWidth: swPx }, ops, profileId, clipDefs);
+  };
+
+  switch (tag) {
     case 'g':
     case 'svg':
-      for (const c of node.children || []) walkSvgToPdfOps(c, { fill, stroke, strokeWidth: swPx }, ops, profileId);
+      recur();
       break;
     case 'rect': {
-      const x = Number(attrs.x || 0), y = Number(attrs.y || 0);
-      const w = Number(attrs.width || 0), h = Number(attrs.height || 0);
-      const rx = Number(attrs.rx || 0), ry = Number(attrs.ry || rx);
+      const x = Number(nAttr(node, 'x') || 0), y = Number(nAttr(node, 'y') || 0);
+      const w = Number(nAttr(node, 'width') || 0), h = Number(nAttr(node, 'height') || 0);
+      const rx = Number(nAttr(node, 'rx') || 0), ry = Number(nAttr(node, 'ry') || rx);
       const fs = emitFillStroke();
       if (rx > 0 || ry > 0) {
         // Rounded rect via 4 corner curves. PDF doesn't have a builtin.
@@ -4662,7 +4754,7 @@ function walkSvgToPdfOps(node, state, ops, profileId) {
       break;
     }
     case 'circle': {
-      const cx = Number(attrs.cx || 0), cy = Number(attrs.cy || 0), r = Number(attrs.r || 0);
+      const cx = Number(nAttr(node, 'cx') || 0), cy = Number(nAttr(node, 'cy') || 0), r = Number(nAttr(node, 'r') || 0);
       const fs = emitFillStroke();
       const k = 0.5522847 * r;
       ops.push(`${(cx - r).toFixed(3)} ${cy.toFixed(3)} m`);
@@ -4675,8 +4767,8 @@ function walkSvgToPdfOps(node, state, ops, profileId) {
       break;
     }
     case 'ellipse': {
-      const cx = Number(attrs.cx || 0), cy = Number(attrs.cy || 0);
-      const rx = Number(attrs.rx || 0), ry = Number(attrs.ry || 0);
+      const cx = Number(nAttr(node, 'cx') || 0), cy = Number(nAttr(node, 'cy') || 0);
+      const rx = Number(nAttr(node, 'rx') || 0), ry = Number(nAttr(node, 'ry') || 0);
       const fs = emitFillStroke();
       const kx = 0.5522847 * rx, ky = 0.5522847 * ry;
       ops.push(`${(cx - rx).toFixed(3)} ${cy.toFixed(3)} m`);
@@ -4689,8 +4781,8 @@ function walkSvgToPdfOps(node, state, ops, profileId) {
       break;
     }
     case 'line': {
-      const x1 = Number(attrs.x1 || 0), y1 = Number(attrs.y1 || 0);
-      const x2 = Number(attrs.x2 || 0), y2 = Number(attrs.y2 || 0);
+      const x1 = Number(nAttr(node, 'x1') || 0), y1 = Number(nAttr(node, 'y1') || 0);
+      const x2 = Number(nAttr(node, 'x2') || 0), y2 = Number(nAttr(node, 'y2') || 0);
       const fs = emitFillStroke();
       ops.push(`${x1.toFixed(3)} ${y1.toFixed(3)} m`);
       ops.push(`${x2.toFixed(3)} ${y2.toFixed(3)} l`);
@@ -4700,8 +4792,8 @@ function walkSvgToPdfOps(node, state, ops, profileId) {
     }
     case 'polygon':
     case 'polyline': {
-      const pts = (attrs.points || '').match(/-?\d*\.?\d+/g) || [];
-      const close = node.tag === 'polygon';
+      const pts = (nAttr(node, 'points') || '').match(/-?\d*\.?\d+/g) || [];
+      const close = tag === 'polygon';
       const fs = emitFillStroke();
       if (pts.length >= 4) {
         ops.push(`${pts[0]} ${pts[1]} m`);
@@ -4712,7 +4804,7 @@ function walkSvgToPdfOps(node, state, ops, profileId) {
       break;
     }
     case 'path': {
-      const d = attrs.d;
+      const d = nAttr(node, 'd');
       if (!d) break;
       const fs = emitFillStroke();
       svgPathToPdf(d).forEach(op => ops.push(op));
@@ -4721,7 +4813,7 @@ function walkSvgToPdfOps(node, state, ops, profileId) {
     }
     default:
       // Walk children for unrecognised wrappers.
-      for (const c of node.children || []) walkSvgToPdfOps(c, { fill, stroke, strokeWidth: swPx }, ops, profileId);
+      recur();
   }
   if (pushed) ops.push('Q');
 }
