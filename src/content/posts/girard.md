@@ -86,39 +86,42 @@ tags:
     </details>
     <details class='girard-section' open>
       <summary>palette<span class='section-hint' id='girard-palette-hint'></span></summary>
-      <div class='ctrl-row'>
-        <label class='ctrl'>
-          <span>scheme</span>
-          <select id='girard-palette-scheme'>
-            <option value='mono'>mono (single hue)</option>
-            <option value='analogous'>analogous (±30°)</option>
-            <option value='complement'>complementary</option>
-            <option value='split'>split complementary</option>
-            <option value='triad'>triadic (120°)</option>
-            <option value='square'>tetradic / square (90°)</option>
-            <option value='tonal'>tonal (muted drift)</option>
-            <option value='value-ramp'>value ramp (one hue, stepped L)</option>
-            <option value='hue-ramp'>hue ramp (equal sweep)</option>
-          </select>
-        </label>
+      <div class='ctrl-row palette-base-row'>
         <div class='ctrl ctrl-inline'>
-          <span>base · count</span>
+          <span>base</span>
           <div class='ctrl-inline-row'>
             <input id='girard-palette-base' type='color' value='#e94e3b' />
-            <input id='girard-palette-count' type='number' value='5' min='2' max='16' step='1' />
-            <button id='girard-palette-generate' class='ctrl-inline-btn'>generate</button>
+          </div>
+        </div>
+        <div class='ctrl ctrl-inline'>
+          <span>apply scheme</span>
+          <div class='ctrl-inline-row'>
+            <select id='girard-palette-scheme'>
+              <option value='analogous'>analogous (±30°)</option>
+              <option value='complement'>complementary</option>
+              <option value='split'>split complementary</option>
+              <option value='triad'>triadic (120°)</option>
+              <option value='square'>tetradic / square (90°)</option>
+              <option value='tonal'>tonal (muted drift)</option>
+              <option value='mono'>mono (single hue)</option>
+              <option value='value-ramp'>value ramp</option>
+              <option value='hue-ramp'>hue ramp</option>
+            </select>
+            <input id='girard-palette-count' type='number' value='4' min='1' max='15' step='1' title='accessory swatch count' />
+            <button id='girard-palette-apply' class='ctrl-inline-btn'>apply</button>
           </div>
         </div>
       </div>
-      <div id='girard-palette-swatches' class='girard-project-palette'></div>
-      <div class='ctrl-row'>
+      <div id='girard-swatch-grid' class='girard-swatch-grid'></div>
+      <button id='girard-add-swatch' class='ctrl-inline-btn add-swatch-btn'>+ swatch</button>
+      <h5 class='panel-subsubheading'>colourways</h5>
+      <div id='girard-colorway-strip' class='girard-colorway-strip'></div>
+      <div class='ctrl-row colorway-new-row'>
         <div class='ctrl ctrl-inline'>
-          <span>colorway</span>
+          <span>save current as</span>
           <div class='ctrl-inline-row'>
-            <select id='girard-colorway-select'></select>
-            <input id='girard-colorway-name' type='text' placeholder='new name' />
-            <button id='girard-colorway-save' class='ctrl-inline-btn'>save as</button>
-            <button id='girard-colorway-delete' class='ctrl-inline-btn' title='delete active colorway'>×</button>
+            <input id='girard-colorway-name' type='text' placeholder='name' />
+            <button id='girard-colorway-save' class='ctrl-inline-btn'>save</button>
           </div>
         </div>
       </div>

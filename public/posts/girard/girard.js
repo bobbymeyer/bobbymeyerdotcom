@@ -225,21 +225,21 @@ function formatColor({ r, g, b, a }) {
 }
 
 // ---------- Default pattern ----------
-const defaultPattern = () => ({
+const defaultPattern = () => {
+  // Parametric palette: paletteSpec describes the relationships, the
+  // colorways map carries one (base, anchored-overrides) per name.
+  // pattern.palette is derived from the active colorway each render.
+  const seedHexes = ['#e94e3b', '#f5e9d0', '#f4c44b', '#1f6b8a', '#2c3e50'];
+  const spec = inferPaletteSpec(seedHexes);
+  const colorways = buildColorways(spec, { main: seedHexes });
+  const pat = {
   seed: 1,
   tileSize: 480,
   repeat: 'square',                                  // square | half-drop | half-brick
-  // Project palette. Mirrors colorways[colorway] so the existing
-  // per-layer fallback logic keeps working unchanged; the colorways
-  // map below is the canonical store.
-  palette: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'],
-  // Colorways: named alternate ink sets for the same composition.
-  // The active name is `colorway`; switching it copies the named list
-  // into `palette` so layers without their own palette pick it up.
-  // Layers that set `layer.palette` opt out of colorway swaps — that
-  // mirrors the authorial intent of samples that hard-code colour.
-  colorway: 'main',
-  colorways: { main: ['#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50', '#f5e9d0'] },
+  paletteSpec: spec,
+  colorways,
+  activeColorway: 'main',
+  palette: [],                                       // filled by refreshPaletteFromSpec below
   surroundVeil: 0.2,
   // Project-level colour mode. 'srgb' shows RGB pickers; 'cmyk' adds
   // CMYK readouts on every picker and exports targets the chosen
@@ -275,7 +275,10 @@ const defaultPattern = () => ({
   layers: [
     makeLayer('solid'),
   ],
-});
+  };
+  refreshPaletteFromSpec(pat);
+  return pat;
+};
 
 // ---------- Colour conversions ----------
 // Two conversion paths:
@@ -2314,16 +2317,23 @@ function loadSample(name, current, clear) {
     }
   }
   if (clear) {
-    const base = defaultPattern();
-    const palette = sample.palette || base.palette;
-    return {
-      ...base,
-      palette,
-      colorway: 'main',
-      colorways: { main: [...palette] },
+    const baseP = defaultPattern();
+    const hexes = sample.palette || baseP.palette;
+    // Rebuild the spec around the sample's colour list so each
+    // sample picks up a coherent base + tracked accents instead of
+    // a flat hex array.
+    const spec = inferPaletteSpec(hexes);
+    const colorways = buildColorways(spec, { main: hexes });
+    const next = {
+      ...baseP,
+      paletteSpec: spec,
+      colorways,
+      activeColorway: 'main',
       ...(sample.repeat ? { repeat: sample.repeat } : {}),
       layers,
     };
+    refreshPaletteFromSpec(next);
+    return next;
   }
   return { ...current, layers: [...current.layers, ...layers] };
 }
@@ -7759,134 +7769,343 @@ function mount() {
     if (e.key === 'Escape' && yardModal?.classList.contains('is-open')) yardageClose();
   });
 
-  // ----- Project palette + colorways -----
-  // The project palette is the fallback used by any layer whose own
-  // palette is empty; the colorways map stores named alternates of
-  // that palette. Editing a swatch updates both the active palette and
-  // its entry in the map so a saved colorway evolves with the user's
-  // tweaks until they save a new one.
+  // ----- Project palette + colorways (parametric model) -----
+  // pattern.paletteSpec holds the shape (role names + tracked OKLCH
+  // deltas + anchored hex defaults). pattern.colorways[name] = { base,
+  // overrides } provides one (base, anchored-overrides) tuple in
+  // that shape. The renderer keeps reading pattern.palette as a hex
+  // array; refreshPaletteFromSpec keeps it in step.
   const paletteSchemeSel  = document.getElementById('girard-palette-scheme');
   const paletteBaseInp    = document.getElementById('girard-palette-base');
   const paletteCountInp   = document.getElementById('girard-palette-count');
-  const paletteGenBtn     = document.getElementById('girard-palette-generate');
-  const paletteSwatchesEl = document.getElementById('girard-palette-swatches');
-  const colorwaySelectEl  = document.getElementById('girard-colorway-select');
+  const paletteApplyBtn   = document.getElementById('girard-palette-apply');
+  const swatchGridEl      = document.getElementById('girard-swatch-grid');
+  const addSwatchBtn      = document.getElementById('girard-add-swatch');
+  const colorwayStripEl   = document.getElementById('girard-colorway-strip');
   const colorwayNameInp   = document.getElementById('girard-colorway-name');
   const colorwaySaveBtn   = document.getElementById('girard-colorway-save');
-  const colorwayDelBtn    = document.getElementById('girard-colorway-delete');
 
-  const ensureColorways = () => {
-    if (!pattern.colorways) pattern.colorways = {};
-    if (!pattern.colorway) pattern.colorway = 'main';
-    if (!pattern.colorways[pattern.colorway]) {
-      pattern.colorways[pattern.colorway] = [...(pattern.palette || [])];
+  // Ensure a palette spec + at least one colorway exist on the
+  // pattern. Runs on initial mount and after any operation that
+  // could have left them empty (sample load, undo to old state, …).
+  const ensurePaletteSpec = () => {
+    if (!pattern.paletteSpec) {
+      pattern.paletteSpec = inferPaletteSpec(pattern.palette && pattern.palette.length
+        ? pattern.palette
+        : ['#888888']);
     }
+    if (!pattern.colorways || !Object.keys(pattern.colorways).length) {
+      pattern.colorways = buildColorways(
+        pattern.paletteSpec,
+        { main: pattern.palette && pattern.palette.length ? pattern.palette : ['#888888'] }
+      );
+    }
+    if (!pattern.activeColorway || !pattern.colorways[pattern.activeColorway]) {
+      pattern.activeColorway = Object.keys(pattern.colorways)[0];
+    }
+    refreshPaletteFromSpec(pattern);
   };
 
-  const refreshColorwaySelect = () => {
-    if (!colorwaySelectEl) return;
-    ensureColorways();
-    colorwaySelectEl.replaceChildren();
-    for (const name of Object.keys(pattern.colorways)) {
-      const opt = document.createElement('option');
-      opt.value = name;
-      opt.textContent = name;
-      if (name === pattern.colorway) opt.selected = true;
-      colorwaySelectEl.appendChild(opt);
-    }
+  const activeCw = () => pattern.colorways[pattern.activeColorway];
+
+  // Unique label suffix per accent slot when generating fresh roles.
+  const nextAccentRole = () => {
+    let n = 1;
+    const taken = new Set((pattern.paletteSpec.swatches || []).map(s => s.role));
+    while (taken.has(`accent-${n}`)) n++;
+    return `accent-${n}`;
   };
 
-  const refreshProjectPalette = () => {
-    if (!paletteSwatchesEl) return;
-    ensureColorways();
-    paletteSwatchesEl.replaceChildren();
-    (pattern.palette || []).forEach((color, i) => {
-      const wrap = document.createElement('span');
-      wrap.className = 'project-swatch';
-      const picker = document.createElement('input');
-      picker.type = 'color';
-      picker.value = (color || '#000000').slice(0, 7);
-      picker.addEventListener('input', () => {
-        pattern.palette[i] = picker.value;
-        pattern.colorways[pattern.colorway] = [...pattern.palette];
-        rerenderSvg();
-      });
-      wrap.appendChild(picker);
-      const rm = document.createElement('button');
-      rm.type = 'button';
-      rm.textContent = '×';
-      rm.title = 'remove';
-      rm.addEventListener('click', () => {
-        pattern.palette.splice(i, 1);
-        pattern.colorways[pattern.colorway] = [...pattern.palette];
-        refreshProjectPalette();
-        rerenderSvg();
-      });
-      wrap.appendChild(rm);
-      paletteSwatchesEl.appendChild(wrap);
-    });
-    const add = document.createElement('button');
-    add.type = 'button';
-    add.className = 'project-swatch-add';
-    add.textContent = '+';
-    add.addEventListener('click', () => {
-      pattern.palette = [...(pattern.palette || []), '#888888'];
-      pattern.colorways[pattern.colorway] = [...pattern.palette];
-      refreshProjectPalette();
+  // Render a single swatch card. The base swatch is special — no role
+  // editor, no lock toggle, no delete. The rest can be tracked
+  // (relationship, lock open) or anchored (literal hex, lock closed),
+  // toggled via the 🔓 / 🔒 chip.
+  const renderSwatchCard = (i) => {
+    const sw = pattern.paletteSpec.swatches[i];
+    const cw = activeCw();
+    const baseOklch = hexToOklch(cw.base);
+    const resolved = resolveSwatch(sw, baseOklch, cw.overrides || {});
+    const card = document.createElement('div');
+    card.className = 'swatch-card swatch-card--' + sw.kind
+      + (i === 0 ? ' swatch-card--base' : '');
+    const picker = document.createElement('input');
+    picker.type = 'color';
+    picker.className = 'swatch-card-picker';
+    picker.value = resolved;
+    picker.addEventListener('input', () => {
+      if (i === 0) {
+        // Editing base = change the active colorway's base. Tracked
+        // swatches recompute off the new base; anchored stay put.
+        cw.base = picker.value;
+      } else if (sw.kind === 'rel') {
+        // Hand-editing a tracked swatch converts it to anchored —
+        // the user took an explicit decision, so we honour the hex.
+        sw.kind = 'abs';
+        sw.hex = picker.value;
+        delete sw.dL; delete sw.dC; delete sw.dH;
+        cw.overrides = { ...(cw.overrides || {}), [sw.role]: picker.value };
+      } else {
+        // Anchored: edit the per-colorway override (default hex on
+        // the swatch stays as a fallback for new colorways).
+        cw.overrides = { ...(cw.overrides || {}), [sw.role]: picker.value };
+      }
+      refreshPaletteFromSpec(pattern);
+      renderSwatchGrid();
+      renderColorwayStrip();
       rerenderSvg();
     });
-    paletteSwatchesEl.appendChild(add);
+    card.appendChild(picker);
+    const meta = document.createElement('div');
+    meta.className = 'swatch-card-meta';
+    const role = document.createElement('span');
+    role.className = 'swatch-card-role';
+    role.textContent = sw.role || `slot-${i}`;
+    role.title = 'click to rename';
+    if (i > 0) {
+      role.addEventListener('click', () => {
+        const next = prompt(`Rename role "${sw.role}":`, sw.role);
+        if (!next || next === sw.role) return;
+        const trimmed = next.trim();
+        if (!trimmed) return;
+        // Move per-colorway overrides from old role name to new.
+        for (const c of Object.values(pattern.colorways)) {
+          if (c.overrides && Object.prototype.hasOwnProperty.call(c.overrides, sw.role)) {
+            c.overrides[trimmed] = c.overrides[sw.role];
+            delete c.overrides[sw.role];
+          }
+        }
+        sw.role = trimmed;
+        refreshPaletteFromSpec(pattern);
+        renderSwatchGrid();
+      });
+    }
+    meta.appendChild(role);
+    const detail = document.createElement('span');
+    detail.className = 'swatch-card-detail';
+    if (sw.kind === 'base') detail.textContent = 'base';
+    else if (sw.kind === 'rel') {
+      const dh = Math.round(sw.dH || 0);
+      const dl = (sw.dL || 0);
+      const dc = (sw.dC || 0);
+      const parts = [];
+      if (dh) parts.push(`${dh > 0 ? '+' : ''}${dh}°`);
+      if (Math.abs(dl) > 0.01) parts.push(`${dl > 0 ? '+L' : '−L'}${Math.abs(dl).toFixed(2)}`);
+      if (Math.abs(dc) > 0.01) parts.push(`${dc > 0 ? '+C' : '−C'}${Math.abs(dc).toFixed(2)}`);
+      detail.textContent = parts.length ? parts.join(' ') : '= base';
+    } else {
+      detail.textContent = 'anchored';
+    }
+    meta.appendChild(detail);
+    card.appendChild(meta);
+    if (i > 0) {
+      const lock = document.createElement('button');
+      lock.type = 'button';
+      lock.className = 'swatch-card-lock';
+      lock.textContent = sw.kind === 'abs' ? '🔒' : '🔓';
+      lock.title = sw.kind === 'abs'
+        ? 'anchored — click to track the base again'
+        : 'tracked — click to anchor at current hex';
+      lock.addEventListener('click', () => {
+        if (sw.kind === 'abs') {
+          // Convert to tracked: compute current OKLCH delta from
+          // the active base so the colour stays put right now and
+          // tracks future base swaps.
+          const curHex = (cw.overrides && cw.overrides[sw.role]) || sw.hex || resolved;
+          const [L, C, H] = hexToOklch(curHex);
+          let dH = H - baseOklch[2];
+          if (dH > 180) dH -= 360;
+          if (dH < -180) dH += 360;
+          sw.kind = 'rel';
+          sw.dL = L - baseOklch[0];
+          sw.dC = C - baseOklch[1];
+          sw.dH = dH;
+          delete sw.hex;
+          if (cw.overrides) delete cw.overrides[sw.role];
+        } else {
+          // Convert tracked → anchored at the current resolved hex.
+          sw.kind = 'abs';
+          sw.hex = resolved;
+          delete sw.dL; delete sw.dC; delete sw.dH;
+          cw.overrides = { ...(cw.overrides || {}), [sw.role]: resolved };
+        }
+        refreshPaletteFromSpec(pattern);
+        renderSwatchGrid();
+        rerenderSvg();
+      });
+      card.appendChild(lock);
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'swatch-card-rm';
+      rm.title = 'remove swatch';
+      rm.textContent = '×';
+      rm.addEventListener('click', () => {
+        pattern.paletteSpec.swatches.splice(i, 1);
+        for (const c of Object.values(pattern.colorways)) {
+          if (c.overrides) delete c.overrides[sw.role];
+        }
+        refreshPaletteFromSpec(pattern);
+        renderSwatchGrid();
+        rerenderSvg();
+      });
+      card.appendChild(rm);
+    }
+    return card;
+  };
+
+  const renderSwatchGrid = () => {
+    if (!swatchGridEl) return;
+    ensurePaletteSpec();
+    swatchGridEl.replaceChildren();
+    for (let i = 0; i < pattern.paletteSpec.swatches.length; i++) {
+      swatchGridEl.appendChild(renderSwatchCard(i));
+    }
+    if (paletteBaseInp) paletteBaseInp.value = activeCw().base;
     if (typeof _refreshHints === 'function') _refreshHints();
   };
 
-  if (paletteGenBtn) {
-    paletteGenBtn.addEventListener('click', () => {
+  const renderColorwayStrip = () => {
+    if (!colorwayStripEl) return;
+    ensurePaletteSpec();
+    colorwayStripEl.replaceChildren();
+    for (const name of Object.keys(pattern.colorways)) {
+      const cw = pattern.colorways[name];
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.className = 'colorway-dot'
+        + (name === pattern.activeColorway ? ' is-active' : '');
+      dot.title = name + (name === pattern.activeColorway ? ' (active)' : ' — click to switch');
+      const blob = document.createElement('span');
+      blob.className = 'colorway-dot-blob';
+      blob.style.background = cw.base || '#888';
+      dot.appendChild(blob);
+      const label = document.createElement('span');
+      label.className = 'colorway-dot-label';
+      label.textContent = name;
+      dot.appendChild(label);
+      dot.addEventListener('click', () => {
+        pattern.activeColorway = name;
+        refreshPaletteFromSpec(pattern);
+        renderSwatchGrid();
+        renderColorwayStrip();
+        rerenderSvg();
+      });
+      if (Object.keys(pattern.colorways).length > 1) {
+        const rm = document.createElement('button');
+        rm.type = 'button';
+        rm.className = 'colorway-dot-rm';
+        rm.textContent = '×';
+        rm.title = 'delete colourway';
+        rm.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (Object.keys(pattern.colorways).length <= 1) return;
+          delete pattern.colorways[name];
+          if (pattern.activeColorway === name) {
+            pattern.activeColorway = Object.keys(pattern.colorways)[0];
+          }
+          refreshPaletteFromSpec(pattern);
+          renderSwatchGrid();
+          renderColorwayStrip();
+          rerenderSvg();
+        });
+        dot.appendChild(rm);
+      }
+      colorwayStripEl.appendChild(dot);
+    }
+  };
+
+  // Combined refresh used after operations that touch both the spec
+  // and the colourway list (initial mount, sample load, undo).
+  const refreshPaletteUI = () => {
+    ensurePaletteSpec();
+    renderSwatchGrid();
+    renderColorwayStrip();
+  };
+
+  // ----- Wire events -----
+  if (paletteBaseInp) {
+    paletteBaseInp.addEventListener('input', () => {
+      ensurePaletteSpec();
+      activeCw().base = paletteBaseInp.value;
+      refreshPaletteFromSpec(pattern);
+      renderSwatchGrid();
+      renderColorwayStrip();
+      rerenderSvg();
+    });
+  }
+
+  if (paletteApplyBtn) {
+    paletteApplyBtn.addEventListener('click', () => {
+      ensurePaletteSpec();
       const scheme = paletteSchemeSel?.value || 'analogous';
-      const base = paletteBaseInp?.value || '#e94e3b';
-      const n = Math.max(2, Math.min(16, Number(paletteCountInp?.value) || 5));
-      const gen = PALETTE_SCHEMES[scheme];
+      const n = Math.max(1, Math.min(15, Number(paletteCountInp?.value) || 4));
+      const gen = PALETTE_SCHEME_DELTAS[scheme];
       if (!gen) return;
-      pattern.palette = gen(base, n);
-      pattern.colorways[pattern.colorway] = [...pattern.palette];
-      refreshProjectPalette();
+      const deltas = gen(n);
+      // Replace accessory swatches with tracked deltas from the scheme.
+      // Existing anchored swatches (ground / ink) are preserved up to
+      // whatever positions the scheme produced; extras get auto-named
+      // accent-N roles.
+      const oldSwatches = pattern.paletteSpec.swatches;
+      const baseSwatch = oldSwatches[0];
+      const next = [baseSwatch];
+      // Preserve any "ground" and "ink" anchored swatches by default
+      // (they're usually neutrals that benefit from staying put).
+      const preserved = oldSwatches.slice(1).filter(s =>
+        s.kind === 'abs' && (s.role === 'ground' || s.role === 'ink')
+      );
+      preserved.forEach(s => next.push(s));
+      let accentIdx = 1;
+      for (const d of deltas) {
+        let role;
+        while (true) {
+          role = `accent-${accentIdx++}`;
+          if (!next.some(s => s.role === role)) break;
+        }
+        next.push({ role, kind: 'rel', dL: d.dL, dC: d.dC, dH: d.dH });
+      }
+      pattern.paletteSpec.swatches = next;
+      refreshPaletteFromSpec(pattern);
+      renderSwatchGrid();
+      renderColorwayStrip();
       rerenderSvg();
     });
   }
-  if (colorwaySelectEl) {
-    colorwaySelectEl.addEventListener('change', () => {
-      const name = colorwaySelectEl.value;
-      if (!pattern.colorways[name]) return;
-      pattern.colorway = name;
-      pattern.palette = [...pattern.colorways[name]];
-      refreshProjectPalette();
+
+  if (addSwatchBtn) {
+    addSwatchBtn.addEventListener('click', () => {
+      ensurePaletteSpec();
+      const role = nextAccentRole();
+      pattern.paletteSpec.swatches.push({ role, kind: 'rel', dL: 0, dC: 0, dH: 0 });
+      refreshPaletteFromSpec(pattern);
+      renderSwatchGrid();
       rerenderSvg();
     });
   }
+
   if (colorwaySaveBtn) {
     colorwaySaveBtn.addEventListener('click', () => {
+      ensurePaletteSpec();
       const name = (colorwayNameInp?.value || '').trim();
       if (!name) return;
-      pattern.colorways[name] = [...pattern.palette];
-      pattern.colorway = name;
+      // Snapshot current base + overrides into a new colourway entry.
+      const cur = activeCw();
+      pattern.colorways[name] = {
+        base: cur.base,
+        overrides: { ...(cur.overrides || {}) },
+      };
+      pattern.activeColorway = name;
       if (colorwayNameInp) colorwayNameInp.value = '';
-      refreshColorwaySelect();
-      refreshProjectPalette();
+      refreshPaletteFromSpec(pattern);
+      renderColorwayStrip();
+      renderSwatchGrid();
     });
   }
-  if (colorwayDelBtn) {
-    colorwayDelBtn.addEventListener('click', () => {
-      const names = Object.keys(pattern.colorways);
-      if (names.length <= 1) return;   // always keep at least one
-      delete pattern.colorways[pattern.colorway];
-      pattern.colorway = Object.keys(pattern.colorways)[0];
-      pattern.palette = [...pattern.colorways[pattern.colorway]];
-      refreshColorwaySelect();
-      refreshProjectPalette();
-      rerenderSvg();
-    });
-  }
-  refreshColorwaySelect();
-  refreshProjectPalette();
+
+  // Backwards-compat aliases used by the sample-load + undo paths.
+  const refreshColorwaySelect = refreshPaletteUI;
+  const refreshProjectPalette = refreshPaletteUI;
+
+  refreshPaletteUI();
 
   veil.addEventListener('input', () => {
     pattern.surroundVeil = Number(veil.value);
