@@ -6762,6 +6762,13 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
 
 // ---------- Mount ----------
 function mount() {
+  // Forward-declared so the various input handlers and refreshers can
+  // call _refreshHints() without caring whether refreshSectionState
+  // (which assigns it) has run yet. Must live at the top of mount()
+  // so any reference within mount avoids the TDZ that a later `let`
+  // would create — typeof on a TDZ-bound let throws ReferenceError
+  // and kills the rest of init, including the sample-library wiring.
+  let _refreshHints = null;
   const stage     = document.getElementById('girard-stage');
   const listEl    = document.getElementById('girard-layer-list');
   const configEl  = document.getElementById('girard-layer-config');
@@ -7193,9 +7200,8 @@ function mount() {
     }
     if (typeof _refreshHints === 'function') _refreshHints();
   };
-  // Forward-declared so refreshIccStatus / refreshProjectPalette can
-  // pipe section-hint updates in before refreshSectionState exists.
-  let _refreshHints = null;
+  // _refreshHints is forward-declared at the top of mount(); see
+  // the comment there. It's just used here.
   if (colorModeSel) {
     colorModeSel.value = pattern.colorMode || 'srgb';
     colorModeSel.addEventListener('change', () => {
