@@ -4431,6 +4431,295 @@ function exportTileTiff(pattern, baseName) {
   );
 }
 
+// ---------- SVG → PDF vector emitter ----------
+// Walks a tile SVG tree and emits PDF content-stream operators. The
+// emitter is intentionally conservative: it handles the geometry we
+// actually generate (rect / circle / ellipse / polygon / polyline /
+// line / path with M/L/C/Q/Z) and group transforms, and bails out
+// when it encounters features that need real implementation work
+// (text, clipPath, filters, masks). Callers check `canVectorize()`
+// before committing to the vector path; if false they fall back to
+// raster.
+function canVectorize(svg) {
+  let ok = true;
+  const walk = (n) => {
+    if (!ok || !n) return;
+    if (n.tag === 'text') ok = false;
+    if (n.tag === 'use' || n.tag === 'mask' || n.tag === 'filter') ok = false;
+    if (n.attrs && n.attrs['clip-path']) ok = false;
+    (n.children || []).forEach(walk);
+  };
+  walk(svg);
+  return ok;
+}
+
+// Parse an SVG transform string into a 2D affine matrix [a, b, c, d, e, f].
+function parseSvgTransform(str) {
+  if (!str) return [1, 0, 0, 1, 0, 0];
+  let M = [1, 0, 0, 1, 0, 0];
+  const mul = (A, B) => [
+    A[0] * B[0] + A[2] * B[1],
+    A[1] * B[0] + A[3] * B[1],
+    A[0] * B[2] + A[2] * B[3],
+    A[1] * B[2] + A[3] * B[3],
+    A[0] * B[4] + A[2] * B[5] + A[4],
+    A[1] * B[4] + A[3] * B[5] + A[5],
+  ];
+  const re = /(matrix|translate|rotate|scale|skewX|skewY)\s*\(([^)]*)\)/g;
+  let m;
+  while ((m = re.exec(str))) {
+    const args = m[2].split(/[\s,]+/).map(Number).filter(n => !isNaN(n));
+    let T;
+    switch (m[1]) {
+      case 'matrix':    T = args; break;
+      case 'translate': T = [1, 0, 0, 1, args[0] || 0, args[1] || 0]; break;
+      case 'scale':     T = [args[0] || 1, 0, 0, (args[1] != null ? args[1] : args[0]) || 1, 0, 0]; break;
+      case 'rotate': {
+        const a = ((args[0] || 0) * Math.PI) / 180;
+        const c = Math.cos(a), s = Math.sin(a);
+        let R = [c, s, -s, c, 0, 0];
+        if (args.length >= 3) {
+          const cx = args[1], cy = args[2];
+          R = mul([1, 0, 0, 1, cx, cy], R);
+          R = mul(R, [1, 0, 0, 1, -cx, -cy]);
+        }
+        T = R;
+        break;
+      }
+      case 'skewX': { const t = Math.tan(((args[0] || 0) * Math.PI) / 180); T = [1, 0, t, 1, 0, 0]; break; }
+      case 'skewY': { const t = Math.tan(((args[0] || 0) * Math.PI) / 180); T = [1, t, 0, 1, 0, 0]; break; }
+      default: continue;
+    }
+    M = mul(M, T);
+  }
+  return M;
+}
+
+// Emit a PDF colour operator for the given hex (or named) colour. Uses
+// /DeviceCMYK when the ICC profiler is loaded; otherwise /DeviceRGB.
+function pdfColor(hex, profileId, stroke) {
+  if (!hex || hex === 'none' || hex === 'transparent') return null;
+  const rgba = parseColor(hex);
+  const fmt = (v) => v.toFixed(4);
+  if (iccProfiler.loaded) {
+    const c = profileRgbToCmyk(rgba.r, rgba.g, rgba.b, profileId);
+    return `${fmt(c.c)} ${fmt(c.m)} ${fmt(c.y)} ${fmt(c.k)} ${stroke ? 'K' : 'k'}`;
+  }
+  return `${fmt(rgba.r / 255)} ${fmt(rgba.g / 255)} ${fmt(rgba.b / 255)} ${stroke ? 'RG' : 'rg'}`;
+}
+
+// Convert an SVG path 'd' attribute into PDF path operators (m, l, c, h).
+// Handles M/m, L/l, C/c, Q/q (cubic via 2/3 lifting), Z/z, H/h, V/v.
+function svgPathToPdf(d) {
+  const out = [];
+  // Tokenise: command letters + signed floats.
+  const tokens = d.match(/[a-zA-Z]|-?\d*\.?\d+(?:e-?\d+)?/g) || [];
+  let i = 0, x = 0, y = 0, sx = 0, sy = 0, prevC = null;
+  const num = () => parseFloat(tokens[i++]);
+  const fmt = (v) => v.toFixed(3);
+  let cmd = '';
+  while (i < tokens.length) {
+    if (/^[a-zA-Z]$/.test(tokens[i])) { cmd = tokens[i++]; }
+    const rel = cmd === cmd.toLowerCase();
+    const C = cmd.toUpperCase();
+    if (C === 'M') {
+      let nx = num(), ny = num();
+      if (rel) { nx += x; ny += y; }
+      out.push(`${fmt(nx)} ${fmt(ny)} m`);
+      x = nx; y = ny; sx = x; sy = y; prevC = null;
+      // Subsequent pairs after M are implicit L
+      cmd = rel ? 'l' : 'L';
+    } else if (C === 'L') {
+      let nx = num(), ny = num();
+      if (rel) { nx += x; ny += y; }
+      out.push(`${fmt(nx)} ${fmt(ny)} l`);
+      x = nx; y = ny; prevC = null;
+    } else if (C === 'H') {
+      let nx = num();
+      if (rel) nx += x;
+      out.push(`${fmt(nx)} ${fmt(y)} l`);
+      x = nx; prevC = null;
+    } else if (C === 'V') {
+      let ny = num();
+      if (rel) ny += y;
+      out.push(`${fmt(x)} ${fmt(ny)} l`);
+      y = ny; prevC = null;
+    } else if (C === 'C') {
+      let c1x = num(), c1y = num(), c2x = num(), c2y = num(), nx = num(), ny = num();
+      if (rel) { c1x += x; c1y += y; c2x += x; c2y += y; nx += x; ny += y; }
+      out.push(`${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(nx)} ${fmt(ny)} c`);
+      prevC = [c2x, c2y]; x = nx; y = ny;
+    } else if (C === 'S') {
+      let c2x = num(), c2y = num(), nx = num(), ny = num();
+      if (rel) { c2x += x; c2y += y; nx += x; ny += y; }
+      const c1x = prevC ? 2 * x - prevC[0] : x;
+      const c1y = prevC ? 2 * y - prevC[1] : y;
+      out.push(`${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(nx)} ${fmt(ny)} c`);
+      prevC = [c2x, c2y]; x = nx; y = ny;
+    } else if (C === 'Q') {
+      // Quadratic → cubic: C1 = P0 + (2/3)(P1-P0); C2 = P2 + (2/3)(P1-P2)
+      let qx = num(), qy = num(), nx = num(), ny = num();
+      if (rel) { qx += x; qy += y; nx += x; ny += y; }
+      const c1x = x + (2 / 3) * (qx - x);
+      const c1y = y + (2 / 3) * (qy - y);
+      const c2x = nx + (2 / 3) * (qx - nx);
+      const c2y = ny + (2 / 3) * (qy - ny);
+      out.push(`${fmt(c1x)} ${fmt(c1y)} ${fmt(c2x)} ${fmt(c2y)} ${fmt(nx)} ${fmt(ny)} c`);
+      prevC = null; x = nx; y = ny;
+    } else if (C === 'Z') {
+      out.push('h');
+      x = sx; y = sy; prevC = null;
+    } else {
+      // Unsupported (A — elliptical arc). Skip its args best-effort.
+      if (C === 'A') { num(); num(); num(); num(); num(); num(); num(); }
+      else { i++; } // skip stray token
+    }
+  }
+  return out;
+}
+
+// Walk a tile SVG tree, accumulating PDF operator strings. State:
+// current fill / stroke / strokeWidth / linecap / linejoin / opacity.
+function walkSvgToPdfOps(node, state, ops, profileId) {
+  if (!node || !node.tag) return;
+  if (node.tag === 'defs') return;        // ignored at top level
+  const attrs = node.attrs || {};
+  let pushed = false;
+  if (attrs.transform) {
+    ops.push('q');
+    const [a, b, c, d, e, f] = parseSvgTransform(attrs.transform);
+    ops.push(`${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${e.toFixed(3)} ${f.toFixed(3)} cm`);
+    pushed = true;
+  }
+
+  // Inherit state, override with this node's attrs.
+  const fill   = attrs.fill   != null ? attrs.fill   : state.fill;
+  const stroke = attrs.stroke != null ? attrs.stroke : state.stroke;
+  const swPx   = attrs['stroke-width'] != null ? Number(attrs['stroke-width']) : state.strokeWidth;
+
+  const emitFillStroke = () => {
+    const f = pdfColor(fill, profileId, false);
+    const s = pdfColor(stroke, profileId, true);
+    const hasFill = f && fill !== 'none';
+    const hasStroke = s && stroke && stroke !== 'none' && swPx > 0;
+    if (hasFill) ops.push(f);
+    if (hasStroke) {
+      ops.push(s);
+      ops.push(`${swPx.toFixed(3)} w`);
+      if (attrs['stroke-linecap']) {
+        const lcMap = { butt: 0, round: 1, square: 2 };
+        ops.push(`${lcMap[attrs['stroke-linecap']] ?? 0} J`);
+      }
+      if (attrs['stroke-linejoin']) {
+        const ljMap = { miter: 0, round: 1, bevel: 2 };
+        ops.push(`${ljMap[attrs['stroke-linejoin']] ?? 0} j`);
+      }
+    }
+    return { hasFill, hasStroke };
+  };
+
+  const closePaint = ({ hasFill, hasStroke }) => {
+    if (hasFill && hasStroke) ops.push('B');
+    else if (hasFill) ops.push('f');
+    else if (hasStroke) ops.push('S');
+    else ops.push('n');
+  };
+
+  switch (node.tag) {
+    case 'g':
+    case 'svg':
+      for (const c of node.children || []) walkSvgToPdfOps(c, { fill, stroke, strokeWidth: swPx }, ops, profileId);
+      break;
+    case 'rect': {
+      const x = Number(attrs.x || 0), y = Number(attrs.y || 0);
+      const w = Number(attrs.width || 0), h = Number(attrs.height || 0);
+      const rx = Number(attrs.rx || 0), ry = Number(attrs.ry || rx);
+      const fs = emitFillStroke();
+      if (rx > 0 || ry > 0) {
+        // Rounded rect via 4 corner curves. PDF doesn't have a builtin.
+        const k = 0.5522847;  // circle constant
+        const ax = Math.min(rx, w / 2), ay = Math.min(ry, h / 2);
+        ops.push(`${(x + ax).toFixed(3)} ${y.toFixed(3)} m`);
+        ops.push(`${(x + w - ax).toFixed(3)} ${y.toFixed(3)} l`);
+        ops.push(`${(x + w - ax * (1 - k)).toFixed(3)} ${y.toFixed(3)} ${(x + w).toFixed(3)} ${(y + ay * (1 - k)).toFixed(3)} ${(x + w).toFixed(3)} ${(y + ay).toFixed(3)} c`);
+        ops.push(`${(x + w).toFixed(3)} ${(y + h - ay).toFixed(3)} l`);
+        ops.push(`${(x + w).toFixed(3)} ${(y + h - ay * (1 - k)).toFixed(3)} ${(x + w - ax * (1 - k)).toFixed(3)} ${(y + h).toFixed(3)} ${(x + w - ax).toFixed(3)} ${(y + h).toFixed(3)} c`);
+        ops.push(`${(x + ax).toFixed(3)} ${(y + h).toFixed(3)} l`);
+        ops.push(`${(x + ax * (1 - k)).toFixed(3)} ${(y + h).toFixed(3)} ${x.toFixed(3)} ${(y + h - ay * (1 - k)).toFixed(3)} ${x.toFixed(3)} ${(y + h - ay).toFixed(3)} c`);
+        ops.push(`${x.toFixed(3)} ${(y + ay).toFixed(3)} l`);
+        ops.push(`${x.toFixed(3)} ${(y + ay * (1 - k)).toFixed(3)} ${(x + ax * (1 - k)).toFixed(3)} ${y.toFixed(3)} ${(x + ax).toFixed(3)} ${y.toFixed(3)} c`);
+        ops.push('h');
+      } else {
+        ops.push(`${x.toFixed(3)} ${y.toFixed(3)} ${w.toFixed(3)} ${h.toFixed(3)} re`);
+      }
+      closePaint(fs);
+      break;
+    }
+    case 'circle': {
+      const cx = Number(attrs.cx || 0), cy = Number(attrs.cy || 0), r = Number(attrs.r || 0);
+      const fs = emitFillStroke();
+      const k = 0.5522847 * r;
+      ops.push(`${(cx - r).toFixed(3)} ${cy.toFixed(3)} m`);
+      ops.push(`${(cx - r).toFixed(3)} ${(cy + k).toFixed(3)} ${(cx - k).toFixed(3)} ${(cy + r).toFixed(3)} ${cx.toFixed(3)} ${(cy + r).toFixed(3)} c`);
+      ops.push(`${(cx + k).toFixed(3)} ${(cy + r).toFixed(3)} ${(cx + r).toFixed(3)} ${(cy + k).toFixed(3)} ${(cx + r).toFixed(3)} ${cy.toFixed(3)} c`);
+      ops.push(`${(cx + r).toFixed(3)} ${(cy - k).toFixed(3)} ${(cx + k).toFixed(3)} ${(cy - r).toFixed(3)} ${cx.toFixed(3)} ${(cy - r).toFixed(3)} c`);
+      ops.push(`${(cx - k).toFixed(3)} ${(cy - r).toFixed(3)} ${(cx - r).toFixed(3)} ${(cy - k).toFixed(3)} ${(cx - r).toFixed(3)} ${cy.toFixed(3)} c`);
+      ops.push('h');
+      closePaint(fs);
+      break;
+    }
+    case 'ellipse': {
+      const cx = Number(attrs.cx || 0), cy = Number(attrs.cy || 0);
+      const rx = Number(attrs.rx || 0), ry = Number(attrs.ry || 0);
+      const fs = emitFillStroke();
+      const kx = 0.5522847 * rx, ky = 0.5522847 * ry;
+      ops.push(`${(cx - rx).toFixed(3)} ${cy.toFixed(3)} m`);
+      ops.push(`${(cx - rx).toFixed(3)} ${(cy + ky).toFixed(3)} ${(cx - kx).toFixed(3)} ${(cy + ry).toFixed(3)} ${cx.toFixed(3)} ${(cy + ry).toFixed(3)} c`);
+      ops.push(`${(cx + kx).toFixed(3)} ${(cy + ry).toFixed(3)} ${(cx + rx).toFixed(3)} ${(cy + ky).toFixed(3)} ${(cx + rx).toFixed(3)} ${cy.toFixed(3)} c`);
+      ops.push(`${(cx + rx).toFixed(3)} ${(cy - ky).toFixed(3)} ${(cx + kx).toFixed(3)} ${(cy - ry).toFixed(3)} ${cx.toFixed(3)} ${(cy - ry).toFixed(3)} c`);
+      ops.push(`${(cx - kx).toFixed(3)} ${(cy - ry).toFixed(3)} ${(cx - rx).toFixed(3)} ${(cy - ky).toFixed(3)} ${(cx - rx).toFixed(3)} ${cy.toFixed(3)} c`);
+      ops.push('h');
+      closePaint(fs);
+      break;
+    }
+    case 'line': {
+      const x1 = Number(attrs.x1 || 0), y1 = Number(attrs.y1 || 0);
+      const x2 = Number(attrs.x2 || 0), y2 = Number(attrs.y2 || 0);
+      const fs = emitFillStroke();
+      ops.push(`${x1.toFixed(3)} ${y1.toFixed(3)} m`);
+      ops.push(`${x2.toFixed(3)} ${y2.toFixed(3)} l`);
+      // Lines are stroke-only — force stroke regardless of fill, no close.
+      if (fs.hasStroke) ops.push('S'); else ops.push('n');
+      break;
+    }
+    case 'polygon':
+    case 'polyline': {
+      const pts = (attrs.points || '').match(/-?\d*\.?\d+/g) || [];
+      const close = node.tag === 'polygon';
+      const fs = emitFillStroke();
+      if (pts.length >= 4) {
+        ops.push(`${pts[0]} ${pts[1]} m`);
+        for (let p = 2; p + 1 < pts.length; p += 2) ops.push(`${pts[p]} ${pts[p + 1]} l`);
+        if (close) ops.push('h');
+        closePaint(fs);
+      }
+      break;
+    }
+    case 'path': {
+      const d = attrs.d;
+      if (!d) break;
+      const fs = emitFillStroke();
+      svgPathToPdf(d).forEach(op => ops.push(op));
+      closePaint(fs);
+      break;
+    }
+    default:
+      // Walk children for unrecognised wrappers.
+      for (const c of node.children || []) walkSvgToPdfOps(c, { fill, stroke, strokeWidth: swPx }, ops, profileId);
+  }
+  if (pushed) ops.push('Q');
+}
+
 // ---------- PDF (raster at high DPI, sRGB) ----------
 // Vector PDF / PDF/X-4 with embedded CMYK profile lands next pass; for
 // now this is a raster PDF that embeds the high-DPI PNG. Fonts are
@@ -4452,10 +4741,36 @@ function exportTilePdf(pattern, baseName) {
         : 'sRGB IEC61966-2.1';
       pdfDoc.setSubject(intent);
       pdfDoc.setKeywords(['girard', 'tile', 'pattern', pattern.iccProfile || 'sRGB']);
-      // Page sized 1pt = 1px (the printer rescales to any finished
-      // repeat size).
-      const page = pdfDoc.addPage([W, H]);
-      if (iccProfiler.loaded) {
+      // Try the vector path first: build the deployable tile SVG, walk
+      // it, and emit PDF drawing operators. This produces a
+      // resolution-independent vector PDF whose colours go through
+      // DeviceRGB / DeviceCMYK directly (no rasterisation step). If
+      // the SVG uses features the emitter doesn't handle (text shapes,
+      // clip paths), fall back to the raster path.
+      const tileSvgForVector = buildTileSvg(pattern, { skipSoftProof: true });
+      const vector = canVectorize(tileSvgForVector.svg);
+      const vW = tileSvgForVector.width, vH = tileSvgForVector.height;
+      const page = pdfDoc.addPage([vector ? vW : W, vector ? vH : H]);
+      if (vector) {
+        const { PDFOperator } = window.PDFLib;
+        const profileId = pattern.iccProfile || 'U.S. Web Coated (SWOP) v2';
+        const ops = [];
+        // Top-level CTM: flip Y so SVG y-down coordinates work directly.
+        ops.push('q');
+        ops.push(`1 0 0 -1 0 ${vH.toFixed(3)} cm`);
+        // Background paint (the SVG itself doesn't always cover the
+        // unit). Use the export background colour, converted to the
+        // active colour space.
+        const bgPaint = pdfColor(pattern.exportBackground || '#ffffff', profileId, false);
+        if (bgPaint) {
+          ops.push(bgPaint);
+          ops.push(`0 0 ${vW.toFixed(3)} ${vH.toFixed(3)} re`);
+          ops.push('f');
+        }
+        walkSvgToPdfOps(tileSvgForVector.svg, { fill: '#000000', stroke: 'none', strokeWidth: 1 }, ops, profileId);
+        ops.push('Q');
+        page.pushOperators(...ops.map(s => PDFOperator.of(s + '\n')));
+      } else if (iccProfiler.loaded) {
         // True CMYK content: convert pixels through the active profile
         // and embed as a /DeviceCMYK image XObject. PDF/X-4 with this
         // CMYK content + matching CMYK OutputIntent (set below) is real
