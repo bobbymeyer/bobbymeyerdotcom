@@ -7,8 +7,8 @@ summary: a tool for building infinitely repeatable patterns
 custom_css: girard
 custom_js: girard
 thumbnail: cover.png
-width: 6
-height: 4
+width: 3
+height: 3
 draft: false
 tags:
 - tool

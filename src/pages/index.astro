@@ -14,7 +14,7 @@ const posts = (await getCollection('posts', ({ data }) => import.meta.env.DEV ||
     >
       <!-- Badge: top-right, 3x2 cells -->
       <div
-        class="relative overflow-hidden [grid-column:span_3/-1] [grid-row:1/span_2] [aspect-ratio:3/2] bg-yellow-400 font-sans font-bold text-2xl md:text-4xl tracking-tight leading-none p-3 whitespace-nowrap"
+        class="relative overflow-hidden [grid-column:span_4/-1] [grid-row:1/span_3] bg-yellow-400 font-sans font-bold text-2xl md:text-4xl tracking-tight leading-none p-3 whitespace-nowrap"
       >
         <img
           src="/bobby.png"
@@ -22,7 +22,7 @@ const posts = (await getCollection('posts', ({ data }) => import.meta.env.DEV ||
           class="absolute bottom-0 right-0 h-3/4 w-auto pointer-events-none"
           style="filter: grayscale(1); mix-blend-mode: multiply; opacity: 0.75;"
         />
-        <img src="/BM-LogoType-SM.png" alt="" class="absolute top-3 left-3 h-1/6 w-auto" />
+        <img src="/BM-LogoType-SM.png" alt="" class="absolute top-3 left-3 h-1/ w-auto" />
         <span class="absolute top-1/2 left-3 -translate-y-1/2 text-black">bobbymeyer</span>
       </div>
 

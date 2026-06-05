@@ -4,8 +4,8 @@ date:   2022-12-15 10:31:00 -0800
 summary: Illustrating procedurally in the DOM
 custom_css: illustration
 thumbnail: cover.jpg
-width: 4
-height: 6
+width: 3
+height: 4
 tags:
 - art
 - graphic-design
