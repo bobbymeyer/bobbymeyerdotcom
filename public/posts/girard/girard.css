@@ -600,3 +600,19 @@ button.ctrl:hover {
   text-underline-offset: 3px;
 }
 .girard-repo a:hover { color: #000; }
+
+/* Physical-size readout in the stage corner. Read-only label that
+   pairs with the "repeat (physical)" input — confirms at a glance
+   what one tile prints as in real-world units. */
+#girard-stage .girard-units-overlay {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #1a1a1a;
+  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+  z-index: 2;
+}

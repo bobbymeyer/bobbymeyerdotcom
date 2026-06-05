@@ -50,6 +50,16 @@ tags:
         </div>
       </div>
       <div class='ctrl ctrl-inline'>
+        <span>repeat (physical)</span>
+        <div class='ctrl-inline-row'>
+          <input id='girard-physical-repeat' type='number' value='24' min='0.1' max='999' step='0.1' />
+          <select id='girard-physical-unit'>
+            <option value='in'>in</option>
+            <option value='cm'>cm</option>
+          </select>
+        </div>
+      </div>
+      <div class='ctrl ctrl-inline'>
         <span>surround veil</span>
         <div class='ctrl-inline-row'>
           <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.2' />

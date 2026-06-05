@@ -251,6 +251,13 @@ const defaultPattern = () => ({
   exportWidth: 1024,
   exportFlatten: false,
   exportBackground: '#ffffff',
+  // Physical size of one repeat. Pixels are the rendering unit; this
+  // is the printed scale of one tile. Used by the units overlay and
+  // by features that need real-world scale (yardage preview, future
+  // bleed marks). Unit defaults to inches — most US textile work —
+  // and 24 in is a fair default repeat for upholstery / drapery.
+  physicalRepeat: 24,
+  physicalUnit: 'in',
   layers: [
     makeLayer('solid'),
   ],
@@ -6458,6 +6465,8 @@ function mount() {
   const repeat    = document.getElementById('girard-repeat');
   const aspectW   = document.getElementById('girard-aspect-w');
   const aspectH   = document.getElementById('girard-aspect-h');
+  const physRepeat = document.getElementById('girard-physical-repeat');
+  const physUnit   = document.getElementById('girard-physical-unit');
   const veil      = document.getElementById('girard-veil');
   const sampleSel = document.getElementById('girard-sample');
   const loadBtn   = document.getElementById('girard-load-sample');
@@ -6557,6 +6566,7 @@ function mount() {
     pattern.aspectH = h;
     pattern.aspect = w / h;
     rerenderSvg();
+    refreshPhysicalOverlay();
   };
   if (aspectW) aspectW.addEventListener('input', syncAspect);
   if (aspectH) aspectH.addEventListener('input', syncAspect);
@@ -6572,6 +6582,52 @@ function mount() {
       else        { aspectW.value = 1; aspectH.value = Math.round((1 / a) * 10) / 10; }
     }
   }
+
+  // Physical repeat: drives the units overlay (W × H in the chosen
+  // unit) and is the foundation for the yardage preview / bleed marks.
+  // Pixel rendering is independent — this is a "what does it print as"
+  // declaration.
+  const refreshPhysicalOverlay = () => {
+    if (!stage) return;
+    let overlay = stage.querySelector('.girard-units-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.className = 'girard-units-overlay';
+      stage.appendChild(overlay);
+    }
+    const w = Number(pattern.physicalRepeat) || 0;
+    const aspect = pattern.aspect || 1;
+    const h = w / aspect;
+    const u = pattern.physicalUnit || 'in';
+    const fmt = (v) => (Math.round(v * 100) / 100).toString();
+    overlay.textContent = `${fmt(w)} × ${fmt(h)} ${u}`;
+  };
+  if (physRepeat) {
+    physRepeat.value = pattern.physicalRepeat;
+    physRepeat.addEventListener('input', () => {
+      pattern.physicalRepeat = Math.max(0.1, Number(physRepeat.value) || 0);
+      refreshPhysicalOverlay();
+    });
+  }
+  if (physUnit) {
+    physUnit.value = pattern.physicalUnit;
+    physUnit.addEventListener('change', () => {
+      // Convert the stored value when switching units so the printed
+      // size stays the same, not the number.
+      const prev = pattern.physicalUnit;
+      const next = physUnit.value;
+      if (prev !== next) {
+        const factor = (prev === 'in' && next === 'cm') ? 2.54
+                    : (prev === 'cm' && next === 'in') ? (1 / 2.54)
+                    : 1;
+        pattern.physicalRepeat = Math.round(pattern.physicalRepeat * factor * 100) / 100;
+        pattern.physicalUnit = next;
+        if (physRepeat) physRepeat.value = pattern.physicalRepeat;
+      }
+      refreshPhysicalOverlay();
+    });
+  }
+  refreshPhysicalOverlay();
 
   veil.addEventListener('input', () => {
     pattern.surroundVeil = Number(veil.value);
