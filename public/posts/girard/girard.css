@@ -20,9 +20,14 @@
 #girard-stage-wrap        { order: 3; display: flex; flex-direction: column; gap: 8px; align-items: stretch; }
 #girard-stage-tools {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
+  background: #f3f3f3;
+  border: 1px solid #e5e5e5;
+  padding: 8px 12px;
+  margin-top: 8px;
 }
 #girard-stage-tools .stage-veil {
   display: inline-flex;
