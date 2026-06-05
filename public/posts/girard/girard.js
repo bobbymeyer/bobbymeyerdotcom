@@ -5707,16 +5707,21 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
     const renderSwatches = () => {
       wrap.replaceChildren();
       const list = layer.palette || [];
+      // Per-row sync callbacks: keep the swatch picker and number cells
+      // in step with `layer.palette[i]` without tearing down DOM. Built
+      // by the row builder below; called by `update` instead of
+      // re-rendering the whole table — which would destroy the native
+      // colour picker the user is currently dragging in.
+      const rowSyncs = [];
 
       const update = (i, hex, alpha) => {
         const c = parseColor(list[i]);
         const next = parseColor(hex);
         next.a = alpha != null ? alpha : c.a;
-        const arr = [...(layer.palette || [])];
-        arr[i] = formatColor(next);
-        layer.palette = arr;
+        list[i] = formatColor(next);
+        layer.palette = list;
+        if (rowSyncs[i]) rowSyncs[i](list[i]);
         onChange();
-        renderSwatches();
       };
       const hexOf = (c) => {
         const x = parseColor(c);
@@ -5744,7 +5749,6 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
         // Body — one row per palette entry.
         const tbody = document.createElement('tbody');
         list.forEach((color, i) => {
-          const rgba = parseColor(color);
           const tr = document.createElement('tr');
 
           // Swatch is a real <input type="color"> so the native picker opens.
@@ -5758,68 +5762,104 @@ function buildConfigForm(host, layer, onChange, opts = {}) {
           tr.appendChild(swatchTd);
 
           // sRGB mode: R / G / B / A number inputs.
-          if (!isCmyk) for (const axis of ['r', 'g', 'b', 'a']) {
-            const td = document.createElement('td');
-            const inp = document.createElement('input');
-            inp.type = 'number';
-            inp.min = 0;
-            inp.max = axis === 'a' ? 1 : 255;
-            inp.step = axis === 'a' ? 0.05 : 1;
-            inp.value = axis === 'a' ? rgba.a : rgba[axis];
-            inp.addEventListener('input', () => {
-              const v = Number(inp.value);
-              const clamped = axis === 'a' ? Math.max(0, Math.min(1, v)) : Math.max(0, Math.min(255, v));
-              const next = { ...rgba, [axis]: clamped };
-              const arr = [...(layer.palette || [])];
-              arr[i] = formatColor(next);
-              layer.palette = arr;
-              onChange();
-              renderSwatches();
-            });
-            td.appendChild(inp);
-            tr.appendChild(td);
+          const rgbInputs = {};
+          if (!isCmyk) {
+            const initRgba = parseColor(color);
+            for (const axis of ['r', 'g', 'b', 'a']) {
+              const td = document.createElement('td');
+              const inp = document.createElement('input');
+              inp.type = 'number';
+              inp.min = 0;
+              inp.max = axis === 'a' ? 1 : 255;
+              inp.step = axis === 'a' ? 0.05 : 1;
+              inp.value = axis === 'a' ? initRgba.a : initRgba[axis];
+              inp.addEventListener('input', () => {
+                const v = Number(inp.value);
+                const clamped = axis === 'a' ? Math.max(0, Math.min(1, v)) : Math.max(0, Math.min(255, v));
+                const cur = parseColor(list[i]);
+                const next = { ...cur, [axis]: clamped };
+                list[i] = formatColor(next);
+                layer.palette = list;
+                if (rowSyncs[i]) rowSyncs[i](list[i], inp);
+                onChange();
+              });
+              td.appendChild(inp);
+              tr.appendChild(td);
+              rgbInputs[axis] = inp;
+            }
           }
 
           // CMYK mode: C / M / Y / K inputs replace the RGBA columns.
-          const cmyk = isCmyk ? hexToCmyk(formatColor(rgba)) : null;
+          const cmykInputs = {};
           if (isCmyk) {
+            const cmykInit = hexToCmyk(formatColor(parseColor(color)));
             for (const axis of ['c', 'm', 'y', 'k']) {
               const td = document.createElement('td');
               const inp = document.createElement('input');
               inp.type = 'number';
               inp.min = 0; inp.max = 100; inp.step = 1;
-              inp.value = Math.round(cmyk[axis] * 100);
+              inp.value = Math.round(cmykInit[axis] * 100);
               inp.addEventListener('input', () => {
-                cmyk[axis] = Math.max(0, Math.min(100, Number(inp.value) || 0)) / 100;
-                const { r, g, b } = cmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
-                const arr = [...(layer.palette || [])];
-                arr[i] = formatColor({ r, g, b, a: rgba.a });
-                layer.palette = arr;
+                const cur = parseColor(list[i]);
+                const cmykCur = hexToCmyk(formatColor(cur));
+                cmykCur[axis] = Math.max(0, Math.min(100, Number(inp.value) || 0)) / 100;
+                const { r, g, b } = cmykToRgb(cmykCur.c, cmykCur.m, cmykCur.y, cmykCur.k);
+                list[i] = formatColor({ r, g, b, a: cur.a });
+                layer.palette = list;
+                if (rowSyncs[i]) rowSyncs[i](list[i], inp);
                 onChange();
-                renderSwatches();
               });
               td.appendChild(inp);
               tr.appendChild(td);
+              cmykInputs[axis] = inp;
             }
           }
           // Gamut ΔE: how far the colour sits outside printable CMYK.
           // Computed as the RGB-distance of the round-trip sRGB→CMYK→sRGB.
           // Values are bucketed into in-gamut / borderline / out-of-gamut.
+          let gamutTd = null;
           if (colorMode === 'cmyk' && iccProfiler.loaded) {
-            const back = profileCmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k, iccProfile);
-            const dE = Math.hypot(rgba.r - back.r, rgba.g - back.g, rgba.b - back.b);
-            const td = document.createElement('td');
-            td.className = 'palette-gamut ' + (dE > 12 ? 'oog' : dE > 5 ? 'edge' : 'inside');
-            td.textContent = dE.toFixed(0);
-            td.title = dE > 12
-              ? `Out of gamut (ΔE ≈ ${dE.toFixed(1)}): will desaturate / shift hue on press.`
-              : dE > 5
-              ? `Near gamut edge (ΔE ≈ ${dE.toFixed(1)}): minor shift on press.`
-              : `In gamut (ΔE ≈ ${dE.toFixed(1)}).`;
-            tr.appendChild(td);
+            gamutTd = document.createElement('td');
+            tr.appendChild(gamutTd);
           }
+          // In-place sync: rebuild the row's display values from the
+          // current colour, but skip the input the user is editing so
+          // their cursor / drag doesn't get yanked.
+          const syncRow = (newColor, skipInput) => {
+            const rgba = parseColor(newColor);
+            if (picker !== skipInput) picker.value = hexOf(newColor);
+            if (!isCmyk) {
+              for (const axis of ['r', 'g', 'b', 'a']) {
+                if (rgbInputs[axis] !== skipInput) {
+                  rgbInputs[axis].value = axis === 'a' ? rgba.a : rgba[axis];
+                }
+              }
+            } else {
+              const cmykNow = hexToCmyk(formatColor(rgba));
+              for (const axis of ['c', 'm', 'y', 'k']) {
+                if (cmykInputs[axis] !== skipInput) {
+                  cmykInputs[axis].value = Math.round(cmykNow[axis] * 100);
+                }
+              }
+            }
+            if (gamutTd) {
+              const cmykNow = hexToCmyk(formatColor(rgba));
+              const back = profileCmykToRgb(cmykNow.c, cmykNow.m, cmykNow.y, cmykNow.k, iccProfile);
+              const dE = Math.hypot(rgba.r - back.r, rgba.g - back.g, rgba.b - back.b);
+              gamutTd.className = 'palette-gamut ' + (dE > 12 ? 'oog' : dE > 5 ? 'edge' : 'inside');
+              gamutTd.textContent = dE.toFixed(0);
+              gamutTd.title = dE > 12
+                ? `Out of gamut (ΔE ≈ ${dE.toFixed(1)}): will desaturate / shift hue on press.`
+                : dE > 5
+                ? `Near gamut edge (ΔE ≈ ${dE.toFixed(1)}): minor shift on press.`
+                : `In gamut (ΔE ≈ ${dE.toFixed(1)}).`;
+            }
+          };
+          rowSyncs[i] = syncRow;
+          syncRow(color);   // initial gamut paint
 
-          // Remove button.
+          // Remove button — full re-render is fine here since the row
+          // count changes.
           const rmTd = document.createElement('td');
           const rm = document.createElement('button');
           rm.type = 'button';
