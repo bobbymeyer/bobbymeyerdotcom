@@ -433,6 +433,156 @@ const PALETTE_SCHEMES = {
   },
 };
 
+// Same schemes expressed as relationship deltas — the new palette
+// spec model uses these directly so a scheme written as "+120°" stays
+// "+120°" when the base changes. PALETTE_SCHEMES above keeps the
+// hex-array form for the legacy generator UI until it's torn down.
+const PALETTE_SCHEME_DELTAS = {
+  mono: (n) => Array.from({ length: n }, (_, i) => {
+    const t = n > 1 ? (i + 1) / (n + 1) : 0.5;
+    return { dL: 0.45 - t * 0.9, dC: 0, dH: 0 };
+  }),
+  analogous: (n) => Array.from({ length: n }, (_, i) => {
+    const t = n > 1 ? (i + 1) / (n + 1) : 0.5;
+    return { dL: 0, dC: 0, dH: (t - 0.5) * 60 };
+  }),
+  complement: (n) => Array.from({ length: n }, (_, i) => ({
+    dL: (((i % 4) - 1.5) / 1.5) * 0.18,
+    dC: 0,
+    dH: i % 2 === 0 ? 180 : 0,
+  })),
+  split: (n) => {
+    const hues = [150, 210, 0];
+    return Array.from({ length: n }, (_, i) => ({ dL: 0, dC: 0, dH: hues[i % 3] }));
+  },
+  triad: (n) => {
+    const hues = [120, 240, 0];
+    return Array.from({ length: n }, (_, i) => ({ dL: 0, dC: 0, dH: hues[i % 3] }));
+  },
+  square: (n) => {
+    const hues = [90, 180, 270, 0];
+    return Array.from({ length: n }, (_, i) => ({ dL: 0, dC: 0, dH: hues[i % 4] }));
+  },
+  tonal: (n) => Array.from({ length: n }, (_, i) => {
+    const t = n > 1 ? (i + 1) / (n + 1) : 0.5;
+    return { dL: (Math.sin(t * Math.PI) - 0.5) * 0.1, dC: -0.05, dH: (t - 0.5) * 30 };
+  }),
+  'value-ramp': (n) => Array.from({ length: n }, (_, i) => {
+    const t = n > 1 ? (i + 1) / (n + 1) : 0.5;
+    return { dL: 0.4 - t * 0.8, dC: 0, dH: 0 };
+  }),
+  'hue-ramp': (n) => Array.from({ length: n }, (_, i) =>
+    ({ dL: 0, dC: 0, dH: ((i + 1) * 360 / (n + 1)) % 360 })
+  ),
+};
+
+// ---------- Parametric palette spec + colorway resolution ----------
+// A palette splits in two: paletteSpec carries the *shape* — which
+// role names exist, which swatches track the base via OKLCH deltas,
+// which are anchored to a literal hex — and pattern.colorways[name]
+// is one { base, overrides } pair in that shape. Switching colorway
+// changes the base (tracked swatches recompute) and applies per-
+// colorway anchored overrides for the literal ones.
+const DEFAULT_PALETTE_ROLES = ['base', 'ground', 'accent-1', 'accent-2', 'ink', 'highlight'];
+
+// Resolve one swatch entry to a hex code given the current base in
+// OKLCH and the active colorway's anchored overrides.
+function resolveSwatch(swatch, baseOklch, overrides) {
+  if (swatch.kind === 'base') return oklchToHex(...baseOklch);
+  if (swatch.kind === 'abs') {
+    const v = overrides && overrides[swatch.role];
+    return v || swatch.hex || '#888888';
+  }
+  const L = Math.max(0, Math.min(1, baseOklch[0] + (swatch.dL || 0)));
+  const C = Math.max(0, Math.min(0.4, baseOklch[1] + (swatch.dC || 0)));
+  const H = ((baseOklch[2] + (swatch.dH || 0)) % 360 + 360) % 360;
+  return oklchToHex(L, C, H);
+}
+
+function resolvePalette(pattern) {
+  const spec = pattern.paletteSpec;
+  if (!spec || !spec.swatches || !spec.swatches.length) {
+    return { hexes: pattern.palette || [], byRole: {} };
+  }
+  const cwName = pattern.activeColorway || pattern.colorway || Object.keys(pattern.colorways || {})[0];
+  const cw = (pattern.colorways && pattern.colorways[cwName]) || { base: '#888888', overrides: {} };
+  // Old colorways stored as a hex array fall through harmlessly: we
+  // treat the array's first entry as the base and ignore the rest.
+  const base = Array.isArray(cw) ? (cw[0] || '#888888') : (cw.base || '#888888');
+  const overrides = (cw && !Array.isArray(cw) && cw.overrides) || {};
+  const baseOklch = hexToOklch(base);
+  const hexes = [];
+  const byRole = {};
+  for (const sw of spec.swatches) {
+    const hex = resolveSwatch(sw, baseOklch, overrides);
+    hexes.push(hex);
+    if (sw.role) byRole[sw.role] = hex;
+  }
+  return { hexes, byRole };
+}
+
+function refreshPaletteFromSpec(pattern) {
+  if (!pattern.paletteSpec) return;
+  const { hexes } = resolvePalette(pattern);
+  pattern.palette = hexes;
+}
+
+// Infer a paletteSpec from a hex array — first colour = base; rest
+// get OKLCH deltas (tracked) or anchored hex fallback when the delta
+// is "messy" (very low chroma, extreme lightness jump). Roles are
+// assigned by lightness extremes (lightest → ground, darkest → ink)
+// then sequentially as accent-1, accent-2, …
+function inferPaletteSpec(hexes) {
+  const list = (hexes || []).filter(Boolean);
+  if (list.length === 0) return { swatches: [{ role: 'base', kind: 'base' }] };
+  const [bL, bC, bH] = hexToOklch(list[0]);
+  const rest = list.slice(1);
+  if (rest.length === 0) return { swatches: [{ role: 'base', kind: 'base' }] };
+  const meta = rest.map((hex, i) => {
+    const [L, C, H] = hexToOklch(hex);
+    let dH = H - bH;
+    if (dH > 180) dH -= 360;
+    if (dH < -180) dH += 360;
+    return { hex, i, L, C, H, dL: L - bL, dC: C - bC, dH };
+  });
+  let lightestIdx = 0, darkestIdx = 0;
+  for (let i = 1; i < meta.length; i++) {
+    if (meta[i].L > meta[lightestIdx].L) lightestIdx = i;
+    if (meta[i].L < meta[darkestIdx].L) darkestIdx = i;
+  }
+  const swatches = [{ role: 'base', kind: 'base' }];
+  let accentN = 0;
+  for (const m of meta) {
+    let role;
+    if (m.i === lightestIdx && m.L > bL + 0.12) role = 'ground';
+    else if (m.i === darkestIdx && m.L < bL - 0.12) role = 'ink';
+    else { accentN++; role = `accent-${accentN}`; }
+    const lowSat = m.C < 0.04;
+    const isAnchored = lowSat || (Math.abs(m.dL) > 0.45);
+    if (isAnchored) swatches.push({ role, kind: 'abs', hex: m.hex });
+    else swatches.push({ role, kind: 'rel', dL: m.dL, dC: m.dC, dH: m.dH });
+  }
+  return { swatches };
+}
+
+// Given a spec and a map of {name → hex array}, produce the new
+// colorway entries {name → { base, overrides }}. Tracked swatches
+// share the spec's delta across colorways; anchored swatches get
+// per-colorway hex overrides pulled from each array's matching slot.
+function buildColorways(spec, namedHexArrays) {
+  const colorways = {};
+  for (const [name, hexes] of Object.entries(namedHexArrays)) {
+    const base = (hexes && hexes[0]) || '#888888';
+    const overrides = {};
+    for (let i = 1; i < spec.swatches.length; i++) {
+      const sw = spec.swatches[i];
+      if (sw.kind === 'abs' && hexes[i]) overrides[sw.role] = hexes[i];
+    }
+    colorways[name] = { base, overrides };
+  }
+  return colorways;
+}
+
 // Per-profile parameters governing K generation, total ink limit, and
 // black-point offset. Values picked to roughly match published TVI
 // (tone value increase) and TAC behaviour for each profile.
