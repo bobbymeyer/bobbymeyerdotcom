@@ -530,6 +530,36 @@ function refreshPaletteFromSpec(pattern) {
   pattern.palette = hexes;
 }
 
+// Normalise a colour string to a #rrggbb key for role matching, or ''
+// for anything that isn't a plain six-digit hex (transparent, rgba(),
+// short hex). Non-hex slots stay literal — we never bind them to a role.
+function normHex(c) {
+  return typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) ? c.toLowerCase() : '';
+}
+
+// Render-time map of role → resolved hex for the active colourway. Set
+// by buildTileGroup each draw (mirrors _currentCustomShapes) so layer
+// palettes can bind slots to project roles and follow colourway swaps
+// without threading byRole through every render signature.
+let _currentByRole = {};
+
+// Resolve a layer's effective palette for the current draw. A layer
+// with no palette of its own inherits the parent palette. A layer that
+// carries paletteRoles binds each slot to a project role (so it tracks
+// colourway changes); a slot with no role — or whose role is absent
+// from the active colourway — falls back to the layer's literal hex.
+function resolveLayerPalette(layer, parentPalette) {
+  const list = layer.palette;
+  if (!list || !list.length) return parentPalette;
+  const roles = layer.paletteRoles;
+  if (!roles || !roles.length) return list;
+  return list.map((hex, i) => {
+    const role = roles[i];
+    if (role && _currentByRole[role] != null) return _currentByRole[role];
+    return hex;
+  });
+}
+
 // Infer a paletteSpec from a hex array — first colour = base; rest
 // get OKLCH deltas (tracked) or anchored hex fallback when the delta
 // is "messy" (very low chroma, extreme lightness jump). Roles are
@@ -2311,18 +2341,42 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'fruit')
         || (l.fill?.kind === 'slant');
   };
+  // Infer the colour roles for this sample once, so both the copied
+  // palettes and any hand-authored layer palettes can bind their slots
+  // to roles (base / ground / accent-N / ink) and follow colourway
+  // swaps instead of staying pinned to literal hexes.
+  const sampleSpec = sample.palette ? inferPaletteSpec(sample.palette) : null;
+  const roleByHex = {};
+  if (sample.palette && sampleSpec) {
+    sample.palette.forEach((hex, i) => {
+      const role = sampleSpec.swatches[i] && sampleSpec.swatches[i].role;
+      const key = normHex(hex);
+      if (role && key && !(key in roleByHex)) roleByHex[key] = role;
+    });
+  }
+  // Tag each palette slot with the role its colour maps to (recursing
+  // into nested `layer` fills). Slots whose colour isn't a project
+  // role — transparents, one-off hexes — stay null and render literal.
+  const bindRoles = (l) => {
+    if (!l) return;
+    if (l.palette && l.palette.length) {
+      l.paletteRoles = l.palette.map(h => roleByHex[normHex(h)] || null);
+    }
+    if (l.fill && l.fill.layer) bindRoles(l.fill.layer);
+  };
   if (sample.palette) {
     for (const l of layers) {
       if (usesPalette(l) && !l.palette) l.palette = [...sample.palette];
     }
   }
+  for (const l of layers) bindRoles(l);
   if (clear) {
     const baseP = defaultPattern();
     const hexes = sample.palette || baseP.palette;
     // Rebuild the spec around the sample's colour list so each
     // sample picks up a coherent base + tracked accents instead of
     // a flat hex array.
-    const spec = inferPaletteSpec(hexes);
+    const spec = sampleSpec || inferPaletteSpec(hexes);
     const colorways = buildColorways(spec, { main: hexes });
     const next = {
       ...baseP,
@@ -3037,6 +3091,7 @@ function tileDims(pattern) {
 
 function buildTileGroup(pattern) {
   _currentCustomShapes = pattern.customShapes || {};
+  _currentByRole = resolvePalette(pattern).byRole || {};
   const { w, h } = tileDims(pattern);
   const root = el('g');
   // Solo: when any layer is solo'd, only solo'd layers render.
@@ -3095,7 +3150,7 @@ function renderLayer(parent, layer, x, y, w, h, parentPalette, rngSeed) {
   }
   parent.appendChild(group);
 
-  const palette = layer.palette && layer.palette.length ? layer.palette : parentPalette;
+  const palette = resolveLayerPalette(layer, parentPalette);
   const rng = makeRng(rngSeed);
   const { cols, rows, rowWeights, colWeights,
           offset = { x: 0, y: 0 }, offsetMode = 'none' } = layer.grid;
@@ -6620,12 +6675,20 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
       // colour picker the user is currently dragging in.
       const rowSyncs = [];
 
+      // A manual edit detaches that slot from its project role so the
+      // hand-picked colour wins at render instead of the colourway's
+      // role colour (mirrors the swatch grid's tracked → anchored move).
+      const unbindRole = (i) => {
+        if (layer.paletteRoles) layer.paletteRoles[i] = null;
+      };
+
       const update = (i, hex, alpha) => {
         const c = parseColor(list[i]);
         const next = parseColor(hex);
         next.a = alpha != null ? alpha : c.a;
         list[i] = formatColor(next);
         layer.palette = list;
+        unbindRole(i);
         if (rowSyncs[i]) rowSyncs[i](list[i]);
         onChange();
       };
@@ -6686,6 +6749,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
                 const next = { ...cur, [axis]: clamped };
                 list[i] = formatColor(next);
                 layer.palette = list;
+                unbindRole(i);
                 if (rowSyncs[i]) rowSyncs[i](list[i], inp);
                 onChange();
               });
@@ -6712,6 +6776,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
                 const { r, g, b } = cmykToRgb(cmykCur.c, cmykCur.m, cmykCur.y, cmykCur.k);
                 list[i] = formatColor({ r, g, b, a: cur.a });
                 layer.palette = list;
+                unbindRole(i);
                 if (rowSyncs[i]) rowSyncs[i](list[i], inp);
                 onChange();
               });
@@ -6774,6 +6839,9 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
           rm.title = 'remove colour';
           rm.addEventListener('click', () => {
             layer.palette = (layer.palette || []).filter((_, j) => j !== i);
+            if (layer.paletteRoles) {
+              layer.paletteRoles = layer.paletteRoles.filter((_, j) => j !== i);
+            }
             renderSwatches();
             onChange();
           });
@@ -6792,6 +6860,8 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
       add.textContent = '+';
       add.addEventListener('click', () => {
         layer.palette = [...(layer.palette || []), '#888888'];
+        // Keep the role map index-aligned; a fresh swatch is literal.
+        if (layer.paletteRoles) layer.paletteRoles.push(null);
         renderSwatches();
         onChange();
       });
@@ -7874,6 +7944,16 @@ function mount() {
             delete c.overrides[sw.role];
           }
         }
+        // Re-point any layer palette slots bound to the old role name
+        // (recursing into nested `layer` fills) so they keep tracking.
+        const repointRoles = (l) => {
+          if (!l) return;
+          if (l.paletteRoles) {
+            l.paletteRoles = l.paletteRoles.map(r => r === sw.role ? trimmed : r);
+          }
+          if (l.fill && l.fill.layer) repointRoles(l.fill.layer);
+        };
+        pattern.layers.forEach(repointRoles);
         sw.role = trimmed;
         refreshPaletteFromSpec(pattern);
         renderSwatchGrid();
