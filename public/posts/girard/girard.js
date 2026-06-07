@@ -8234,26 +8234,32 @@ function mount() {
       const gen = PALETTE_SCHEME_DELTAS[scheme];
       if (!gen) return;
       const deltas = gen(n);
-      // Replace accent roles with tracked deltas from the scheme.
-      // Anchored roles (ground / ink) are preserved; extras get
-      // auto-named accent-N roles.
-      const oldSwatches = pattern.paletteSpec.swatches;
-      const baseSwatch = oldSwatches[0];
-      const next = [baseSwatch];
-      const preserved = oldSwatches.slice(1).filter(s =>
-        s.kind === 'abs' && (s.role === 'ground' || s.role === 'ink')
-      );
-      preserved.forEach(s => next.push(s));
-      let accentIdx = 1;
-      for (const d of deltas) {
-        let role;
-        while (true) {
-          role = `accent-${accentIdx++}`;
-          if (!next.some(s => s.role === role)) break;
-        }
-        next.push({ role, kind: 'rel', dL: d.dL, dC: d.dC, dH: d.dH });
+      // Recolour the ACTIVE colourway only. The scheme writes explicit
+      // colours onto each accent role, derived from this colourway's
+      // base — so other colourways are left untouched. The shared role
+      // set may grow (new accents) if the scheme asks for more than
+      // exist, but existing roles' relationships aren't rewritten.
+      const cw = activeCw();
+      const baseOklch = hexToOklch(cw.base);
+      const swatches = pattern.paletteSpec.swatches;
+      const accents = swatches.filter(s =>
+        s.kind !== 'base' && s.role !== 'ground' && s.role !== 'ink');
+      // Add tracked accent roles if the scheme needs more than we have.
+      while (accents.length < deltas.length) {
+        const d = deltas[accents.length];
+        const role = nextAccentRole();
+        const sw = { role, kind: 'rel', dL: d.dL, dC: d.dC, dH: d.dH };
+        swatches.push(sw);
+        accents.push(sw);
       }
-      pattern.paletteSpec.swatches = next;
+      cw.overrides = { ...(cw.overrides || {}) };
+      deltas.forEach((d, idx) => {
+        const sw = accents[idx];
+        const L = Math.max(0, Math.min(1, baseOklch[0] + (d.dL || 0)));
+        const C = Math.max(0, Math.min(0.4, baseOklch[1] + (d.dC || 0)));
+        const H = ((baseOklch[2] + (d.dH || 0)) % 360 + 360) % 360;
+        cw.overrides[sw.role] = oklchToHex(L, C, H);
+      });
       refreshPaletteFromSpec(pattern);
       renderColorwayMatrix();
       rerenderSvg();

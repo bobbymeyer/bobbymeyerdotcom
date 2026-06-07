@@ -89,7 +89,7 @@ tags:
       <p class='icc-status'>Rows are colour <em>roles</em>; columns are colourways. A cell you set is explicit; faint cells are auto-derived from that colourway's base. Layers paint by role, so switching colourways recolours everything.</p>
       <div id='girard-colorway-matrix' class='girard-colorway-matrix'></div>
       <details class='girard-subsection' id='girard-derive-roles'>
-        <summary>derive roles from a scheme</summary>
+        <summary>recolour active colourway from a scheme</summary>
         <div class='ctrl-row'>
           <div class='ctrl ctrl-inline'>
             <span>scheme</span>
@@ -110,7 +110,7 @@ tags:
             </div>
           </div>
         </div>
-        <p class='icc-status'>Replaces the accent roles with tracked relationships off the base. Anchored roles (ground / ink) and any explicit colourway colours are kept.</p>
+        <p class='icc-status'>Sets the active colourway's accent colours from its base. Other colourways are left alone; ground / ink are kept. Switch the active colourway to recolour a different one.</p>
       </details>
     </details>
     <details class='girard-section'>
