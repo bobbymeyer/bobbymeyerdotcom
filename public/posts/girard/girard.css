@@ -747,134 +747,60 @@ button.ctrl:hover {
    The base card has no lock / remove (it's the seed of the palette);
    tracked swatches show a delta label and an open-lock toggle;
    anchored swatches show "anchored" and a closed lock. */
-.girard-swatch-grid {
+/* ----- Colourway matrix -----
+   A grid: rows are colour roles, columns are colourways. The first
+   column is the role header (name + lock + delete); the top row is the
+   colourway header (name + delete) with an add-column "+" at the right.
+   Each interior cell is the colour that role resolves to in that
+   colourway — solid border = explicit (hand-set), dashed/faded = auto
+   (derived from the colourway's base). gridTemplateColumns is set in
+   JS so the column count matches the colourways. */
+.girard-colorway-matrix {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 8px;
-}
-.swatch-card {
-  display: grid;
-  grid-template-columns: 36px 1fr auto;
-  grid-template-rows: auto auto;
-  align-items: center;
-  gap: 4px 8px;
-  padding: 6px;
-  background: #fafafa;
-  border: 1px solid #e0e0e0;
-}
-.swatch-card--base {
-  background: #f5f5f5;
-  border-color: #1a1a1a;
-}
-.swatch-card-picker {
-  grid-row: 1 / span 2;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  border: 1px solid #ccc;
-  background: none;
-  cursor: pointer;
-}
-.swatch-card-meta {
-  grid-column: 2;
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.swatch-card-role {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: lowercase;
-  color: #1a1a1a;
-  cursor: pointer;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.swatch-card--base .swatch-card-role { cursor: default; }
-.swatch-card-detail {
-  font-size: 10px;
-  color: #666;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.swatch-card-lock,
-.swatch-card-rm {
-  grid-column: 3;
-  width: 22px;
-  height: 16px;
-  font-size: 11px;
-  line-height: 1;
-  padding: 0;
-  border: none;
-  background: transparent;
-  color: #666;
-  cursor: pointer;
-}
-.swatch-card-lock { grid-row: 1; }
-.swatch-card-rm  { grid-row: 2; color: #c44; }
-.swatch-card-lock:hover { background: #eee; }
-.swatch-card-rm:hover   { background: #fee; color: #900; }
-.add-swatch-btn {
-  background: transparent !important;
-  color: #1a1a1a !important;
-  border: 1px dashed #999 !important;
+  gap: 3px;
+  align-items: stretch;
   margin-top: 4px;
 }
-.add-swatch-btn:hover { background: #f5f5f5 !important; }
-
-/* Colourways dot-strip — one circle per saved colourway, fill = its
-   base colour. Active gets a ring. Click switches; × deletes (hidden
-   on the only remaining colourway). */
-.panel-subsubheading {
-  font: inherit;
-  font-weight: 700;
-  font-size: 10px;
+.cwm-corner {
+  font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #666;
-  margin: 16px 0 6px;
+  letter-spacing: 0.08em;
+  color: #999;
+  align-self: end;
+  padding: 0 4px 3px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.girard-colorway-strip {
+.cwm-colhead {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
   align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding-bottom: 2px;
+  border-bottom: 2px solid transparent;
 }
-.colorway-dot {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 10px 4px 4px;
-  border: 1px solid #ccc;
-  border-radius: 18px;
-  background: transparent;
-  cursor: pointer;
+.cwm-colhead.is-active { border-bottom-color: #1a1a1a; }
+.cwm-colname {
+  flex: 1;
+  min-width: 0;
   font: inherit;
-}
-.colorway-dot-blob {
-  display: inline-block;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-}
-.colorway-dot.is-active {
-  border-color: #1a1a1a;
-  box-shadow: inset 0 0 0 1px #1a1a1a;
-}
-.colorway-dot-label {
   font-size: 10px;
+  font-weight: 600;
   text-transform: lowercase;
-  letter-spacing: 0.04em;
-  color: #1a1a1a;
+  letter-spacing: 0.03em;
+  text-align: left;
+  color: #555;
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.colorway-dot-rm {
-  margin-left: 4px;
+.cwm-colhead.is-active .cwm-colname { color: #1a1a1a; }
+.cwm-colrm {
   width: 14px;
   height: 14px;
   font-size: 10px;
@@ -882,14 +808,117 @@ button.ctrl:hover {
   padding: 0;
   border: none;
   background: transparent;
-  color: #999;
+  color: #bbb;
   cursor: pointer;
   opacity: 0;
   transition: opacity 80ms ease;
 }
-.colorway-dot:hover .colorway-dot-rm { opacity: 1; }
-.colorway-dot-rm:hover { color: #c44; }
-.colorway-new-row { margin-top: 8px; }
+.cwm-colhead:hover .cwm-colrm { opacity: 1; }
+.cwm-colrm:hover { color: #c44; }
+.cwm-addcol,
+.cwm-spacer {
+  width: 22px;
+}
+.cwm-addcol {
+  align-self: end;
+  height: 22px;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  border: 1px dashed #bbb;
+  background: transparent;
+  color: #555;
+  cursor: pointer;
+}
+.cwm-addcol:hover { background: #f5f5f5; border-color: #888; }
+
+/* role row header */
+.cwm-rowhead {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding-right: 4px;
+}
+.cwm-rolename {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: lowercase;
+  text-align: left;
+  color: #1a1a1a;
+  background: transparent;
+  border: none;
+  padding: 2px 0;
+  cursor: default;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cwm-rowhead--rel .cwm-rolename { cursor: pointer; }
+.cwm-rowhead--abs .cwm-rolename { cursor: pointer; }
+.cwm-rowhead--base .cwm-rolename { color: #555; }
+.cwm-lock,
+.cwm-rowrm {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+}
+.cwm-lock:hover { background: #eee; }
+.cwm-rowrm { color: #c9c9c9; }
+.cwm-rowhead:hover .cwm-rowrm { color: #c44; }
+.cwm-rowrm:hover { background: #fee; }
+
+/* colour cell */
+.cwm-cell {
+  position: relative;
+  display: block;
+  height: 26px;
+  cursor: pointer;
+  border: 1px solid #ddd;
+}
+.cwm-cell.is-explicit { border: 1px solid #1a1a1a; }
+.cwm-cell.is-auto {
+  border: 1px dashed #cfcfcf;
+  opacity: 0.6;
+}
+.cwm-cell.is-auto:hover { opacity: 0.9; }
+.cwm-cell.in-active-col { box-shadow: 0 0 0 2px rgba(26, 26, 26, 0.12); }
+.cwm-cell-picker {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+/* native colour input chrome reset so the swatch fills the cell */
+.cwm-cell-picker::-webkit-color-swatch-wrapper { padding: 0; }
+.cwm-cell-picker::-webkit-color-swatch { border: none; }
+.cwm-cell-picker::-moz-color-swatch { border: none; }
+
+.cwm-addrow {
+  margin-top: 4px;
+  padding: 5px;
+  font: inherit;
+  font-size: 11px;
+  text-align: left;
+  background: transparent;
+  color: #1a1a1a;
+  border: 1px dashed #999;
+  cursor: pointer;
+}
+.cwm-addrow:hover { background: #f5f5f5; }
 
 /* ----- Collapsible sections ----- */
 /* Native <details>/<summary> as panel sections. Summary acts as the

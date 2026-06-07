@@ -86,45 +86,32 @@ tags:
     </details>
     <details class='girard-section' open>
       <summary>palette<span class='section-hint' id='girard-palette-hint'></span></summary>
-      <div class='ctrl-row palette-base-row'>
-        <div class='ctrl ctrl-inline'>
-          <span>base</span>
-          <div class='ctrl-inline-row'>
-            <input id='girard-palette-base' type='color' value='#e94e3b' />
+      <p class='icc-status'>Rows are colour <em>roles</em>; columns are colourways. A cell you set is explicit; faint cells are auto-derived from that colourway's base. Layers paint by role, so switching colourways recolours everything.</p>
+      <div id='girard-colorway-matrix' class='girard-colorway-matrix'></div>
+      <details class='girard-subsection' id='girard-derive-roles'>
+        <summary>derive roles from a scheme</summary>
+        <div class='ctrl-row'>
+          <div class='ctrl ctrl-inline'>
+            <span>scheme</span>
+            <div class='ctrl-inline-row'>
+              <select id='girard-palette-scheme'>
+                <option value='analogous'>analogous (±30°)</option>
+                <option value='complement'>complementary</option>
+                <option value='split'>split complementary</option>
+                <option value='triad'>triadic (120°)</option>
+                <option value='square'>tetradic / square (90°)</option>
+                <option value='tonal'>tonal (muted drift)</option>
+                <option value='mono'>mono (single hue)</option>
+                <option value='value-ramp'>value ramp</option>
+                <option value='hue-ramp'>hue ramp</option>
+              </select>
+              <input id='girard-palette-count' type='number' value='4' min='1' max='15' step='1' title='accent role count' />
+              <button id='girard-palette-apply' class='ctrl-inline-btn'>apply</button>
+            </div>
           </div>
         </div>
-        <div class='ctrl ctrl-inline'>
-          <span>apply scheme</span>
-          <div class='ctrl-inline-row'>
-            <select id='girard-palette-scheme'>
-              <option value='analogous'>analogous (±30°)</option>
-              <option value='complement'>complementary</option>
-              <option value='split'>split complementary</option>
-              <option value='triad'>triadic (120°)</option>
-              <option value='square'>tetradic / square (90°)</option>
-              <option value='tonal'>tonal (muted drift)</option>
-              <option value='mono'>mono (single hue)</option>
-              <option value='value-ramp'>value ramp</option>
-              <option value='hue-ramp'>hue ramp</option>
-            </select>
-            <input id='girard-palette-count' type='number' value='4' min='1' max='15' step='1' title='accessory swatch count' />
-            <button id='girard-palette-apply' class='ctrl-inline-btn'>apply</button>
-          </div>
-        </div>
-      </div>
-      <div id='girard-swatch-grid' class='girard-swatch-grid'></div>
-      <button id='girard-add-swatch' class='ctrl-inline-btn add-swatch-btn'>+ swatch</button>
-      <h5 class='panel-subsubheading'>colourways</h5>
-      <div id='girard-colorway-strip' class='girard-colorway-strip'></div>
-      <div class='ctrl-row colorway-new-row'>
-        <div class='ctrl ctrl-inline'>
-          <span>save current as</span>
-          <div class='ctrl-inline-row'>
-            <input id='girard-colorway-name' type='text' placeholder='name' />
-            <button id='girard-colorway-save' class='ctrl-inline-btn'>save</button>
-          </div>
-        </div>
-      </div>
+        <p class='icc-status'>Replaces the accent roles with tracked relationships off the base. Anchored roles (ground / ink) and any explicit colourway colours are kept.</p>
+      </details>
     </details>
     <details class='girard-section'>
       <summary>colour<span class='section-hint' id='girard-colour-hint'></span></summary>
