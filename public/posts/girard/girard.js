@@ -6925,6 +6925,44 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         });
         table.appendChild(tbody);
         wrap.appendChild(table);
+      } else if (roleNames.length) {
+        // Inheriting: this layer has no palette of its own, so it paints
+        // with the full project palette (every role) and follows
+        // colourways. Show the roles read-only so it's clear the colours
+        // ARE applied, with a one-click way to start overriding per slot.
+        const note = document.createElement('p');
+        note.className = 'icc-status';
+        note.textContent = 'Using the full project palette — every role, follows colourways.';
+        wrap.appendChild(note);
+        const strip = document.createElement('div');
+        strip.className = 'palette-inherit-strip';
+        for (const r of roleNames) {
+          const chip = document.createElement('span');
+          chip.className = 'palette-inherit-chip';
+          chip.title = `${r}: ${byRole[r] || ''}`;
+          const sw = document.createElement('span');
+          sw.className = 'palette-inherit-sw';
+          sw.style.background = byRole[r] || '#888';
+          const lab = document.createElement('span');
+          lab.className = 'palette-inherit-label';
+          lab.textContent = r;
+          chip.appendChild(sw);
+          chip.appendChild(lab);
+          strip.appendChild(chip);
+        }
+        wrap.appendChild(strip);
+        const customise = document.createElement('button');
+        customise.type = 'button';
+        customise.className = 'swatch-add';
+        customise.textContent = 'customise (copy roles)';
+        customise.title = 'Give this layer its own slots — one per role — so you can rebind or override them';
+        customise.addEventListener('click', () => {
+          layer.palette = roleNames.map(r => byRole[r] || '#888888');
+          layer.paletteRoles = [...roleNames];
+          renderSwatches();
+          onChange();
+        });
+        wrap.appendChild(customise);
       }
 
       const add = document.createElement('button');
@@ -7999,6 +8037,35 @@ function mount() {
     if (pattern.activeColorway === oldName) pattern.activeColorway = trimmed;
   };
 
+  // Full resync after a matrix mutation: recompute the active palette,
+  // repaint the matrix, and rebuild the stage + layer panel so a layer's
+  // role-bound swatches track the active colourway too.
+  const commit = () => {
+    refreshPaletteFromSpec(pattern);
+    renderColorwayMatrix();
+    rerenderUI();
+  };
+
+  // Drag-reorder. Colourways are object keys (rebuilt in new order);
+  // roles are the swatches array (base stays pinned at index 0).
+  const reorderColorways = (from, to) => {
+    if (from === to) return;
+    const names = Object.keys(pattern.colorways);
+    if (from < 0 || to < 0 || from >= names.length || to >= names.length) return;
+    const [m] = names.splice(from, 1);
+    names.splice(to, 0, m);
+    const rebuilt = {};
+    for (const n of names) rebuilt[n] = pattern.colorways[n];
+    pattern.colorways = rebuilt;
+  };
+  const reorderRoles = (from, to) => {
+    if (from === to || from === 0 || to === 0) return;
+    const arr = pattern.paletteSpec.swatches;
+    if (from < 1 || to < 1 || from >= arr.length || to >= arr.length) return;
+    const [m] = arr.splice(from, 1);
+    arr.splice(to, 0, m);
+  };
+
   const renderColorwayMatrix = () => {
     if (!matrixEl) return;
     ensurePaletteSpec();
@@ -8006,35 +8073,62 @@ function mount() {
     const swatches = pattern.paletteSpec.swatches;
     const names = Object.keys(pattern.colorways);
     matrixEl.style.gridTemplateColumns =
-      `minmax(96px, 1.3fr) repeat(${names.length}, minmax(40px, 1fr)) auto`;
+      `minmax(104px, 1.3fr) repeat(${names.length}, minmax(40px, 1fr)) auto`;
+
+    // Drag-reorder wiring shared by row + column headers. `spec` carries
+    // { kind:'col'|'row', i }. dragover marks a drop target; drop reorders.
+    const makeDraggable = (el, spec) => {
+      el.draggable = true;
+      el.classList.add('cwm-draggable');
+      el.addEventListener('dragstart', (e) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', JSON.stringify(spec));
+      });
+      el.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        el.classList.add('cwm-drop-target');
+      });
+      el.addEventListener('dragleave', () => el.classList.remove('cwm-drop-target'));
+      el.addEventListener('drop', (e) => {
+        e.preventDefault();
+        el.classList.remove('cwm-drop-target');
+        let from;
+        try { from = JSON.parse(e.dataTransfer.getData('text/plain')); } catch { return; }
+        if (!from || from.kind !== spec.kind) return;
+        if (spec.kind === 'col') reorderColorways(from.i, spec.i);
+        else reorderRoles(from.i, spec.i);
+        commit();
+      });
+    };
 
     // -- header row: corner + one head per colourway + add-column --
     const corner = document.createElement('div');
     corner.className = 'cwm-corner';
-    corner.textContent = 'role · way';
+    corner.textContent = 'roles \\ ways';
     matrixEl.appendChild(corner);
 
-    names.forEach((name) => {
+    names.forEach((name, ci) => {
       const head = document.createElement('div');
       head.className = 'cwm-colhead' + (name === pattern.activeColorway ? ' is-active' : '');
+      makeDraggable(head, { kind: 'col', i: ci });
       const label = document.createElement('button');
       label.type = 'button';
       label.className = 'cwm-colname';
       label.textContent = name;
       label.title = name === pattern.activeColorway
-        ? `${name} (active) — double-click to rename`
-        : `${name} — click to make active · double-click to rename`;
+        ? `${name} (active) — double-click to rename · drag to reorder`
+        : `${name} — click to make active · double-click to rename · drag to reorder`;
       label.addEventListener('click', () => {
+        if (name === pattern.activeColorway) return;
         pattern.activeColorway = name;
-        refreshPaletteFromSpec(pattern);
-        renderColorwayMatrix();
-        rerenderSvg();
+        commit();
       });
       label.addEventListener('dblclick', () => {
         const next = prompt(`Rename colourway "${name}":`, name);
         if (next == null) return;
         renameColorway(name, next.trim());
-        renderColorwayMatrix();
+        commit();
       });
       head.appendChild(label);
       if (names.length > 1) {
@@ -8048,9 +8142,7 @@ function mount() {
           if (pattern.activeColorway === name) {
             pattern.activeColorway = Object.keys(pattern.colorways)[0];
           }
-          refreshPaletteFromSpec(pattern);
-          renderColorwayMatrix();
-          rerenderSvg();
+          commit();
         });
         head.appendChild(rm);
       }
@@ -8067,9 +8159,7 @@ function mount() {
       const name = uniqueColorwayName();
       pattern.colorways[name] = { base: cur.base, overrides: { ...(cur.overrides || {}) } };
       pattern.activeColorway = name;
-      refreshPaletteFromSpec(pattern);
-      renderColorwayMatrix();
-      rerenderSvg();
+      commit();
     });
     matrixEl.appendChild(addCol);
 
@@ -8077,6 +8167,7 @@ function mount() {
     swatches.forEach((sw, i) => {
       const rh = document.createElement('div');
       rh.className = 'cwm-rowhead cwm-rowhead--' + sw.kind;
+      if (i > 0) makeDraggable(rh, { kind: 'row', i });
       const rlabel = document.createElement('button');
       rlabel.type = 'button';
       rlabel.className = 'cwm-rolename';
@@ -8085,14 +8176,12 @@ function mount() {
         rlabel.disabled = true;
         rlabel.title = 'base — the colour each colourway is built from';
       } else {
-        rlabel.title = 'double-click to rename role';
+        rlabel.title = 'double-click to rename role · drag to reorder';
         rlabel.addEventListener('dblclick', () => {
           const next = prompt(`Rename role "${sw.role}":`, sw.role);
           if (next == null) return;
           renameRole(sw, next.trim());
-          refreshPaletteFromSpec(pattern);
-          renderColorwayMatrix();
-          rerenderSvg();
+          commit();
         });
       }
       rh.appendChild(rlabel);
@@ -8126,9 +8215,7 @@ function mount() {
             sw.hex = resolved;
             delete sw.dL; delete sw.dC; delete sw.dH;
           }
-          refreshPaletteFromSpec(pattern);
-          renderColorwayMatrix();
-          rerenderSvg();
+          commit();
         });
         rh.appendChild(lock);
 
@@ -8142,9 +8229,7 @@ function mount() {
           for (const c of Object.values(pattern.colorways)) {
             if (c.overrides) delete c.overrides[sw.role];
           }
-          refreshPaletteFromSpec(pattern);
-          renderColorwayMatrix();
-          rerenderSvg();
+          commit();
         });
         rh.appendChild(rrm);
       }
@@ -8169,13 +8254,20 @@ function mount() {
         picker.type = 'color';
         picker.className = 'cwm-cell-picker';
         picker.value = resolved;
+        // Live-edit on input (no full re-render → the picker isn't torn
+        // down mid-drag); full resync on change so siblings + the layer
+        // panel catch up once the colour is committed.
         picker.addEventListener('input', () => {
           if (isBase) cw.base = picker.value;
           else cw.overrides = { ...(cw.overrides || {}), [sw.role]: picker.value };
-          if (name === pattern.activeColorway) refreshPaletteFromSpec(pattern);
-          renderColorwayMatrix();
-          rerenderSvg();
+          cell.classList.remove('is-auto');
+          cell.classList.add('is-explicit');
+          if (name === pattern.activeColorway) {
+            refreshPaletteFromSpec(pattern);
+            rerenderSvg();
+          }
         });
+        picker.addEventListener('change', commit);
         cell.appendChild(picker);
         if (!isBase) {
           // Clear an override → the cell reverts to auto.
@@ -8183,9 +8275,7 @@ function mount() {
             if (!hasExplicitColor(sw, cw.overrides || {})) return;
             e.preventDefault();
             delete cw.overrides[sw.role];
-            if (name === pattern.activeColorway) refreshPaletteFromSpec(pattern);
-            renderColorwayMatrix();
-            rerenderSvg();
+            commit();
           };
           cell.addEventListener('contextmenu', clearOverride);
           cell.addEventListener('click', (e) => { if (e.altKey) clearOverride(e); });
@@ -8209,9 +8299,7 @@ function mount() {
     addRow.addEventListener('click', () => {
       const role = nextAccentRole();
       pattern.paletteSpec.swatches.push({ role, kind: 'rel', dL: 0, dC: 0, dH: 0 });
-      refreshPaletteFromSpec(pattern);
-      renderColorwayMatrix();
-      rerenderSvg();
+      commit();
     });
     matrixEl.appendChild(addRow);
 
@@ -8260,9 +8348,7 @@ function mount() {
         const H = ((baseOklch[2] + (d.dH || 0)) % 360 + 360) % 360;
         cw.overrides[sw.role] = oklchToHex(L, C, H);
       });
-      refreshPaletteFromSpec(pattern);
-      renderColorwayMatrix();
-      rerenderSvg();
+      commit();
     });
   }
 
