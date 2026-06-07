@@ -472,6 +472,28 @@ h4.config-section {
   color: #fff;
 }
 
+/* Role selector: binds a palette slot to a project colour role so the
+   slot follows colourways. A bound row dims its (now read-only) colour
+   fields — the drop-down is the control. */
+.palette-role-select {
+  font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 3px 4px;
+  border: 1px solid #ccc;
+  background: #fff;
+  max-width: 96px;
+}
+.palette-table tr.is-role-bound .palette-role-select {
+  border-color: #1a1a1a;
+}
+.palette-table tr.is-role-bound input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.palette-table tr.is-role-bound .palette-color-picker:disabled {
+  opacity: 1;             /* keep the swatch colour readable */
+  cursor: not-allowed;
+}
+
 /* Gamut ΔE indicator: small badge with a colour bucket for how far
    the colour sits outside the printable CMYK gamut. */
 .palette-gamut {

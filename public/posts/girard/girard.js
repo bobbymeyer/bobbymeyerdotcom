@@ -6449,6 +6449,10 @@ function renderLayerList(listEl, pattern, selected, handlers) {
 function buildConfigForm(rootHost, layer, onChange, opts = {}) {
   const colorMode = opts.colorMode || 'srgb';
   const iccProfile = opts.iccProfile || 'U.S. Web Coated (SWOP) v2';
+  // Project colour roles + their currently-resolved colours, so each
+  // layer palette slot can be bound to a role and follow colourways.
+  const roleNames = opts.roles || [];
+  const byRole = opts.byRole || {};
   rootHost.replaceChildren();
   // Mirror the layer's lock state onto the form so CSS can dim it
   // and block pointer events. The lock toggle itself lives on the
@@ -6707,6 +6711,35 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         return '#' + [x.r, x.g, x.b].map(v => Math.max(0, Math.min(255, v | 0)).toString(16).padStart(2, '0')).join('');
       };
 
+      // Role binding for a slot: paint elements by role so they follow
+      // colourways. `roleOf` returns the bound role (if it's a real
+      // project role) or null = literal/custom hex.
+      const ensureRolesArray = () => {
+        if (!layer.paletteRoles) layer.paletteRoles = list.map(() => null);
+        while (layer.paletteRoles.length < list.length) layer.paletteRoles.push(null);
+      };
+      const roleOf = (i) => {
+        const r = layer.paletteRoles && layer.paletteRoles[i];
+        return r && roleNames.includes(r) ? r : null;
+      };
+      const isTransparentSlot = (i) => parseColor(list[i]).a <= 0;
+      const setSlotRole = (i, choice) => {
+        ensureRolesArray();
+        if (choice === '__custom') {
+          layer.paletteRoles[i] = null;
+          if (isTransparentSlot(i)) list[i] = '#888888';
+        } else if (choice === '__transparent') {
+          layer.paletteRoles[i] = null;
+          list[i] = 'transparent';
+        } else {
+          layer.paletteRoles[i] = choice;
+          if (byRole[choice]) list[i] = byRole[choice];  // display + fallback
+        }
+        layer.palette = list;
+        renderSwatches();
+        onChange();
+      };
+
       if (list.length) {
         const table = document.createElement('table');
         table.className = 'palette-table';
@@ -6714,7 +6747,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         const thead = document.createElement('thead');
         const headRow = document.createElement('tr');
         const isCmyk = colorMode === 'cmyk';
-        const cols = isCmyk ? ['', 'C', 'M', 'Y', 'K'] : ['', 'R', 'G', 'B', 'A'];
+        const cols = isCmyk ? ['role', '', 'C', 'M', 'Y', 'K'] : ['role', '', 'R', 'G', 'B', 'A'];
         if (isCmyk && iccProfiler.loaded) cols.push('ΔE');
         cols.push('');
         for (const label of cols) {
@@ -6729,13 +6762,41 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         const tbody = document.createElement('tbody');
         list.forEach((color, i) => {
           const tr = document.createElement('tr');
+          // A slot bound to a project role is driven by the colourway,
+          // so its colour fields are read-only; the role drop-down is
+          // the control. `displayColor` is what the row shows.
+          const bound = roleOf(i);
+          if (bound) tr.className = 'is-role-bound';
+          const displayColor = bound ? (byRole[bound] || color) : color;
+
+          // Role selector: literal/custom, a project role, or transparent.
+          const roleTd = document.createElement('td');
+          const roleSel = document.createElement('select');
+          roleSel.className = 'palette-role-select';
+          const addOpt = (value, label) => {
+            const o = document.createElement('option');
+            o.value = value;
+            o.textContent = label;
+            roleSel.appendChild(o);
+          };
+          addOpt('__custom', 'custom');
+          for (const r of roleNames) addOpt(r, r);
+          addOpt('__transparent', 'transparent');
+          roleSel.value = bound ? bound : (isTransparentSlot(i) ? '__transparent' : '__custom');
+          roleSel.title = bound
+            ? `painted with role "${bound}" — follows the colourway`
+            : 'bind this slot to a colour role, or keep a custom hex';
+          roleSel.addEventListener('change', () => setSlotRole(i, roleSel.value));
+          roleTd.appendChild(roleSel);
+          tr.appendChild(roleTd);
 
           // Swatch is a real <input type="color"> so the native picker opens.
           const swatchTd = document.createElement('td');
           const picker = document.createElement('input');
           picker.type = 'color';
           picker.className = 'palette-color-picker';
-          picker.value = hexOf(color);
+          picker.value = hexOf(displayColor);
+          picker.disabled = !!bound;
           picker.addEventListener('input', () => update(i, picker.value, null));
           swatchTd.appendChild(picker);
           tr.appendChild(swatchTd);
@@ -6743,7 +6804,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
           // sRGB mode: R / G / B / A number inputs.
           const rgbInputs = {};
           if (!isCmyk) {
-            const initRgba = parseColor(color);
+            const initRgba = parseColor(displayColor);
             for (const axis of ['r', 'g', 'b', 'a']) {
               const td = document.createElement('td');
               const inp = document.createElement('input');
@@ -6752,6 +6813,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
               inp.max = axis === 'a' ? 1 : 255;
               inp.step = axis === 'a' ? 0.05 : 1;
               inp.value = axis === 'a' ? initRgba.a : initRgba[axis];
+              inp.disabled = !!bound;
               inp.addEventListener('input', () => {
                 const v = Number(inp.value);
                 const clamped = axis === 'a' ? Math.max(0, Math.min(1, v)) : Math.max(0, Math.min(255, v));
@@ -6772,13 +6834,14 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
           // CMYK mode: C / M / Y / K inputs replace the RGBA columns.
           const cmykInputs = {};
           if (isCmyk) {
-            const cmykInit = hexToCmyk(formatColor(parseColor(color)));
+            const cmykInit = hexToCmyk(formatColor(parseColor(displayColor)));
             for (const axis of ['c', 'm', 'y', 'k']) {
               const td = document.createElement('td');
               const inp = document.createElement('input');
               inp.type = 'number';
               inp.min = 0; inp.max = 100; inp.step = 1;
               inp.value = Math.round(cmykInit[axis] * 100);
+              inp.disabled = !!bound;
               inp.addEventListener('input', () => {
                 const cur = parseColor(list[i]);
                 const cmykCur = hexToCmyk(formatColor(cur));
@@ -6837,7 +6900,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
             }
           };
           rowSyncs[i] = syncRow;
-          syncRow(color);   // initial gamut paint
+          syncRow(displayColor);   // initial gamut paint
 
           // Remove button — full re-render is fine here since the row
           // count changes.
@@ -7679,6 +7742,8 @@ function mount() {
       colorMode: pattern.colorMode || 'srgb',
       iccProfile: pattern.iccProfile || 'U.S. Web Coated (SWOP) v2',
       customShapes: pattern.customShapes || {},
+      roles: (pattern.paletteSpec?.swatches || []).map(s => s.role).filter(Boolean),
+      byRole: resolvePalette(pattern).byRole || {},
     });
   };
 
