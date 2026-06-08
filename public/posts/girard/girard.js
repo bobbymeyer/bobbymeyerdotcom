@@ -517,12 +517,10 @@ function resolvePalette(pattern) {
   if (!spec || !spec.swatches || !spec.swatches.length) {
     return { hexes: pattern.palette || [], byRole: {} };
   }
-  const cwName = pattern.activeColorway || pattern.colorway || Object.keys(pattern.colorways || {})[0];
+  const cwName = pattern.activeColorway || Object.keys(pattern.colorways || {})[0];
   const cw = (pattern.colorways && pattern.colorways[cwName]) || { base: '#888888', overrides: {} };
-  // Old colorways stored as a hex array fall through harmlessly: we
-  // treat the array's first entry as the base and ignore the rest.
-  const base = Array.isArray(cw) ? (cw[0] || '#888888') : (cw.base || '#888888');
-  const overrides = (cw && !Array.isArray(cw) && cw.overrides) || {};
+  const base = cw.base || '#888888';
+  const overrides = cw.overrides || {};
   const baseOklch = hexToOklch(base);
   const hexes = [];
   const byRole = {};
@@ -744,6 +742,9 @@ const FILL_SLOT_SCHEMA = {
   voronoi: ['color'],
   manhattan: ['color'],
   triangles: ['color', 'stroke'],
+  pinwheel: ['ground'],
+  dashes: ['color'],
+  comb: ['color'],
 };
 
 // Move a fill's legacy named colour fields into labelled layer.palette
@@ -4290,8 +4291,9 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const corner = corners[mod(p + (fill.spin || 0), 4)];
       const bc = Math.floor(col / 2), br = Math.floor(row / 2);
       const color = palette[mod(bc + br, palette.length)] || fill.color || '#c0504d';
-      if (fill.ground && !isTransparent(fill.ground)) {
-        parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: fill.ground }));
+      const ground = fillSlotColor(layer, fill, fullPalette, 'ground', 'transparent');
+      if (ground && !isTransparent(ground)) {
+        parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: ground }));
       }
       if (!isTransparent(color)) drawHalfTriangle(parent, ix, iy, iw, ih, color, corner);
       break;
@@ -4590,7 +4592,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       if (crng() > (fill.density ?? 0.55)) break;
       const mark = (fill.mode === 'random' && palette.length)
         ? palette[Math.floor(crng() * palette.length)]
-        : (fill.color || palette[0] || '#d2624d');
+        : fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#d2624d');
       if (isTransparent(mark)) break;
       const w = iw * (fill.width ?? 0.5) * (0.8 + crng() * 0.5);
       const x = ix + (iw - w) / 2;
@@ -4796,7 +4798,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       if (profile === 'goo') profile = 'finger';
       if (profile === 'crown') profile = 'spearhead';
       if (profile === 'round') profile = 'drop';
-      const color = fill.colors ? fill.colors[mod(idx, fill.colors.length)] : (fill.color || palette[0] || '#888');
+      const color = fill.colors ? fill.colors[mod(idx, fill.colors.length)] : fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#888');
       const teeth = Math.max(1, at(fill.teeth, 10));
       const base = at(fill.base, 0.3);            // spine width, × band
       const duty = at(fill.duty, 0.52);           // tooth height, × period
@@ -7570,14 +7572,14 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
   } else if (layer.fill.kind === 'pinwheel') {
     const sp = addCtrl('spin (¼ turn)', 'number', layer.fill.spin ?? 0, { min: 0, max: 3, step: 1 });
     sp.addEventListener('input', () => { layer.fill.spin = Number(sp.value) | 0; onChange(); });
-    addColorCtrl('ground', layer.fill.ground ?? 'transparent', (v) => { layer.fill.ground = v; onChange(); });
+    addSlotColorCtrl('ground', 'ground', 'transparent');
   } else if (layer.fill.kind === 'multiform') {
     const dn = addCtrl('density', 'number', layer.fill.density ?? 0.82, { min: 0, max: 1, step: 0.05 });
     dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
   } else if (layer.fill.kind === 'comb' && !layer.fill.profiles) {
     const pf = addCtrl('profile', 'select', layer.fill.profile || 'square', { options: ['square', 'spear', 'spearhead', 'drop', 'finger', 'flame', 'checker', 'angle'] });
     pf.addEventListener('change', () => { layer.fill.profile = pf.value; onChange(); });
-    addColorCtrl('color', layer.fill.color || '#4a6fb0', (v) => { layer.fill.color = v; onChange(); });
+    addSlotColorCtrl('color', 'color', '#4a6fb0');
     const tt = addCtrl('teeth', 'number', layer.fill.teeth ?? 14, { min: 2, max: 40, step: 1 });
     tt.addEventListener('input', () => { layer.fill.teeth = Number(tt.value) | 0; onChange(); });
     const bs = addCtrl('base', 'number', layer.fill.base ?? 0.3, { min: 0.05, max: 0.6, step: 0.02 });
@@ -7636,7 +7638,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'random', { options: ['fixed', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'random') === 'fixed') {
-      addColorCtrl('mark', layer.fill.color || '#d2624d', (v) => { layer.fill.color = v; onChange(); });
+      addSlotColorCtrl('mark', 'color', '#d2624d');
     }
     const dn = addCtrl('density', 'number', layer.fill.density ?? 0.5, { min: 0, max: 1, step: 0.05 });
     dn.addEventListener('input', () => { layer.fill.density = Number(dn.value); onChange(); });
@@ -8831,7 +8833,7 @@ function mount() {
     }
     if (paletteHint) {
       const n = (pattern.palette || []).length;
-      paletteHint.textContent = `${n} colour${n === 1 ? '' : 's'} · ${pattern.colorway || 'main'}`;
+      paletteHint.textContent = `${n} colour${n === 1 ? '' : 's'} · ${pattern.activeColorway || 'main'}`;
     }
     if (colourHint) {
       const mode = (pattern.colorMode || 'srgb').toUpperCase();
