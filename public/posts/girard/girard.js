@@ -699,6 +699,68 @@ function collectColors(node) {
   return out;
 }
 
+// --- One colour system: a layer's colours all live in layer.palette.
+// layer.paletteLabels[i] gives a slot a semantic name ('stalk', 'leaf',
+// 'stroke', …); unlabelled slots are the cycling set. Renderers read a
+// named colour via fillSlotColor() and the cycling set via cycleColors()
+// — both resolve through the active colourway (the passed `palette` is
+// the role-resolved layer palette) and fall back to the legacy fill
+// field / whole palette when a layer hasn't been migrated. ---
+function slotIndex(layer, key) {
+  const labels = layer && layer.paletteLabels;
+  return labels ? labels.indexOf(key) : -1;
+}
+function fillSlotColor(layer, fill, palette, key, def) {
+  const i = slotIndex(layer, key);
+  if (i >= 0 && palette[i] != null) return palette[i];
+  let v = fill;                                   // legacy: dotted path
+  for (const part of key.split('.')) v = v && v[part];
+  return v != null ? v : def;
+}
+function cycleColors(layer, palette) {
+  const labels = layer && layer.paletteLabels;
+  if (!labels || !labels.length) return palette;
+  const out = palette.filter((_, i) => !labels[i]);
+  return out.length ? out : palette;
+}
+
+// Fills whose named colours can move into the layer palette without
+// disturbing a cycling set (these fills don't cycle the palette). Each
+// listed key is migrated to a labelled slot. Cycling fills (solid,
+// shape, triangles, fruit, …) are left for a follow-up since their
+// accents must coexist with the cycling set.
+const FILL_SLOT_SCHEMA = {
+  maze: ['color'],
+  stones: ['color'],
+  firecracker: ['color'],
+  grass: ['color'],
+  graph: ['stroke'],
+  honeycomb: ['stroke'],
+  windowpane: ['vColor', 'hColor'],
+};
+
+// Move a fill's legacy named colour fields into labelled layer.palette
+// slots (the single colour system), then drop the old fields. Idempotent;
+// recurses into nested layers.
+function seedFillPalette(l) {
+  if (!l) return;
+  const f = l.fill;
+  const keys = f && FILL_SLOT_SCHEMA[f.kind];
+  if (keys) {
+    if (!l.palette) l.palette = [];
+    if (!l.paletteLabels) l.paletteLabels = l.palette.map(() => null);
+    while (l.paletteLabels.length < l.palette.length) l.paletteLabels.push(null);
+    for (const key of keys) {
+      if (l.paletteLabels.includes(key)) continue;
+      if (f[key] == null) continue;
+      l.palette.push(f[key]);
+      l.paletteLabels.push(key);
+      delete f[key];
+    }
+  }
+  if (f && f.layer) seedFillPalette(f.layer);
+}
+
 // Migrate a glyph layer's legacy colour fields (inks / ink+paper) into
 // the layer palette, then drop them so colour lives in ONE place. Adds
 // `twoTone` to preserve the transparent-ground look the `inks` array
@@ -2439,6 +2501,7 @@ function loadSample(name, current, clear) {
   // them like every other fill. `twoTone` preserves the look that the
   // `inks` array used to signal.
   for (const l of layers) seedGlyphPalette(l);
+  for (const l of layers) seedFillPalette(l);
   // Surface the sample's palette on each layer that uses palette
   // cycling but doesn't carry its own; otherwise the per-layer
   // palette editor would appear empty even though the renderer is
@@ -3813,7 +3876,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const lw = layerBounds?.w, lh = layerBounds?.h;
       const crng = cellRng(col, row, salt);
 
-      const stemColor = fill.stemColor || '#454545';
+      const stemColor = fillSlotColor(layer, fill, palette, 'stemColor', '#454545');
       const stemW = (fill.stemWidth ?? 0.012) * Math.min(iw, ih);
       const nStems = Math.max(1, Math.round((fill.stems ?? 4) + (crng() * 2 - 1)));
       const spread = (fill.spread ?? 48) * Math.PI / 180;
@@ -3998,7 +4061,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         if (!advanced) stack.pop();
       }
 
-      const color = fill.color || palette[0] || '#2c3340';
+      const color = fillSlotColor(layer, fill, palette, 'color', palette[0] || '#2c3340');
       const thickness = (fill.thickness ?? 0.18) * Math.min(cellW, cellH);
       const segs = [];
       const addSeg = (x1, y1, x2, y2) => segs.push([x1, y1, x2, y2]);
@@ -4287,7 +4350,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // the grid. Stones are wrap-painted so the tile is seamless.
       const salt = layerBounds?.salt ?? 1;
       const crng = cellRng(ci, ri, salt);
-      const stone = fill.color || palette[0] || '#efe9dc';
+      const stone = fillSlotColor(layer, fill, palette, 'color', palette[0] || '#efe9dc');
       if (isTransparent(stone)) break;
       const gap = fill.gap ?? 0.18;                  // inset, × cell
       const round = fill.round ?? 0.55;              // 0..1, × half-min
@@ -4438,8 +4501,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // edge, so the lines join into a continuous grid that tiles.
       const salt = layerBounds?.salt ?? 1;
       const crng = cellRng(ci, ri, salt);
-      const vColor = fill.vColor || '#b7bbc0';
-      const hColor = fill.hColor || '#9aa0a6';
+      const vColor = fillSlotColor(layer, fill, palette, 'vColor', '#b7bbc0');
+      const hColor = fillSlotColor(layer, fill, palette, 'hColor', '#9aa0a6');
       const vW = (fill.vWidth ?? 0.018) * iw;
       const hW = (fill.hWidth ?? 0.02) * ih;
       const jit = fill.jitter ?? 0.12;
@@ -4477,7 +4540,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const G = layerGeom(col, row, cw, rh, cols, rows, layerBounds);
       if (!G) break;
       const { lw, lh } = G;
-      const stroke = fill.stroke || palette[0] || '#3a4aa0';
+      const stroke = fillSlotColor(layer, fill, palette, 'stroke', palette[0] || '#3a4aa0');
       const cx = lw / cols, cy = lh / rows;
       const Rx = cx / 1.5;                       // flat-top horizontal radius
       const hy = cy / 2;
@@ -4563,8 +4626,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         ? pal[Math.floor(cellRng(ci, ri, 0x9E37)() * pal.length)]
         : pal[Math.floor(crng() * pal.length)];
       if (isTransparent(color)) break;
-      const stalkColor = fill.stalk || '#4f4a22';
-      const leafColor = fill.leaf || '#7d9a40';
+      const stalkColor = fillSlotColor(layer, fill, palette, 'stalk', '#4f4a22');
+      const leafColor = fillSlotColor(layer, fill, palette, 'leaf', '#7d9a40');
       const baseR = Math.min(iw, ih) * 0.42 * (fill.size ?? 1) * (0.78 + crng() * 0.44);
       const cx0 = ix + iw / 2 + (crng() * 2 - 1) * iw * 0.06;
       const cy0 = iy + ih / 2 + (crng() * 2 - 1) * ih * 0.06;
@@ -4611,7 +4674,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // offsets zigzag the rungs become stacked chevrons, and where they
       // are equal they stay a flat grid. `offsets` is per column
       // (fraction of a row), cycled — keep ends equal so it tiles.
-      const stroke = fill.stroke || palette[0] || '#8a9a4a';
+      const stroke = fillSlotColor(layer, fill, palette, 'stroke', palette[0] || '#8a9a4a');
       const sw = (fill.strokeWidth ?? 0.012) * Math.min(iw, ih);
       const offsets = fill.offsets && fill.offsets.length ? fill.offsets : [0, 0.5, 0, -0.5];
       const P = offsets.length;
@@ -4642,7 +4705,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // are collected then wrap-painted for a seamless tile.
       const salt = layerBounds?.salt ?? 1;
       const crng = cellRng(ci, ri, salt);
-      const color = fill.color || palette[0] || '#3f7a8c';
+      const color = fillSlotColor(layer, fill, palette, 'color', palette[0] || '#3f7a8c');
       const sw = (fill.thickness ?? 0.01) * Math.min(iw, ih);
       const rootX = ix + iw / 2 + (crng() * 2 - 1) * iw * 0.45;
       const baseY = iy + ih * 1.02;
@@ -4691,7 +4754,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // A vertical "fuse" down each column with horizontal bars hanging
       // off ALTERNATING sides as they descend (fishbone). Bar height =
       // its gap, so each side reads 50/50 and the two sides mirror.
-      const color = fill.color || palette[0] || '#e0954a';
+      const color = fillSlotColor(layer, fill, palette, 'color', palette[0] || '#e0954a');
       const cx = ix + iw / 2;
       const fuseW = (fill.fuse ?? 0.08) * iw;
       parent.appendChild(el('rect', { x: cx - fuseW / 2, y: iy, width: fuseW, height: ih, fill: color }));
@@ -6734,6 +6797,27 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     (opts.into || host).appendChild(wrap);
   };
 
+  // A labelled colour picker backed by a named slot in layer.palette
+  // (the single colour system). Creates the slot if absent. Editing
+  // detaches the slot from its project role (hand-pick wins), mirroring
+  // the swatch grid; until then the slot follows the colourway.
+  const ensureSlot = (key, def) => {
+    if (!layer.palette) layer.palette = [];
+    if (!layer.paletteLabels) layer.paletteLabels = layer.palette.map(() => null);
+    while (layer.paletteLabels.length < layer.palette.length) layer.paletteLabels.push(null);
+    let i = layer.paletteLabels.indexOf(key);
+    if (i < 0) { layer.palette.push(def); layer.paletteLabels.push(key); i = layer.palette.length - 1; }
+    return i;
+  };
+  const addSlotColorCtrl = (label, key, def, opts = {}) => {
+    const i = ensureSlot(key, def);
+    addColorCtrl(label, layer.palette[i] ?? def, (v) => {
+      layer.palette[i] = v;
+      if (layer.paletteRoles) layer.paletteRoles[i] = null;
+      onChange();
+    }, opts);
+  };
+
   const addCtrl = (label, kind, value, opts = {}) => {
     const wrap = document.createElement('label');
     wrap.className = 'ctrl' + (opts.span === 2 ? ' ctrl-span-2' : '');
@@ -6834,6 +6918,11 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const renderSwatches = () => {
       wrap.replaceChildren();
       const list = layer.palette || [];
+      // Labelled slots are named accents (stalk, leaf, stroke, …) edited
+      // by their own pickers in the fill section — skip them here so the
+      // swatch table shows only the cycling set (the unlabelled slots).
+      const isLabelled = (i) => !!(layer.paletteLabels && layer.paletteLabels[i]);
+      const hasCycling = list.some((_, i) => !isLabelled(i));
       // Per-row sync callbacks: keep the swatch picker and number cells
       // in step with `layer.palette[i]` without tearing down DOM. Built
       // by the row builder below; called by `update` instead of
@@ -6892,7 +6981,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         onChange();
       };
 
-      if (list.length) {
+      if (hasCycling) {
         const table = document.createElement('table');
         table.className = 'palette-table';
         // Header row — column labels (R G B A, plus C M Y K in CMYK mode).
@@ -6913,6 +7002,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         // Body — one row per palette entry.
         const tbody = document.createElement('tbody');
         list.forEach((color, i) => {
+          if (isLabelled(i)) return;   // named accent — shown by its picker
           const tr = document.createElement('tr');
           // A slot bound to a project role is driven by the colourway,
           // so its colour fields are read-only; the role drop-down is
@@ -7077,7 +7167,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         });
         table.appendChild(tbody);
         wrap.appendChild(table);
-      } else if (roleNames.length) {
+      } else if (!list.length && roleNames.length) {
         // Inheriting: this layer has no palette of its own, so it paints
         // with the full project palette (every role) and follows
         // colourways. Show the roles read-only so it's clear the colours
@@ -7117,18 +7207,25 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         wrap.appendChild(customise);
       }
 
-      const add = document.createElement('button');
-      add.type = 'button';
-      add.className = 'swatch-add';
-      add.textContent = '+';
-      add.addEventListener('click', () => {
-        layer.palette = [...(layer.palette || []), '#888888'];
-        // Keep the role map index-aligned; a fresh swatch is literal.
-        if (layer.paletteRoles) layer.paletteRoles.push(null);
-        renderSwatches();
-        onChange();
-      });
-      wrap.appendChild(add);
+      // "+" adds a cycling slot. Only offered when the layer already
+      // cycles or has no palette at all (inheriting) — not for fills
+      // whose only colours are named accents.
+      if (hasCycling || !list.length) {
+        const add = document.createElement('button');
+        add.type = 'button';
+        add.className = 'swatch-add';
+        add.textContent = '+';
+        add.addEventListener('click', () => {
+          layer.palette = [...(layer.palette || []), '#888888'];
+          // Keep the role + label maps index-aligned; a fresh swatch is
+          // a literal, unlabelled (cycling) slot.
+          if (layer.paletteRoles) layer.paletteRoles.push(null);
+          if (layer.paletteLabels) layer.paletteLabels.push(null);
+          renderSwatches();
+          onChange();
+        });
+        wrap.appendChild(add);
+      }
     };
     renderSwatches();
   }
@@ -7479,7 +7576,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const gp = addCtrl('gap', 'number', layer.fill.gap ?? 0.16, { min: 0, max: 0.5, step: 0.02 });
     gp.addEventListener('input', () => { layer.fill.gap = Number(gp.value); onChange(); });
   } else if (layer.fill.kind === 'firecracker') {
-    addColorCtrl('color', layer.fill.color || '#e0954a', (v) => { layer.fill.color = v; onChange(); });
+    addSlotColorCtrl('color', 'color', '#e0954a');
     const fz = addCtrl('fuse', 'number', layer.fill.fuse ?? 0.08, { min: 0.02, max: 0.3, step: 0.01 });
     fz.addEventListener('input', () => { layer.fill.fuse = Number(fz.value); onChange(); });
     const bw = addCtrl('bar height', 'number', layer.fill.barWidth ?? 0.5, { min: 0.1, max: 1, step: 0.05 });
@@ -7487,7 +7584,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const bl = addCtrl('bar length', 'number', layer.fill.barLen ?? 0.4, { min: 0.1, max: 0.5, step: 0.02 });
     bl.addEventListener('input', () => { layer.fill.barLen = Number(bl.value); onChange(); });
   } else if (layer.fill.kind === 'grass') {
-    addColorCtrl('blade', layer.fill.color || '#3f7a8c', (v) => { layer.fill.color = v; onChange(); });
+    addSlotColorCtrl('blade', 'color', '#3f7a8c');
     const th = addCtrl('thickness', 'number', layer.fill.thickness ?? 0.01, { min: 0.003, max: 0.04, step: 0.002 });
     th.addEventListener('input', () => { layer.fill.thickness = Number(th.value); onChange(); });
     const ht = addCtrl('height', 'number', layer.fill.height ?? 1.05, { min: 0.4, max: 1.6, step: 0.05 });
@@ -7495,7 +7592,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const pc = addCtrl('pod chance', 'number', layer.fill.podChance ?? 0.4, { min: 0, max: 1, step: 0.05 });
     pc.addEventListener('input', () => { layer.fill.podChance = Number(pc.value); onChange(); });
   } else if (layer.fill.kind === 'graph') {
-    addColorCtrl('line', layer.fill.stroke || '#8a9a4a', (v) => { layer.fill.stroke = v; onChange(); });
+    addSlotColorCtrl('line', 'stroke', '#8a9a4a');
     const sw = addCtrl('line width', 'number', layer.fill.strokeWidth ?? 0.012, { min: 0.003, max: 0.05, step: 0.002 });
     sw.addEventListener('input', () => { layer.fill.strokeWidth = Number(sw.value); onChange(); });
     const off = addCtrl('offsets', 'text', (layer.fill.offsets || []).join(', '), {});
@@ -7516,7 +7613,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     addColorCtrl('stalk', layer.fill.stalk || '#4f4a22', (v) => { layer.fill.stalk = v; onChange(); });
     addColorCtrl('leaf', layer.fill.leaf || '#7d9a40', (v) => { layer.fill.leaf = v; onChange(); });
   } else if (layer.fill.kind === 'honeycomb') {
-    addColorCtrl('line', layer.fill.stroke || '#3a4aa0', (v) => { layer.fill.stroke = v; onChange(); });
+    addSlotColorCtrl('line', 'stroke', '#3a4aa0');
     const sw = addCtrl('line width', 'number', layer.fill.strokeWidth ?? 0.03, { min: 0.005, max: 0.12, step: 0.005 });
     sw.addEventListener('input', () => { layer.fill.strokeWidth = Number(sw.value); onChange(); });
   } else if (layer.fill.kind === 'dashes') {
@@ -7530,8 +7627,8 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const wd = addCtrl('mark width', 'number', layer.fill.width ?? 0.4, { min: 0.1, max: 1, step: 0.05 });
     wd.addEventListener('input', () => { layer.fill.width = Number(wd.value); onChange(); });
   } else if (layer.fill.kind === 'windowpane') {
-    addColorCtrl('v line', layer.fill.vColor || '#b7bbc0', (v) => { layer.fill.vColor = v; onChange(); });
-    addColorCtrl('h stitch', layer.fill.hColor || '#9aa0a6', (v) => { layer.fill.hColor = v; onChange(); });
+    addSlotColorCtrl('v line', 'vColor', '#b7bbc0');
+    addSlotColorCtrl('h stitch', 'hColor', '#9aa0a6');
     const vw = addCtrl('v width', 'number', layer.fill.vWidth ?? 0.016, { min: 0.004, max: 0.06, step: 0.002 });
     vw.addEventListener('input', () => { layer.fill.vWidth = Number(vw.value); onChange(); });
     const hw = addCtrl('h width', 'number', layer.fill.hWidth ?? 0.018, { min: 0.004, max: 0.06, step: 0.002 });
@@ -7555,7 +7652,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const tw = addCtrl('twig length', 'number', layer.fill.twig ?? 0.78, { min: 0.3, max: 1.4, step: 0.05 });
     tw.addEventListener('input', () => { layer.fill.twig = Number(tw.value); onChange(); });
   } else if (layer.fill.kind === 'stones') {
-    addColorCtrl('stone', layer.fill.color || '#efe9dc', (v) => { layer.fill.color = v; onChange(); });
+    addSlotColorCtrl('stone', 'color', '#efe9dc');
     const gap = addCtrl('gap', 'number', layer.fill.gap ?? 0.18, { min: 0, max: 0.45, step: 0.01 });
     gap.addEventListener('input', () => { layer.fill.gap = Number(gap.value); onChange(); });
     const rd = addCtrl('round', 'number', layer.fill.round ?? 0.6, { min: 0, max: 1, step: 0.05 });
@@ -7650,7 +7747,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
       addColorCtrl('color', layer.fill.color || '#d8c79c', (v) => { layer.fill.color = v; onChange(); });
     }
   } else if (layer.fill.kind === 'maze') {
-    addColorCtrl('color', layer.fill.color || '#2c3340', (v) => { layer.fill.color = v; onChange(); });
+    addSlotColorCtrl('color', 'color', '#2c3340');
     const th = addCtrl('thickness (× cell)', 'number', layer.fill.thickness ?? 0.18, { min: 0.02, max: 0.5, step: 0.01 });
     th.addEventListener('input', () => { layer.fill.thickness = Number(th.value); onChange(); });
   } else if (layer.fill.kind === 'mesh') {
