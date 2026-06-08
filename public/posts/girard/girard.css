@@ -1348,3 +1348,25 @@ button.ctrl:hover {
   -webkit-user-select: none;
   user-select: none;
 }
+
+/* ---------- Icon set ---------- */
+.gicon { display: inline-block; vertical-align: middle; flex: 0 0 auto; }
+/* Icon-only buttons centre their glyph. */
+.layer-grip,
+.cwm-lock,
+.cwm-colrm,
+.cwm-rowrm,
+.cwm-addcol,
+.cwm-cell-clear,
+.palette-rm,
+.shape-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+/* Undo / redo carry an icon + label. */
+.girard-history .ctrl-inline-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}

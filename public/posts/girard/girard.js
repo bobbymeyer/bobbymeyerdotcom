@@ -2704,6 +2704,37 @@ function addRenameTrigger(el, getCurrent, onCommit) {
   ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => el.addEventListener(t, cancel));
 }
 
+// ---------- UI icons ----------
+// One monoline icon set (24×24, stroke currentColor, 2px round) so the
+// controls share a visual language instead of a grab-bag of emoji that
+// vary per OS and clash with the chrome. icon(name) returns inline SVG.
+const ICONS = {
+  lock:       [{ t: 'rect', a: { x: 5, y: 11, width: 14, height: 9, rx: 2 } }, { t: 'path', a: { d: 'M8 11 V7 a4 4 0 0 1 8 0 V11' } }],
+  unlock:     [{ t: 'rect', a: { x: 5, y: 11, width: 14, height: 9, rx: 2 } }, { t: 'path', a: { d: 'M8 11 V7 a4 4 0 0 1 7.5 -1.5' } }],
+  'solo-on':  [{ t: 'circle', a: { cx: 12, cy: 12, r: 8 } }, { t: 'circle', a: { cx: 12, cy: 12, r: 3, fill: 'currentColor', stroke: 'none' } }],
+  'solo-off': [{ t: 'circle', a: { cx: 12, cy: 12, r: 8 } }, { t: 'circle', a: { cx: 12, cy: 12, r: 2.5 } }],
+  up:         [{ t: 'path', a: { d: 'M6 14 L12 8 L18 14' } }],
+  down:       [{ t: 'path', a: { d: 'M6 10 L12 16 L18 10' } }],
+  dup:        [{ t: 'rect', a: { x: 8, y: 4, width: 12, height: 12, rx: 2 } }, { t: 'rect', a: { x: 4, y: 8, width: 12, height: 12, rx: 2 } }],
+  remove:     [{ t: 'path', a: { d: 'M6 6 L18 18' } }, { t: 'path', a: { d: 'M18 6 L6 18' } }],
+  add:        [{ t: 'path', a: { d: 'M12 5 V19' } }, { t: 'path', a: { d: 'M5 12 H19' } }],
+  undo:       [{ t: 'path', a: { d: 'M8 7 L4 11 L8 15' } }, { t: 'path', a: { d: 'M4 11 H14 a5 5 0 0 1 5 5 V18' } }],
+  redo:       [{ t: 'path', a: { d: 'M16 7 L20 11 L16 15' } }, { t: 'path', a: { d: 'M20 11 H10 a5 5 0 0 0 -5 5 V18' } }],
+  anchor:     [{ t: 'circle', a: { cx: 12, cy: 5, r: 2 } }, { t: 'path', a: { d: 'M12 7 V20' } }, { t: 'path', a: { d: 'M8 11 H16' } }, { t: 'path', a: { d: 'M5 13 a7 7 0 0 0 14 0' } }],
+  link:       [{ t: 'path', a: { d: 'M10 9 H8.5 a3.5 3.5 0 0 0 0 7 H10' } }, { t: 'path', a: { d: 'M14 9 H15.5 a3.5 3.5 0 0 1 0 7 H14' } }, { t: 'path', a: { d: 'M9 12 H15' } }],
+  grip:       [9, 15].flatMap(cx => [7, 12, 17].map(cy => ({ t: 'circle', a: { cx, cy, r: 1.4, fill: 'currentColor', stroke: 'none' } }))),
+};
+function icon(name, size = 16) {
+  const svg = el('svg', {
+    viewBox: '0 0 24 24', width: size, height: size,
+    fill: 'none', stroke: 'currentColor', 'stroke-width': 2,
+    'stroke-linecap': 'round', 'stroke-linejoin': 'round', class: 'gicon',
+  });
+  svg.setAttribute('aria-hidden', 'true');
+  for (const p of (ICONS[name] || [])) svg.appendChild(el(p.t, p.a));
+  return svg;
+}
+
 // ---------- Modifier evaluation ----------
 function evalMod(modSpec, rng, col, row, base) {
   if (!modSpec) return base;
@@ -6647,7 +6678,7 @@ function renderLayerList(listEl, pattern, selected, handlers) {
     // whole row is the drop target. ↑/↓ stay for touch / keyboard.
     const grip = document.createElement('span');
     grip.className = 'layer-grip';
-    grip.textContent = '⠿';
+    grip.appendChild(icon('grip', 16));
     grip.title = 'drag to reorder';
     grip.draggable = true;
     grip.addEventListener('dragstart', (e) => {
@@ -6687,23 +6718,23 @@ function renderLayerList(listEl, pattern, selected, handlers) {
 
     const actions = document.createElement('span');
     actions.className = 'layer-actions';
-    const btn = (text, title, fn, extraClass) => {
+    const btn = (iconName, title, fn, extraClass) => {
       const b = document.createElement('button');
-      b.textContent = text;
+      b.appendChild(icon(iconName, 15));
       b.title = title;
       if (extraClass) b.className = extraClass;
       b.addEventListener('click', (e) => { e.stopPropagation(); fn(); });
       return b;
     };
     const lockBtn = btn(
-      layer.locked ? '🔒' : '🔓',
+      layer.locked ? 'lock' : 'unlock',
       layer.locked ? 'unlock (will react to roll again)' : 'lock (freezes the layer against roll + edits)',
       () => handlers.lock(i),
       'layer-lock' + (layer.locked ? ' is-locked' : '')
     );
     actions.appendChild(lockBtn);
     const soloBtn = btn(
-      layer.solo ? '◉' : '◎',
+      layer.solo ? 'solo-on' : 'solo-off',
       layer.solo
         ? 'showing only this layer — click to show all'
         : 'solo — show only this layer',
@@ -6711,10 +6742,10 @@ function renderLayerList(listEl, pattern, selected, handlers) {
       'layer-solo' + (layer.solo ? ' is-solo' : '')
     );
     actions.appendChild(soloBtn);
-    actions.appendChild(btn('↑', 'move up',   () => handlers.move(i, -1)));
-    actions.appendChild(btn('↓', 'move down', () => handlers.move(i, +1)));
-    actions.appendChild(btn('⧉', 'duplicate', () => handlers.duplicate(i)));
-    actions.appendChild(btn('×', 'delete',    () => handlers.remove(i), 'layer-rm'));
+    actions.appendChild(btn('up',   'move up',   () => handlers.move(i, -1)));
+    actions.appendChild(btn('down', 'move down', () => handlers.move(i, +1)));
+    actions.appendChild(btn('dup',  'duplicate', () => handlers.duplicate(i)));
+    actions.appendChild(btn('remove', 'delete', () => handlers.remove(i), 'layer-rm'));
     li.appendChild(actions);
     return li;
   });
@@ -7252,7 +7283,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
           const rm = document.createElement('button');
           rm.type = 'button';
           rm.className = 'palette-rm';
-          rm.textContent = '×';
+          rm.appendChild(icon('remove', 12));
           rm.title = 'remove colour';
           rm.addEventListener('click', () => {
             layer.palette = (layer.palette || []).filter((_, j) => j !== i);
@@ -7323,7 +7354,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         const add = document.createElement('button');
         add.type = 'button';
         add.className = 'swatch-add';
-        add.textContent = '+';
+        add.appendChild(icon('add', 14));
         add.addEventListener('click', () => {
           layer.palette = [...(layer.palette || []), '#888888'];
           // Keep the role + label maps index-aligned; a fresh swatch is
@@ -7978,6 +8009,8 @@ function mount() {
   const _hist = { past: [], future: [], max: 50, saveTimer: null, applying: false };
   const undoBtn = document.getElementById('girard-undo');
   const redoBtn = document.getElementById('girard-redo');
+  if (undoBtn) undoBtn.replaceChildren(icon('undo', 14), document.createTextNode(' undo'));
+  if (redoBtn) redoBtn.replaceChildren(icon('redo', 14), document.createTextNode(' redo'));
   const refreshHistoryButtons = () => {
     if (undoBtn) undoBtn.disabled = _hist.past.length === 0;
     if (redoBtn) redoBtn.disabled = _hist.future.length === 0;
@@ -8578,7 +8611,7 @@ function mount() {
         const rm = document.createElement('button');
         rm.type = 'button';
         rm.className = 'cwm-colrm';
-        rm.textContent = '×';
+        rm.appendChild(icon('remove', 12));
         rm.title = 'delete colourway';
         rm.addEventListener('click', () => {
           delete pattern.colorways[name];
@@ -8595,7 +8628,7 @@ function mount() {
     const addCol = document.createElement('button');
     addCol.type = 'button';
     addCol.className = 'cwm-addcol';
-    addCol.textContent = '+';
+    addCol.appendChild(icon('add', 14));
     addCol.title = 'add colourway (clone of active)';
     addCol.addEventListener('click', () => {
       const cur = activeCw();
@@ -8635,7 +8668,7 @@ function mount() {
         lock.className = 'cwm-lock';
         // Anchor (⚓) = fixed colour; link (🔗) = tracks the base. (Not a
         // padlock — that's the layer-freeze control, a different idea.)
-        lock.textContent = sw.kind === 'abs' ? '⚓' : '🔗';
+        lock.appendChild(icon(sw.kind === 'abs' ? 'anchor' : 'link', 14));
         lock.title = sw.kind === 'abs'
           ? 'anchored: auto cells use a fixed colour — click to track the base'
           : 'tracked: auto cells follow each colourway base — click to anchor';
@@ -8665,7 +8698,7 @@ function mount() {
         const rrm = document.createElement('button');
         rrm.type = 'button';
         rrm.className = 'cwm-rowrm';
-        rrm.textContent = '×';
+        rrm.appendChild(icon('remove', 12));
         rrm.title = 'remove role';
         rrm.addEventListener('click', () => {
           pattern.paletteSpec.swatches.splice(i, 1);
@@ -8729,7 +8762,7 @@ function mount() {
             const clr = document.createElement('button');
             clr.type = 'button';
             clr.className = 'cwm-cell-clear';
-            clr.textContent = '×';
+            clr.appendChild(icon('remove', 10));
             clr.title = 'clear — revert this cell to auto';
             clr.addEventListener('pointerdown', (e) => e.stopPropagation());
             clr.addEventListener('click', (e) => { e.stopPropagation(); clearOverride(e); });
@@ -8749,7 +8782,7 @@ function mount() {
     const addRow = document.createElement('button');
     addRow.type = 'button';
     addRow.className = 'cwm-addrow';
-    addRow.textContent = '+ role';
+    addRow.appendChild(icon('add', 14)); addRow.appendChild(document.createTextNode(' role'));
     addRow.title = 'add a tracked accent role';
     addRow.style.gridColumn = '1 / -1';
     addRow.addEventListener('click', () => {
@@ -9062,7 +9095,7 @@ function mount() {
       chip.appendChild(label);
       const rm = document.createElement('button');
       rm.type = 'button';
-      rm.textContent = '×';
+      rm.appendChild(icon('remove', 12));
       rm.title = 'remove';
       rm.addEventListener('click', () => {
         delete pattern.customShapes[name];
