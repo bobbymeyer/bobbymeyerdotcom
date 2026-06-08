@@ -168,6 +168,10 @@ tags:
           <input id='girard-export-flatten' type='checkbox' />
           <span>flatten alpha onto background</span>
         </label>
+        <label class='ctrl ctrl-checkbox'>
+          <input id='girard-export-all' type='checkbox' />
+          <span>all colourways (one file each)</span>
+        </label>
         <label class='ctrl' id='girard-export-bg-wrap'>
           <span>background (when flattening)</span>
           <input id='girard-export-bg' type='color' value='#ffffff' />

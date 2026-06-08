@@ -9136,40 +9136,43 @@ function mount() {
   // Export — the clean deployable repeat unit. Wait for any web fonts
   // to be ready first (text-shape layers need real metrics).
   const exportBase = () => (sampleSel.value || 'girard-tile').toString().toLowerCase().replace(/\s+/g, '-');
+  const slug = (s) => String(s).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'cw';
   const fontsReady = () => {
     const fonts = patternFonts(pattern);
     return fonts.length ? Promise.all(fonts.map(ensureFont)) : Promise.resolve();
   };
-  const exportSvgBtn = document.getElementById('girard-export-svg');
-  if (exportSvgBtn) {
-    exportSvgBtn.addEventListener('click', () => {
-      fontsReady().then(() => exportTileSvg(pattern, exportBase()));
-    });
-  }
-  const exportPngBtn = document.getElementById('girard-export-png');
-  if (exportPngBtn) {
-    exportPngBtn.addEventListener('click', () => {
-      fontsReady().then(() => exportTilePng(pattern, exportBase()));
-    });
-  }
-  const exportJpgBtn = document.getElementById('girard-export-jpg');
-  if (exportJpgBtn) {
-    exportJpgBtn.addEventListener('click', () => {
-      fontsReady().then(() => exportTileJpeg(pattern, exportBase()));
-    });
-  }
-  const exportTifBtn = document.getElementById('girard-export-tif');
-  if (exportTifBtn) {
-    exportTifBtn.addEventListener('click', () => {
-      fontsReady().then(() => exportTileTiff(pattern, exportBase()));
-    });
-  }
-  const exportPdfBtn = document.getElementById('girard-export-pdf');
-  if (exportPdfBtn) {
-    exportPdfBtn.addEventListener('click', () => {
-      fontsReady().then(() => exportTilePdf(pattern, exportBase()));
-    });
-  }
+  const exportAllChk = document.getElementById('girard-export-all');
+  // A snapshot of the pattern with one colourway made active (palette
+  // resolved), so an export reads a stable variant — the live pattern
+  // isn't mutated and async exporters don't race a changing activeColorway.
+  const colorwayVariant = (name) => {
+    const p = JSON.parse(JSON.stringify(pattern));
+    p.activeColorway = name;
+    refreshPaletteFromSpec(p);
+    return p;
+  };
+  // Run an exporter for the active colourway, or — when "all colourways"
+  // is ticked — once per colourway, each to its own suffixed file. Exports
+  // are staggered so the browser doesn't drop the batch of downloads.
+  const runExport = (fn) => fontsReady().then(() => {
+    const names = pattern.colorways ? Object.keys(pattern.colorways) : [];
+    if (exportAllChk && exportAllChk.checked && names.length > 1) {
+      names.forEach((name, i) => {
+        setTimeout(() => fn(colorwayVariant(name), `${exportBase()}-${slug(name)}`), i * 400);
+      });
+    } else {
+      fn(pattern, exportBase());
+    }
+  });
+  const wireExport = (id, fn) => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', () => runExport(fn));
+  };
+  wireExport('girard-export-svg', exportTileSvg);
+  wireExport('girard-export-png', exportTilePng);
+  wireExport('girard-export-jpg', exportTileJpeg);
+  wireExport('girard-export-tif', exportTileTiff);
+  wireExport('girard-export-pdf', exportTilePdf);
 
   // Apply a named sample by mirroring the loadSample result onto all
   // the UI inputs that drive top-level state, then redraw. Shared by
