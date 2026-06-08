@@ -624,7 +624,7 @@ function resolveLayerPalette(layer, parentPalette) {
 // is "messy" (very low chroma, extreme lightness jump). Roles are
 // assigned by lightness extremes (lightest → ground, darkest → ink)
 // then sequentially as accent-1, accent-2, …
-function inferPaletteSpec(hexes) {
+function inferPaletteSpec(hexes, groundHint) {
   const list = (hexes || []).filter(Boolean);
   if (list.length === 0) return { swatches: [{ role: 'base', kind: 'base' }] };
   const [bL, bC, bH] = hexToOklch(list[0]);
@@ -642,11 +642,17 @@ function inferPaletteSpec(hexes) {
     if (meta[i].L > meta[lightestIdx].L) lightestIdx = i;
     if (meta[i].L < meta[darkestIdx].L) darkestIdx = i;
   }
+  // The pattern's background (a full-tile solid) owns the `ground` role
+  // when provided, so editing "ground" recolours the field. Otherwise
+  // ground falls back to the lightest colour.
+  const groundKey = normHex(groundHint);
+  const hintIdx = groundKey ? meta.findIndex(m => normHex(m.hex) === groundKey) : -1;
   const swatches = [{ role: 'base', kind: 'base' }];
   let accentN = 0;
   for (const m of meta) {
     let role;
-    if (m.i === lightestIdx && m.L > bL + 0.12) role = 'ground';
+    if (m.i === hintIdx) role = 'ground';
+    else if (hintIdx < 0 && m.i === lightestIdx && m.L > bL + 0.12) role = 'ground';
     else if (m.i === darkestIdx && m.L < bL - 0.12) role = 'ink';
     else { accentN++; role = `accent-${accentN}`; }
     const lowSat = m.C < 0.04;
@@ -2425,6 +2431,13 @@ function loadSample(name, current, clear) {
   const sample = SAMPLES[name];
   if (!sample) return current;
   const layers = JSON.parse(JSON.stringify(sample.layers));
+  // The background is the bottom full-tile solid fill; its colour gets
+  // the `ground` role so "ground" in the matrix == the background field.
+  // Captured before colour migration strips fill.color.
+  const bgLayer = layers.find(l => l.fill && l.fill.kind === 'solid'
+    && (l.fill.mode == null || l.fill.mode === 'fixed')
+    && l.grid && l.grid.cols === 1 && l.grid.rows === 1);
+  const groundHint = bgLayer && bgLayer.fill.color;
   // Glyph layers historically stored colour in their own fields (inks /
   // ink+paper). Migrate them into the layer palette — the single colour
   // system — so the swatch editor, role binding and colourways drive
@@ -2498,7 +2511,7 @@ function loadSample(name, current, clear) {
     // Rebuild the spec around the full colour list so each sample picks
     // up a coherent base + tracked accents instead of a flat hex array.
     // `orig` records each role's authored hex for render-time recolour.
-    const spec = inferPaletteSpec(hexes);
+    const spec = inferPaletteSpec(hexes, groundHint);
     spec.swatches.forEach((sw, i) => { if (hexes[i]) sw.orig = hexes[i]; });
     // Re-bind every layer.palette slot to the full role set (the spec
     // may now name more roles than sample.palette alone did).
