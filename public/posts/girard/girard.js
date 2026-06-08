@@ -7236,8 +7236,14 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
           rm.title = 'remove colour';
           rm.addEventListener('click', () => {
             layer.palette = (layer.palette || []).filter((_, j) => j !== i);
+            // Keep the parallel role + label maps index-aligned, or the
+            // remaining slots desync (a hidden named slot can resurface
+            // as a phantom swatch).
             if (layer.paletteRoles) {
               layer.paletteRoles = layer.paletteRoles.filter((_, j) => j !== i);
+            }
+            if (layer.paletteLabels) {
+              layer.paletteLabels = layer.paletteLabels.filter((_, j) => j !== i);
             }
             renderSwatches();
             onChange();
@@ -7283,6 +7289,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         customise.addEventListener('click', () => {
           layer.palette = roleNames.map(r => byRole[r] || '#888888');
           layer.paletteRoles = [...roleNames];
+          layer.paletteLabels = roleNames.map(() => null);   // cycling slots, keep maps aligned
           renderSwatches();
           onChange();
         });
