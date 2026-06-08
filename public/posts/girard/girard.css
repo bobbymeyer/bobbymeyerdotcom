@@ -12,6 +12,13 @@
   --fs-lg: 15px;
   --accent: #157a86;
   --accent-strong: #0f5f69;
+  /* 4-pt spacing scale. */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-6: 24px;
+  --sp-8: 32px;
 
   display: flex;
   flex-direction: column;
@@ -249,8 +256,8 @@
   cursor: pointer;
   background: #1a1a1a;
   color: #fff;
-  border: none;
-  padding: 8px 14px;
+  border: 1px solid #1a1a1a;
+  padding: var(--sp-2) var(--sp-4);
   font: inherit;
   letter-spacing: 0.05em;
   white-space: nowrap;
@@ -850,9 +857,9 @@ button.ctrl:hover {
    JS so the column count matches the colourways. */
 .girard-colorway-matrix {
   display: grid;
-  gap: 3px;
+  gap: 4px;
   align-items: stretch;
-  margin-top: 4px;
+  margin-top: 8px;
 }
 .cwm-corner {
   font-size: 9px;
@@ -975,7 +982,7 @@ button.ctrl:hover {
 .cwm-cell {
   position: relative;
   display: block;
-  height: 26px;
+  height: 30px;
   cursor: pointer;
   border: 1px solid #ddd;
 }
@@ -1418,3 +1425,25 @@ button.ctrl:hover {
 .sample-card:focus-visible { outline-color: var(--accent); }
 .girard-repo a { color: var(--accent); }
 .girard-repo a:hover { color: var(--accent-strong); }
+
+/* ---------- Button hierarchy (#6) ---------- */
+/* Primary = solid black (.ctrl-inline-btn). Secondary/ghost = outlined,
+   for utility + navigation so the black mass doesn't compete. */
+.ctrl-inline-btn.btn-ghost {
+  background: transparent;
+  color: #1a1a1a;
+  border: 1px solid #ddd;
+}
+.ctrl-inline-btn.btn-ghost:hover { background: #f0f0f0; border-color: #bbb; }
+.ctrl-inline-btn.btn-ghost[disabled] { opacity: 0.4; cursor: default; }
+.ctrl-inline-btn.btn-ghost[disabled]:hover { background: transparent; border-color: #ddd; }
+
+/* Export is a cluster of equal, secondary actions — ghost them so the
+   row reads as a set, not five competing primaries. */
+.export-buttons .ctrl-inline-btn {
+  background: transparent;
+  color: #1a1a1a;
+  border: 1px solid #ddd;
+}
+.export-buttons .ctrl-inline-btn:hover { background: #f0f0f0; border-color: #bbb; }
+.export-buttons .ctrl-inline-btn[disabled]:hover { background: transparent; }

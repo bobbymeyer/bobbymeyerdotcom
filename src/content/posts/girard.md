@@ -26,7 +26,7 @@ tags:
 
   <aside id='girard-composition' class='girard-panel'>
     <div class='ctrl-row'>
-      <button id='girard-samples-open' class='ctrl-inline-btn' title='Browse the sample library'>sample library</button>
+      <button id='girard-samples-open' class='ctrl-inline-btn btn-ghost' title='Browse the sample library'>sample library</button>
       <!-- Hidden until the library modal lands; preserves the existing
            load-by-name handler so nothing else has to change yet. -->
       <select id='girard-sample' class='is-hidden'></select>
@@ -39,7 +39,7 @@ tags:
           <span>seed</span>
           <div class='ctrl-inline-row'>
             <input id='girard-seed' type='number' value='1' min='0' max='99999' />
-            <button id='girard-roll' class='ctrl-inline-btn'>roll</button>
+            <button id='girard-roll' class='ctrl-inline-btn btn-ghost'>roll</button>
           </div>
         </div>
       </div>
@@ -149,7 +149,7 @@ tags:
     <details class='girard-section'>
       <summary>shapes<span class='section-hint' id='girard-shapes-hint'></span></summary>
       <div class='ctrl-row'>
-        <label class='ctrl-inline-btn' for='girard-shape-file' style='cursor:pointer;'>
+        <label class='ctrl-inline-btn btn-ghost' for='girard-shape-file' style='cursor:pointer;'>
           import SVG…
         </label>
         <input id='girard-shape-file' type='file' accept='.svg,image/svg+xml' multiple style='display:none;' />
@@ -186,10 +186,10 @@ tags:
     <div id='girard-stage'></div>
     <div id='girard-stage-tools'>
       <span class='girard-history'>
-        <button id='girard-undo' class='ctrl-inline-btn' title='Undo (⌘Z / Ctrl+Z)' disabled>↶ undo</button>
-        <button id='girard-redo' class='ctrl-inline-btn' title='Redo (⌘⇧Z / Ctrl+Y)' disabled>↷ redo</button>
+        <button id='girard-undo' class='ctrl-inline-btn btn-ghost' title='Undo (⌘Z / Ctrl+Z)' disabled>↶ undo</button>
+        <button id='girard-redo' class='ctrl-inline-btn btn-ghost' title='Redo (⌘⇧Z / Ctrl+Y)' disabled>↷ redo</button>
       </span>
-      <button id='girard-yardage-open' class='ctrl-inline-btn' title='Open full-screen yardage preview'>yardage</button>
+      <button id='girard-yardage-open' class='ctrl-inline-btn btn-ghost' title='Open full-screen yardage preview'>yardage</button>
       <label class='stage-veil' title='Dim the surrounding tile margins'>
         <span>veil</span>
         <input id='girard-veil' type='range' min='0' max='1' step='0.05' value='0.2' />
