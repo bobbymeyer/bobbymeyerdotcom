@@ -338,7 +338,34 @@
 .layer-label {
   flex: 1;
   text-transform: lowercase;
+  min-width: 0;
 }
+.layer-num { color: #999; }
+.layer-name:hover { text-decoration: underline dotted; text-underline-offset: 2px; }
+
+/* Inline rename input (roles, colourways, layers) — replaces prompt(). */
+.inline-rename {
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 4px;
+  margin: 0;
+  border: 1px solid #888;
+  background: #fff;
+  color: #1a1a1a;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 6ch;
+}
+.cwm-colhead .inline-rename,
+.cwm-rowhead .inline-rename {
+  font-size: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 1px 2px;
+}
+/* Hover affordance: these labels are renamable on double-click. */
+.cwm-colname:hover,
+.cwm-rolename:not(:disabled):hover { text-decoration: underline dotted; text-underline-offset: 2px; }
 
 .layer-actions {
   display: flex;

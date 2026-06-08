@@ -2640,16 +2640,45 @@ function previewPatternForLayer(layer) {
   return p;
 }
 
-// Human label derived from the layer's structure.
+// Human label derived from the layer's structure (or the user's name).
 function layerLabel(layer) {
+  if (layer.name) return layer.name;
   const { cols, rows, offsetMode } = layer.grid;
   let body;
   if (layer.fill.kind === 'solid') body = (cols === 1 && rows === 1) ? 'solid' : 'tiles';
   else if (layer.fill.kind === 'shape') body = (layer.fill.shape?.kind || 'shape') + 's';
-  else body = 'nested';
+  else body = (layer.fill.kind || 'layer');
   const off = offsetMode !== 'none' ? ' ↻' : '';
   const v = layer.vary ? ' ★' : '';
   return `${cols}×${rows} ${body}${off}${v}`;
+}
+
+// Swap a label element for a text input to rename in place (replaces the
+// old prompt() dialogs). onCommit(value) gets the trimmed text on
+// Enter/blur, or null on Escape; the caller re-renders either way.
+function inlineEditLabel(el, current, onCommit) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'inline-rename';
+  input.value = current || '';
+  el.replaceWith(input);
+  input.focus();
+  input.select();
+  let done = false;
+  const finish = (save) => {
+    if (done) return;
+    done = true;
+    onCommit(save ? input.value.trim() : null);
+  };
+  input.addEventListener('keydown', (e) => {
+    e.stopPropagation();   // don't trip global undo/redo etc.
+    if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+    else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+  });
+  input.addEventListener('blur', () => finish(true));
+  // Keep clicks/drags from leaking to the (draggable, selectable) parent.
+  ['click', 'dblclick', 'mousedown'].forEach(t =>
+    input.addEventListener(t, (e) => e.stopPropagation()));
 }
 
 // ---------- Modifier evaluation ----------
@@ -6591,8 +6620,20 @@ function renderLayerList(listEl, pattern, selected, handlers) {
       + (dimmed ? ' is-dimmed' : '');
     const label = document.createElement('span');
     label.className = 'layer-label';
-    label.textContent = `${i + 1}. ${layerLabel(layer)}`;
+    const num = document.createElement('span');
+    num.className = 'layer-num';
+    num.textContent = `${i + 1}. `;
+    const nameEl = document.createElement('span');
+    nameEl.className = 'layer-name';
+    nameEl.textContent = layerLabel(layer);
+    nameEl.title = 'double-click to rename';
+    label.appendChild(num);
+    label.appendChild(nameEl);
     label.addEventListener('click', () => handlers.select(i));
+    nameEl.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      inlineEditLabel(nameEl, layer.name || layerLabel(layer), (val) => handlers.rename(i, val));
+    });
     li.appendChild(label);
 
     const actions = document.createElement('span');
@@ -7994,6 +8035,13 @@ function mount() {
   };
   const layerHandlers = {
     select: (i) => { selected = i; rerenderUI(); },
+    // name === null → rename cancelled (just restore the label); empty
+    // string → clear the custom name and fall back to the auto label.
+    rename: (i, name) => {
+      const l = pattern.layers[i];
+      if (l && name != null) l.name = name || undefined;
+      rerenderUI();
+    },
     move: (i, dir) => {
       const j = i + dir;
       if (j < 0 || j >= pattern.layers.length) return;
@@ -8451,10 +8499,10 @@ function mount() {
         commit();
       });
       label.addEventListener('dblclick', () => {
-        const next = prompt(`Rename colourway "${name}":`, name);
-        if (next == null) return;
-        renameColorway(name, next.trim());
-        commit();
+        inlineEditLabel(label, name, (val) => {
+          if (val) renameColorway(name, val);
+          commit();
+        });
       });
       head.appendChild(label);
       if (names.length > 1) {
@@ -8504,10 +8552,10 @@ function mount() {
       } else {
         rlabel.title = 'double-click to rename role · drag to reorder';
         rlabel.addEventListener('dblclick', () => {
-          const next = prompt(`Rename role "${sw.role}":`, sw.role);
-          if (next == null) return;
-          renameRole(sw, next.trim());
-          commit();
+          inlineEditLabel(rlabel, sw.role, (val) => {
+            if (val) renameRole(sw, val);
+            commit();
+          });
         });
       }
       rh.appendChild(rlabel);
