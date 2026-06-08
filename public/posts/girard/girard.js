@@ -6618,6 +6618,35 @@ function renderLayerList(listEl, pattern, selected, handlers) {
       + (layer.locked ? ' is-locked' : '')
       + (layer.solo ? ' is-solo' : '')
       + (dimmed ? ' is-dimmed' : '');
+
+    // Drag-reorder. Only the grip is a drag source, so clicking the row
+    // (select), its buttons, and double-click rename are unaffected. The
+    // whole row is the drop target. ↑/↓ stay for touch / keyboard.
+    const grip = document.createElement('span');
+    grip.className = 'layer-grip';
+    grip.textContent = '⠿';
+    grip.title = 'drag to reorder';
+    grip.draggable = true;
+    grip.addEventListener('dragstart', (e) => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(i));
+      li.classList.add('dragging');
+    });
+    grip.addEventListener('dragend', () => li.classList.remove('dragging'));
+    li.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      li.classList.add('drop-target');
+    });
+    li.addEventListener('dragleave', () => li.classList.remove('drop-target'));
+    li.addEventListener('drop', (e) => {
+      e.preventDefault();
+      li.classList.remove('drop-target');
+      const from = parseInt(e.dataTransfer.getData('text/plain'), 10);
+      if (!Number.isNaN(from)) handlers.reorder(from, i);
+    });
+    li.appendChild(grip);
+
     const label = document.createElement('span');
     label.className = 'layer-label';
     const num = document.createElement('span');
@@ -6664,6 +6693,7 @@ function renderLayerList(listEl, pattern, selected, handlers) {
     actions.appendChild(soloBtn);
     actions.appendChild(btn('↑', 'move up',   () => handlers.move(i, -1)));
     actions.appendChild(btn('↓', 'move down', () => handlers.move(i, +1)));
+    actions.appendChild(btn('⧉', 'duplicate', () => handlers.duplicate(i)));
     actions.appendChild(btn('×', 'delete',    () => handlers.remove(i)));
     li.appendChild(actions);
     return li;
@@ -8048,6 +8078,20 @@ function mount() {
       [pattern.layers[i], pattern.layers[j]] = [pattern.layers[j], pattern.layers[i]];
       if (selected === i) selected = j;
       else if (selected === j) selected = i;
+      rerenderUI();
+    },
+    reorder: (from, to) => {
+      const n = pattern.layers.length;
+      if (from === to || from < 0 || from >= n || to < 0 || to >= n) return;
+      const [m] = pattern.layers.splice(from, 1);
+      pattern.layers.splice(to, 0, m);
+      selected = to;
+      rerenderUI();
+    },
+    duplicate: (i) => {
+      const copy = JSON.parse(JSON.stringify(pattern.layers[i]));
+      pattern.layers.splice(i + 1, 0, copy);
+      selected = i + 1;
       rerenderUI();
     },
     remove: (i) => {
