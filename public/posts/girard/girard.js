@@ -553,6 +553,30 @@ function normHex(c) {
 // without threading byRole through every render signature.
 let _currentByRole = {};
 
+// Render-time map of original authored hex → the active colourway's
+// colour for that hex's role. Lets ANY literal fill in the pattern
+// (fixed grounds, glyph inks, stalks, …) follow colourway swaps, not
+// just palette-bound slots. Rebuilt each draw in buildTileGroup; keyed
+// on lowercase #rrggbb (see normHex). Empty = no remapping.
+let _recolorMap = {};
+
+// Build the original-hex → current-colour map from the pattern's spec.
+// Each swatch carries `orig` (the colour the sample authored for that
+// role); _currentByRole gives that role's colour in the active
+// colourway. At the unedited colourway this is (near-)identity.
+function buildRecolorMap(pattern) {
+  const map = {};
+  const spec = pattern && pattern.paletteSpec;
+  if (!spec || !spec.swatches) return map;
+  for (const sw of spec.swatches) {
+    const key = normHex(sw.orig);
+    if (!key || !sw.role) continue;
+    const cur = _currentByRole[sw.role];
+    if (cur != null) map[key] = cur;
+  }
+  return map;
+}
+
 // Resolve a layer's effective palette for the current draw. A layer
 // with no palette of its own inherits the parent palette. A layer that
 // carries paletteRoles binds each slot to a project role (so it tracks
@@ -624,6 +648,42 @@ function buildColorways(spec, namedHexArrays) {
     colorways[name] = { base, overrides };
   }
   return colorways;
+}
+
+// Walk a layer tree and collect every #rrggbb colour it paints with —
+// fill.color, inks[], ink/paper, stalk/leaf, strokes, nested layers,
+// etc. — in first-seen order. Generic (matches any 6-digit hex string)
+// so new fill kinds are covered without bespoke wiring.
+function collectColors(node) {
+  const out = [];
+  const seen = new Set();
+  const walk = (v) => {
+    if (v == null) return;
+    if (typeof v === 'string') {
+      const k = normHex(v);
+      if (k && !seen.has(k)) { seen.add(k); out.push(v); }
+    } else if (Array.isArray(v)) {
+      for (const x of v) walk(x);
+    } else if (typeof v === 'object') {
+      for (const key in v) walk(v[key]);
+    }
+  };
+  walk(node);
+  return out;
+}
+
+// Dedupe a hex list down to distinct #rrggbb (dropping transparents /
+// short hex, which can't be project roles), keeping first-seen order.
+function dedupeHex(hexes) {
+  const out = [];
+  const seen = new Set();
+  for (const h of hexes || []) {
+    const k = normHex(h);
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(h);
+  }
+  return out;
 }
 
 // Per-profile parameters governing K generation, total ink limit, and
@@ -2382,11 +2442,32 @@ function loadSample(name, current, clear) {
   for (const l of layers) bindRoles(l);
   if (clear) {
     const baseP = defaultPattern();
-    const hexes = sample.palette || baseP.palette;
-    // Rebuild the spec around the sample's colour list so each
-    // sample picks up a coherent base + tracked accents instead of
-    // a flat hex array.
-    const spec = sampleSpec || inferPaletteSpec(hexes);
+    // Every colour the sample paints with becomes a project role, so
+    // colourway edits recolour the WHOLE pattern (grounds, inks, …),
+    // not only sample.palette. Palette colours stay first to keep the
+    // historic base + accent roles stable; extra colours append after.
+    const allColors = dedupeHex([...(sample.palette || []), ...collectColors(layers)]);
+    const hexes = allColors.length ? allColors : baseP.palette;
+    // Rebuild the spec around the full colour list so each sample picks
+    // up a coherent base + tracked accents instead of a flat hex array.
+    // `orig` records each role's authored hex for render-time recolour.
+    const spec = inferPaletteSpec(hexes);
+    spec.swatches.forEach((sw, i) => { if (hexes[i]) sw.orig = hexes[i]; });
+    // Re-bind every layer.palette slot to the full role set (the spec
+    // may now name more roles than sample.palette alone did).
+    const fullRoleByHex = {};
+    spec.swatches.forEach((sw) => {
+      const key = normHex(sw.orig);
+      if (sw.role && key && !(key in fullRoleByHex)) fullRoleByHex[key] = sw.role;
+    });
+    const rebind = (l) => {
+      if (!l) return;
+      if (l.palette && l.palette.length) {
+        l.paletteRoles = l.palette.map(h => fullRoleByHex[normHex(h)] || null);
+      }
+      if (l.fill && l.fill.layer) rebind(l.fill.layer);
+    };
+    for (const l of layers) rebind(l);
     const colorways = buildColorways(spec, { main: hexes });
     const next = {
       ...baseP,
@@ -2473,8 +2554,17 @@ function evalMod(modSpec, rng, col, row, base) {
 function el(tag, attrs, children) {
   const node = document.createElementNS(SVG_NS, tag);
   if (attrs) for (const k in attrs) {
-    const v = attrs[k];
-    if (v != null) node.setAttribute(k, String(v));
+    let v = attrs[k];
+    if (v == null) continue;
+    // Recolour authored fills/strokes to the active colourway. Only
+    // full #rrggbb values are remapped; short hex (#fff), 'none',
+    // 'url(...)' etc. pass through untouched — so masks and structural
+    // util colours are unaffected.
+    if ((k === 'fill' || k === 'stroke') && typeof v === 'string' && v.charCodeAt(0) === 35) {
+      const m = _recolorMap[normHex(v)];
+      if (m != null) v = m;
+    }
+    node.setAttribute(k, String(v));
   }
   if (children) for (const c of children) node.appendChild(c);
   return node;
@@ -3102,6 +3192,7 @@ function tileDims(pattern) {
 function buildTileGroup(pattern) {
   _currentCustomShapes = pattern.customShapes || {};
   _currentByRole = resolvePalette(pattern).byRole || {};
+  _recolorMap = buildRecolorMap(pattern);
   const { w, h } = tileDims(pattern);
   const root = el('g');
   // Solo: when any layer is solo'd, only solo'd layers render.
