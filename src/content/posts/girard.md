@@ -185,6 +185,10 @@ tags:
   <div id='girard-stage-wrap'>
     <div id='girard-stage'></div>
     <div id='girard-stage-tools'>
+      <span class='girard-history'>
+        <button id='girard-undo' class='ctrl-inline-btn' title='Undo (⌘Z / Ctrl+Z)' disabled>↶ undo</button>
+        <button id='girard-redo' class='ctrl-inline-btn' title='Redo (⌘⇧Z / Ctrl+Y)' disabled>↷ redo</button>
+      </span>
       <button id='girard-yardage-open' class='ctrl-inline-btn' title='Open full-screen yardage preview'>yardage</button>
       <label class='stage-veil' title='Dim the surrounding tile margins'>
         <span>veil</span>

@@ -7867,6 +7867,12 @@ function mount() {
   // Bursts collapse via a 500 ms debounce on scheduleSave so dragging
   // a slider is one undo step, not 50.
   const _hist = { past: [], future: [], max: 50, saveTimer: null, applying: false };
+  const undoBtn = document.getElementById('girard-undo');
+  const redoBtn = document.getElementById('girard-redo');
+  const refreshHistoryButtons = () => {
+    if (undoBtn) undoBtn.disabled = _hist.past.length === 0;
+    if (redoBtn) redoBtn.disabled = _hist.future.length === 0;
+  };
   const _snap = () => JSON.parse(JSON.stringify(pattern));
   let _lastSavedSnap = _snap();
   const _commitSave = () => {
@@ -7878,6 +7884,7 @@ function mount() {
     _lastSavedSnap = cur;
     _hist.future = [];
     persistPattern(cur);   // mirror the new committed state to disk
+    refreshHistoryButtons();
   };
   const _flushPendingSave = () => {
     if (!_hist.saveTimer) return;
@@ -7932,6 +7939,7 @@ function mount() {
     _hist.applying = true;
     applyPatternToUI();
     _hist.applying = false;
+    refreshHistoryButtons();
   };
   const redo = () => {
     if (_hist.future.length === 0) return;
@@ -7942,7 +7950,10 @@ function mount() {
     _hist.applying = true;
     applyPatternToUI();
     _hist.applying = false;
+    refreshHistoryButtons();
   };
+  if (undoBtn) undoBtn.addEventListener('click', undo);
+  if (redoBtn) redoBtn.addEventListener('click', redo);
   // Flush any debounced edit to disk before the tab goes away.
   window.addEventListener('beforeunload', _flushPendingSave);
   document.addEventListener('keydown', (e) => {

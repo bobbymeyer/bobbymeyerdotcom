@@ -244,6 +244,10 @@
   text-align: left;
 }
 .ctrl-inline-btn:hover { background: #444; }
+.ctrl-inline-btn[disabled] { opacity: 0.4; cursor: default; }
+.ctrl-inline-btn[disabled]:hover { background: #1a1a1a; }
+/* Undo / redo pair sits at the left of the stage toolbar. */
+.girard-history { display: inline-flex; gap: 4px; margin-right: auto; }
 
 /* Aspect-ratio input pair: W : H, with the colon centred between. */
 .aspect-inputs { align-items: center; }
