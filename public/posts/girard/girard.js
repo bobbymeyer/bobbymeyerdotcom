@@ -2587,6 +2587,59 @@ function makeLayer(spec) {
   }
 }
 
+// Default fresh fill for a kind (and the layer palette it needs, for
+// glyph). Single source shared by the layer-config "kind" dropdown and
+// the visual add-layer picker, so their defaults never drift.
+function baseFillForKind(kind) {
+  switch (kind) {
+    case 'pinwheel':    return { fill: { kind: 'pinwheel', spin: 0 } };
+    case 'glyph':       return { fill: { kind: 'glyph', twoTone: false, invert: 0.5, weight: 0.22 }, palette: ['#21242b', '#f3ede0'], paletteRoles: [null, null] };
+    case 'stones':      return { fill: { kind: 'stones', color: '#efe9dc', gap: 0.18, round: 0.6, jitter: 0.08, sizeJitter: 0.22, roundJitter: 0.3 } };
+    case 'twigs':       return { fill: { kind: 'twigs', thickness: 0.03, height: 0.92, twig: 0.78 } };
+    case 'windowpane':  return { fill: { kind: 'windowpane', vColor: '#b7bbc0', hColor: '#9aa0a6', vWidth: 0.016, hWidth: 0.018, amp: 0.04, jitter: 0.18 } };
+    case 'honeycomb':   return { fill: { kind: 'honeycomb', stroke: '#3a4aa0', strokeWidth: 0.03 } };
+    case 'dashes':      return { fill: { kind: 'dashes', mode: 'random', density: 0.42, width: 0.5 } };
+    case 'multiform':   return { fill: { kind: 'multiform', density: 0.82 } };
+    case 'fruit':       return { fill: { kind: 'fruit', mode: 'random', density: 0.78, size: 1, leafChance: 0.28, stalk: '#4f4a22', leaf: '#7d9a40' } };
+    case 'graph':       return { fill: { kind: 'graph', stroke: '#8a9a4a', strokeWidth: 0.012, offsets: [0, 0, 0.6, 0, 0.6, 0, 0, 0, 0.6, 0, 0.6, 0] } };
+    case 'grass':       return { fill: { kind: 'grass', color: '#3f7a8c', thickness: 0.01, height: 1.05, podChance: 0.4 } };
+    case 'firecracker': return { fill: { kind: 'firecracker', color: '#e0954a', fuse: 0.08, barWidth: 0.5, barLen: 0.4 } };
+    case 'comb':        return { fill: { kind: 'comb', profile: 'square', color: '#4a6fb0', teeth: 14, amp: 0.3 } };
+    case 'slant':       return { fill: { kind: 'slant', bars: 9, slope: 0.62, gap: 0.16 } };
+    case 'solid':       return { fill: { kind: 'solid', color: '#8a8a8a', mode: 'fixed' } };
+    case 'shape':       return { fill: { kind: 'shape', shape: { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' } };
+    case 'split':       return { fill: { kind: 'split', mode: 'random' } };
+    case 'arc-split':   return { fill: { kind: 'arc-split', mode: 'random' } };
+    case 'arc-block':   return { fill: { kind: 'arc-block' } };
+    case 'mesh':        return { fill: { kind: 'mesh', mode: 'fixed', color: '#d24a45', jitter: 0.25, strokeWidth: 0.01, stroke: '#ffffff' } };
+    case 'maze':        return { fill: { kind: 'maze', color: '#2c3340', thickness: 0.18 } };
+    case 'voronoi':     return { fill: { kind: 'voronoi', mode: 'fixed', color: '#d8c79c', jitter: 0.4, gap: 0.08, round: 0.5 } };
+    case 'bloom':       return { fill: { kind: 'bloom', bloom: 'circle', stems: 4, spread: 48, bloomSize: 0.16, points: 5, round: 0.5, distort: 0.15, stemColor: '#454545', stemWidth: 0.012 } };
+    case 'manhattan':   return { fill: { kind: 'manhattan', mode: 'fixed', color: '#ffffff', density: 0.66, pixel: 0.16 } };
+    case 'flower-seal': return { fill: { kind: 'flower-seal', petals: 5, sealSize: 0.95, petalSize: 0.42, petalOffset: 0.55, centerSize: 0.45, dotSize: 0.18 } };
+    default:            return { fill: { kind: 'triangles', mode: 'random', strokeWidth: 0.02, stroke: '#ffffff' } };
+  }
+}
+
+// A fresh full layer of a given fill kind, with a sensible grid.
+const GRID_FOR_KIND = { glyph: { cols: 8, rows: 8 }, solid: { cols: 1, rows: 1 } };
+function makeLayerOfKind(kind) {
+  const def = baseFillForKind(kind);
+  const g = GRID_FOR_KIND[kind] || { cols: 6, rows: 6 };
+  const layer = { grid: { cols: g.cols, rows: g.rows, offset: { x: 0, y: 0 }, offsetMode: 'none' }, fill: def.fill };
+  if (def.palette) { layer.palette = def.palette; layer.paletteRoles = def.paletteRoles; }
+  return layer;
+}
+
+// A throwaway pattern (light ground + the layer) for rendering a
+// thumbnail of a fill kind in the add-layer picker.
+function previewPatternForLayer(layer) {
+  const p = defaultPattern();
+  const ground = { grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' }, fill: { kind: 'solid', color: '#f1ece0', mode: 'fixed' } };
+  p.layers = [ground, layer];
+  return p;
+}
+
 // Human label derived from the layer's structure.
 function layerLabel(layer) {
   const { cols, rows, offsetMode } = layer.grid;
@@ -7264,62 +7317,17 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
   addHeader('fill');
   const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass', 'firecracker', 'comb', 'slant'] });
   fillKind.addEventListener('change', () => {
-    if (fillKind.value === 'pinwheel') {
-      layer.fill = { kind: 'pinwheel', spin: 0 };
-    } else if (fillKind.value === 'glyph') {
-      // Colour lives in the layer palette (the single colour system).
-      layer.fill = { kind: 'glyph', twoTone: false, invert: 0.5, weight: 0.22 };
-      layer.palette = ['#21242b', '#f3ede0'];
-      layer.paletteRoles = [null, null];
-    } else if (fillKind.value === 'stones') {
-      layer.fill = { kind: 'stones', color: '#efe9dc', gap: 0.18, round: 0.6, jitter: 0.08, sizeJitter: 0.22, roundJitter: 0.3 };
-    } else if (fillKind.value === 'twigs') {
-      layer.fill = { kind: 'twigs', thickness: 0.03, height: 0.92, twig: 0.78 };
-    } else if (fillKind.value === 'windowpane') {
-      layer.fill = { kind: 'windowpane', vColor: '#b7bbc0', hColor: '#9aa0a6', vWidth: 0.016, hWidth: 0.018, amp: 0.04, jitter: 0.18 };
-    } else if (fillKind.value === 'honeycomb') {
-      layer.fill = { kind: 'honeycomb', stroke: '#3a4aa0', strokeWidth: 0.03 };
-    } else if (fillKind.value === 'dashes') {
-      layer.fill = { kind: 'dashes', mode: 'random', density: 0.42, width: 0.5 };
-    } else if (fillKind.value === 'multiform') {
-      layer.fill = { kind: 'multiform', density: 0.82 };
-    } else if (fillKind.value === 'fruit') {
-      layer.fill = { kind: 'fruit', mode: 'random', density: 0.78, size: 1, leafChance: 0.28, stalk: '#4f4a22', leaf: '#7d9a40' };
-    } else if (fillKind.value === 'graph') {
-      layer.fill = { kind: 'graph', stroke: '#8a9a4a', strokeWidth: 0.012, offsets: [0, 0, 0.6, 0, 0.6, 0, 0, 0, 0.6, 0, 0.6, 0] };
-    } else if (fillKind.value === 'grass') {
-      layer.fill = { kind: 'grass', color: '#3f7a8c', thickness: 0.01, height: 1.05, podChance: 0.4 };
-    } else if (fillKind.value === 'firecracker') {
-      layer.fill = { kind: 'firecracker', color: '#e0954a', fuse: 0.08, barWidth: 0.5, barLen: 0.4 };
-    } else if (fillKind.value === 'comb') {
-      layer.fill = { kind: 'comb', profile: 'square', color: '#4a6fb0', teeth: 14, amp: 0.3 };
-    } else if (fillKind.value === 'slant') {
-      layer.fill = { kind: 'slant', bars: 9, slope: 0.62, gap: 0.16 };
-    } else if (fillKind.value === 'solid') {
-      layer.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
-    } else if (fillKind.value === 'shape') {
-      layer.fill = { kind: 'shape', shape: layer.fill.shape || { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' };
-    } else if (fillKind.value === 'split') {
-      layer.fill = { kind: 'split', mode: 'random' };
-    } else if (fillKind.value === 'arc-split') {
-      layer.fill = { kind: 'arc-split', mode: 'random' };
-    } else if (fillKind.value === 'arc-block') {
-      layer.fill = { kind: 'arc-block' };
-    } else if (fillKind.value === 'mesh') {
-      layer.fill = { kind: 'mesh', mode: 'fixed', color: '#d24a45', jitter: 0.25, strokeWidth: 0.01, stroke: '#ffffff' };
-    } else if (fillKind.value === 'maze') {
-      layer.fill = { kind: 'maze', color: '#2c3340', thickness: 0.18 };
-    } else if (fillKind.value === 'voronoi') {
-      layer.fill = { kind: 'voronoi', mode: 'fixed', color: '#d8c79c', jitter: 0.4, gap: 0.08, round: 0.5 };
-    } else if (fillKind.value === 'bloom') {
-      layer.fill = { kind: 'bloom', bloom: 'circle', stems: 4, spread: 48, bloomSize: 0.16, points: 5, round: 0.5, distort: 0.15, stemColor: '#454545', stemWidth: 0.012 };
-    } else if (fillKind.value === 'manhattan') {
-      layer.fill = { kind: 'manhattan', mode: 'fixed', color: '#ffffff', density: 0.66, pixel: 0.16 };
-    } else if (fillKind.value === 'flower-seal') {
-      layer.fill = { kind: 'flower-seal', petals: 5, sealSize: 0.95, petalSize: 0.42, petalOffset: 0.55, centerSize: 0.45, dotSize: 0.18 };
-    } else {
-      layer.fill = { kind: 'triangles', mode: 'random', strokeWidth: 0.02, stroke: '#ffffff' };
+    const kind = fillKind.value;
+    const def = baseFillForKind(kind);
+    // Preserve the user's current colour / shape when switching to the
+    // basic kinds, so toggling doesn't discard their pick.
+    if (kind === 'solid') {
+      def.fill = { kind: 'solid', color: layer.fill.color || '#8a8a8a', mode: layer.fill.mode || 'fixed' };
+    } else if (kind === 'shape') {
+      def.fill = { kind: 'shape', shape: layer.fill.shape || { kind: 'circle', size: 0.6 }, mode: 'palette-cycle' };
     }
+    layer.fill = def.fill;
+    if (def.palette) { layer.palette = def.palette; layer.paletteRoles = def.paletteRoles; }
     onChange();
     rebuild();
   });
@@ -7799,7 +7807,10 @@ function mount() {
   const stage     = document.getElementById('girard-stage');
   const listEl    = document.getElementById('girard-layer-list');
   const configEl  = document.getElementById('girard-layer-config');
-  const addSelect = document.getElementById('girard-add-layer');
+  const addLayerOpenBtn  = document.getElementById('girard-add-layer-open');
+  const addLayerModal    = document.getElementById('girard-add-layer-modal');
+  const addLayerCloseBtn = document.getElementById('girard-add-layer-close');
+  const addLayerGrid     = document.getElementById('girard-add-layer-grid');
   const seed      = document.getElementById('girard-seed');
   const roll      = document.getElementById('girard-roll');
   const repeat    = document.getElementById('girard-repeat');
@@ -8035,12 +8046,73 @@ function mount() {
     });
   };
 
-  addSelect.addEventListener('change', () => {
-    if (!addSelect.value) return;
-    pattern.layers.push(makeLayer(addSelect.value));
-    selected = pattern.layers.length - 1;
-    addSelect.value = '';
-    rerenderUI();
+  // Visual add-layer picker: a thumbnail per layer type so the full
+  // range of fills is discoverable (not buried in a config dropdown).
+  // A few quick layout presets first, then every fill kind.
+  const ADD_LAYER_ENTRIES = [
+    { name: 'solid',   make: () => makeLayer('solid') },
+    { name: 'stripes', make: () => makeLayer('h-stripes') },
+    { name: 'columns', make: () => makeLayer('v-stripes') },
+    { name: 'brick',   make: () => makeLayer('brick') },
+    { name: 'checker', make: () => makeLayer('checker') },
+    { name: 'dots',    make: () => makeLayer('dots') },
+    { name: 'scatter', make: () => makeLayer('random') },
+    ...['split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi',
+        'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph',
+        'stones', 'twigs', 'windowpane', 'honeycomb', 'dashes', 'multiform',
+        'fruit', 'graph', 'grass', 'firecracker', 'comb', 'slant']
+      .map(k => ({ name: k.replace(/-/g, ' '), make: () => makeLayerOfKind(k) })),
+  ];
+  let addLayerBuilt = false;
+  const renderAddLayerGrid = () => {
+    if (!addLayerGrid || addLayerBuilt) return;   // thumbnails are static — build once
+    addLayerBuilt = true;
+    const frag = document.createDocumentFragment();
+    for (const entry of ADD_LAYER_ENTRIES) {
+      const card = document.createElement('div');
+      card.className = 'sample-card';
+      const thumbWrap = document.createElement('div');
+      thumbWrap.className = 'sample-card-thumb';
+      try { thumbWrap.appendChild(buildSampleThumb(previewPatternForLayer(entry.make()))); }
+      catch (err) { console.warn('add-layer thumb failed for', entry.name, err); }
+      card.appendChild(thumbWrap);
+      const meta = document.createElement('div');
+      meta.className = 'sample-card-meta';
+      const title = document.createElement('span');
+      title.className = 'sample-card-title';
+      title.textContent = entry.name;
+      meta.appendChild(title);
+      card.appendChild(meta);
+      card.addEventListener('click', () => {
+        pattern.layers.push(entry.make());
+        selected = pattern.layers.length - 1;
+        rerenderUI();
+        addLayerClose();
+      });
+      frag.appendChild(card);
+    }
+    addLayerGrid.appendChild(frag);
+  };
+  const addLayerOpen = () => {
+    if (!addLayerModal) return;
+    renderAddLayerGrid();
+    addLayerModal.classList.add('is-open');
+    addLayerModal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  };
+  const addLayerClose = () => {
+    if (!addLayerModal) return;
+    addLayerModal.classList.remove('is-open');
+    addLayerModal.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  };
+  if (addLayerOpenBtn)  addLayerOpenBtn.addEventListener('click', addLayerOpen);
+  if (addLayerCloseBtn) addLayerCloseBtn.addEventListener('click', addLayerClose);
+  if (addLayerModal) {
+    addLayerModal.addEventListener('click', (e) => { if (e.target === addLayerModal) addLayerClose(); });
+  }
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && addLayerModal?.classList.contains('is-open')) addLayerClose();
   });
 
   seed.addEventListener('input', () => {

@@ -198,16 +198,7 @@ tags:
     </div>
   </div>
   <aside id='girard-layers' class='girard-panel'>
-    <select id='girard-add-layer'>
-      <option value=''>+ add layer…</option>
-      <option value='solid'>solid</option>
-      <option value='h-stripes'>horizontal stripes</option>
-      <option value='v-stripes'>vertical stripes</option>
-      <option value='brick'>brick</option>
-      <option value='checker'>checker</option>
-      <option value='dots'>dots</option>
-      <option value='random'>random shapes</option>
-    </select>
+    <button id='girard-add-layer-open' class='ctrl-inline-btn girard-add-layer-btn' title='Browse all layer types'>+ add layer…</button>
     <ul id='girard-layer-list'></ul>
     <div id='girard-layer-config'></div>
   </aside>
@@ -222,6 +213,14 @@ tags:
   </div>
   <div id='girard-samples-tags' class='girard-samples-tags'></div>
   <div id='girard-samples-grid' class='girard-samples-grid'></div>
+</div>
+
+<div id='girard-add-layer-modal' class='girard-modal' aria-hidden='true'>
+  <div class='girard-modal-controls'>
+    <span class='girard-modal-title'>add layer</span>
+    <button id='girard-add-layer-close' class='girard-modal-close' title='Close (Esc)'>×</button>
+  </div>
+  <div id='girard-add-layer-grid' class='girard-samples-grid'></div>
 </div>
 
 <div id='girard-yardage-modal' class='girard-modal' aria-hidden='true'>

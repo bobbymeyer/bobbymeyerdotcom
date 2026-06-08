@@ -299,6 +299,7 @@
   flex-direction: column;
   gap: 8px;
 }
+.girard-add-layer-btn { width: 100%; }
 
 .panel-heading {
   font: inherit;
