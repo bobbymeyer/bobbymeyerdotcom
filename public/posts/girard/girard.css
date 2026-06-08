@@ -734,7 +734,7 @@ button.ctrl:hover {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(20, 20, 22, 0.86);
+  background: #ffffff;
   padding: 48px 32px 32px;
   box-sizing: border-box;
   align-items: stretch;
@@ -746,7 +746,9 @@ button.ctrl:hover {
   align-items: center;
   gap: 16px;
   padding-bottom: 12px;
-  color: #f5f5f5;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #e5e5e5;
+  color: #1a1a1a;
 }
 .girard-modal-title {
   font-weight: 700;
@@ -761,13 +763,13 @@ button.ctrl:hover {
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #ccc;
+  color: #555;
 }
 .girard-modal-tiles select {
   font: inherit;
-  background: #1a1a1a;
-  color: #f5f5f5;
-  border: 1px solid #444;
+  background: #fff;
+  color: #1a1a1a;
+  border: 1px solid #ddd;
   padding: 4px 8px;
   text-transform: none;
 }
@@ -775,12 +777,12 @@ button.ctrl:hover {
   margin-left: auto;
   font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
   letter-spacing: 0.04em;
-  color: #bbb;
+  color: #888;
 }
 .girard-modal-close {
   background: transparent;
-  border: 1px solid #555;
-  color: #f5f5f5;
+  border: 1px solid #ddd;
+  color: #1a1a1a;
   width: 32px;
   height: 32px;
   font-size: 18px;
@@ -788,7 +790,7 @@ button.ctrl:hover {
   cursor: pointer;
   padding: 0;
 }
-.girard-modal-close:hover { background: #333; }
+.girard-modal-close:hover { background: #f0f0f0; }
 .girard-modal-stage {
   /* Outer area centres the rendered field — letterbox lives here so
      the field itself sits at its natural aspect, no distortion. */
@@ -810,13 +812,13 @@ button.ctrl:hover {
   /* Checker backs the field, not the surrounding letterbox area, so
      transparent tiles still read as transparent. */
   background-image:
-    linear-gradient(45deg, #444 25%, transparent 25%),
-    linear-gradient(-45deg, #444 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #444 75%),
-    linear-gradient(-45deg, transparent 75%, #444 75%);
+    linear-gradient(45deg, #ddd 25%, transparent 25%),
+    linear-gradient(-45deg, #ddd 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #ddd 75%),
+    linear-gradient(-45deg, transparent 75%, #ddd 75%);
   background-size: 24px 24px;
   background-position: 0 0, 0 12px, 12px -12px, -12px 0;
-  background-color: #222;
+  background-color: #fff;
 }
 
 /* ----- Parametric palette UI ----- */
@@ -1163,14 +1165,14 @@ button.ctrl:hover {
   flex: 1 1 240px;
   min-width: 0;
   max-width: 320px;
-  background: #1a1a1a;
-  color: #f5f5f5;
-  border: 1px solid #444;
+  background: #fff;
+  color: #1a1a1a;
+  border: 1px solid #ddd;
   padding: 6px 10px;
   font: inherit;
   font-size: 12px;
 }
-.girard-samples-search::placeholder { color: #888; }
+.girard-samples-search::placeholder { color: #999; }
 
 .girard-samples-tags {
   display: flex;
@@ -1180,8 +1182,8 @@ button.ctrl:hover {
 }
 .sample-tag-pill {
   background: transparent;
-  color: #ccc;
-  border: 1px solid #555;
+  color: #666;
+  border: 1px solid #ddd;
   padding: 4px 10px;
   font: inherit;
   font-size: 10px;
@@ -1190,14 +1192,14 @@ button.ctrl:hover {
   cursor: pointer;
   transition: background 80ms ease, color 80ms ease, border-color 80ms ease;
 }
-.sample-tag-pill:hover { border-color: #888; color: #fff; }
+.sample-tag-pill:hover { border-color: #888; color: #1a1a1a; }
 .sample-tag-pill.is-active {
-  background: #f5f5f5;
-  color: #1a1a1a;
-  border-color: #f5f5f5;
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
 }
-.sample-tag-pill.is-clear { color: #ff8b8b; border-color: #ff8b8b; }
-.sample-tag-pill.is-clear:hover { background: #ff8b8b; color: #1a1a1a; }
+.sample-tag-pill.is-clear { color: #c4342b; border-color: #e3b4b0; }
+.sample-tag-pill.is-clear:hover { background: #c4342b; color: #fff; border-color: #c4342b; }
 
 .girard-samples-grid {
   flex: 1 1 auto;
@@ -1211,20 +1213,24 @@ button.ctrl:hover {
 .sample-card {
   display: flex;
   flex-direction: column;
-  background: #2a2a2c;
-  border: 1px solid #3a3a3c;
-  color: #eee;
+  background: #fff;
+  border: 1px solid #ddd;
+  color: #1a1a1a;
   cursor: pointer;
   text-align: left;
   font: inherit;
   padding: 0;
-  transition: border-color 80ms ease, transform 80ms ease;
+  transition: border-color 80ms ease, transform 80ms ease, box-shadow 80ms ease;
 }
-.sample-card:hover { border-color: #888; transform: translateY(-1px); }
+.sample-card:hover {
+  border-color: #888;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
 .sample-card-thumb {
   aspect-ratio: 1 / 1;
   width: 100%;
-  background: #1a1a1a;
+  background: #f0f0f0;
   overflow: hidden;
   display: block;
 }
@@ -1240,7 +1246,7 @@ button.ctrl:hover {
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #f5f5f5;
+  color: #1a1a1a;
 }
 .sample-card-tags {
   font-size: 9px;
@@ -1248,11 +1254,11 @@ button.ctrl:hover {
   text-transform: uppercase;
   color: #999;
 }
-.sample-card:focus-visible { outline: 2px solid #6a8caf; outline-offset: -2px; }
+.sample-card:focus-visible { outline: 2px solid #1a1a1a; outline-offset: -2px; }
 .sample-card-actions {
   display: flex;
   margin-top: auto;            /* pin to the bottom so cards align */
-  border-top: 1px solid #3a3a3c;
+  border-top: 1px solid #e5e5e5;
 }
 .sample-card-btn {
   flex: 1;
@@ -1261,16 +1267,16 @@ button.ctrl:hover {
   letter-spacing: 0.04em;
   text-transform: lowercase;
   padding: 7px 6px;
-  background: #232325;
-  color: #cfcfcf;
+  background: #f3f3f3;
+  color: #555;
   border: none;
   cursor: pointer;
   transition: background 80ms ease, color 80ms ease;
 }
-.sample-card-btn + .sample-card-btn { border-left: 1px solid #3a3a3c; }
-.sample-card-btn:hover { background: #34343a; color: #fff; }
-.sample-card-btn.is-primary { background: #3a3f5c; color: #fff; }
-.sample-card-btn.is-primary:hover { background: #4a5170; }
+.sample-card-btn + .sample-card-btn { border-left: 1px solid #e5e5e5; }
+.sample-card-btn:hover { background: #e7e7e7; color: #1a1a1a; }
+.sample-card-btn.is-primary { background: #1a1a1a; color: #fff; }
+.sample-card-btn.is-primary:hover { background: #444; }
 
 /* Layer-list lock toggle + lock state. The button shows 🔓 or 🔒
    depending on the layer; locked rows fade the title so the row is
