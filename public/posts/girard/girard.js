@@ -7763,6 +7763,30 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
   }
 }
 
+// ---------- Local autosave ----------
+// The working pattern is mirrored to localStorage so a refresh / tab
+// close doesn't lose the design. Single slot for now; a named-project
+// gallery can layer on top of the same store later.
+const GIRARD_STORE_KEY = 'girard:autosave:v1';
+function loadPersisted() {
+  try {
+    const raw = localStorage.getItem(GIRARD_STORE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    const p = data && data.pattern;
+    if (p && Array.isArray(p.layers) && p.layers.length) return p;
+  } catch { /* unavailable / corrupt → start fresh */ }
+  return null;
+}
+function persistPattern(p) {
+  try {
+    localStorage.setItem(GIRARD_STORE_KEY, JSON.stringify({ v: 1, pattern: p }));
+  } catch { /* private mode / quota → silently skip */ }
+}
+function clearPersisted() {
+  try { localStorage.removeItem(GIRARD_STORE_KEY); } catch { /* ignore */ }
+}
+
 // ---------- Mount ----------
 function mount() {
   // Forward-declared so the various input handlers and refreshers can
@@ -7806,7 +7830,7 @@ function mount() {
     }
   }
 
-  let pattern = defaultPattern();
+  let pattern = loadPersisted() || defaultPattern();
   let selected = 0;
 
   // Two separate re-render paths so editing a number input doesn't
@@ -7853,6 +7877,7 @@ function mount() {
     if (_hist.past.length > _hist.max) _hist.past.shift();
     _lastSavedSnap = cur;
     _hist.future = [];
+    persistPattern(cur);   // mirror the new committed state to disk
   };
   const _flushPendingSave = () => {
     if (!_hist.saveTimer) return;
@@ -7903,6 +7928,7 @@ function mount() {
     _hist.future.push(_snap());
     pattern = _hist.past.pop();
     _lastSavedSnap = JSON.parse(JSON.stringify(pattern));
+    persistPattern(pattern);
     _hist.applying = true;
     applyPatternToUI();
     _hist.applying = false;
@@ -7912,10 +7938,13 @@ function mount() {
     _hist.past.push(_snap());
     pattern = _hist.future.pop();
     _lastSavedSnap = JSON.parse(JSON.stringify(pattern));
+    persistPattern(pattern);
     _hist.applying = true;
     applyPatternToUI();
     _hist.applying = false;
   };
+  // Flush any debounced edit to disk before the tab goes away.
+  window.addEventListener('beforeunload', _flushPendingSave);
   document.addEventListener('keydown', (e) => {
     const meta = e.metaKey || e.ctrlKey;
     if (!meta) return;
@@ -9085,7 +9114,17 @@ function mount() {
     if (e.key === 'Escape' && samplesModal?.classList.contains('is-open')) samplesClose();
   });
 
-  rerenderUI();
+  // Initial paint. applyPatternToUI mirrors the (possibly restored)
+  // pattern onto every input, then renders. If a corrupt autosave would
+  // otherwise brick the tool, drop it and start fresh.
+  try {
+    applyPatternToUI();
+  } catch (err) {
+    console.warn('girard: could not restore autosave, starting fresh', err);
+    clearPersisted();
+    pattern = defaultPattern();
+    applyPatternToUI();
+  }
 }
 
 if (document.readyState === 'loading') {
