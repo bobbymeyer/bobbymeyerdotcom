@@ -8952,10 +8952,9 @@ function mount() {
   loadBtn.addEventListener('click', () => {
     const name = sampleSel.value;
     if (!name) return;
-    const clear = window.confirm(
-      `Load "${name}"?\n\nOK: clear current design and load fresh.\nCancel: layer this sample on top of the current pattern.`
-    );
-    applySample(name, clear);
+    // Legacy hidden select → replace (undoable + autosaved). The modal
+    // cards offer the explicit replace / add-on-top choice.
+    applySample(name, true);
   });
 
   // Sample library modal: opens to a grid of clickable sample names.
@@ -9011,8 +9010,11 @@ function mount() {
       }
       if (lowerSearch && !name.toLowerCase().includes(lowerSearch)) continue;
       shown++;
-      const card = document.createElement('button');
-      card.type = 'button';
+      // Card is a div (not a button) so it can hold its own action
+      // buttons. Body click = replace (the common case, and undoable +
+      // autosaved); the explicit buttons make both outcomes clear —
+      // no more ambiguous confirm() dialog.
+      const card = document.createElement('div');
       card.className = 'sample-card';
       const thumbWrap = document.createElement('div');
       thumbWrap.className = 'sample-card-thumb';
@@ -9036,13 +9038,26 @@ function mount() {
         meta.appendChild(tagList);
       }
       card.appendChild(meta);
-      card.addEventListener('click', () => {
-        const clear = window.confirm(
-          `Load "${name}"?\n\nOK: clear current design and load fresh.\nCancel: layer this sample on top of the current pattern.`
-        );
-        applySample(name, clear);
-        samplesClose();
-      });
+
+      const apply = (clear) => { applySample(name, clear); samplesClose(); };
+      const actions = document.createElement('div');
+      actions.className = 'sample-card-actions';
+      const actBtn = (label, clear, cls, tip) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sample-card-btn' + (cls ? ' ' + cls : '');
+        b.textContent = label;
+        b.title = tip;
+        b.addEventListener('click', (e) => { e.stopPropagation(); apply(clear); });
+        return b;
+      };
+      actions.appendChild(actBtn('replace', true, 'is-primary', `Replace the current design with "${name}"`));
+      actions.appendChild(actBtn('add on top', false, '', `Layer "${name}" on top of the current design`));
+      card.appendChild(actions);
+
+      // Mouse convenience: clicking the card body (thumb / name)
+      // replaces. The two buttons are the accessible / explicit path.
+      card.addEventListener('click', () => apply(true));
       samplesGrid.appendChild(card);
     }
     if (samplesCount) {

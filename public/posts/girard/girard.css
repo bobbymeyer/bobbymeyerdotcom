@@ -1181,6 +1181,29 @@ button.ctrl:hover {
   text-transform: uppercase;
   color: #999;
 }
+.sample-card:focus-visible { outline: 2px solid #6a8caf; outline-offset: -2px; }
+.sample-card-actions {
+  display: flex;
+  margin-top: auto;            /* pin to the bottom so cards align */
+  border-top: 1px solid #3a3a3c;
+}
+.sample-card-btn {
+  flex: 1;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  padding: 7px 6px;
+  background: #232325;
+  color: #cfcfcf;
+  border: none;
+  cursor: pointer;
+  transition: background 80ms ease, color 80ms ease;
+}
+.sample-card-btn + .sample-card-btn { border-left: 1px solid #3a3a3c; }
+.sample-card-btn:hover { background: #34343a; color: #fff; }
+.sample-card-btn.is-primary { background: #3a3f5c; color: #fff; }
+.sample-card-btn.is-primary:hover { background: #4a5170; }
 
 /* Layer-list lock toggle + lock state. The button shows 🔓 or 🔒
    depending on the layer; locked rows fade the title so the row is
