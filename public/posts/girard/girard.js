@@ -577,6 +577,33 @@ function buildRecolorMap(pattern) {
   return map;
 }
 
+// Make the spec cover EVERY colour the layers paint with, so colourway
+// edits recolour the whole pattern no matter how it was assembled
+// (fresh load, layered-on-top, hand-built, restored). Idempotent:
+//   1. backfill `orig` on existing swatches from the current resolved
+//      palette (the authored state, captured before any edit), then
+//   2. add any layer colour not yet represented as an anchored role.
+// Anchored (abs) keeps the added colour rendering as itself until the
+// user edits its matrix cell.
+function ensureLayerColorsInSpec(pattern) {
+  if (!pattern || !pattern.paletteSpec || !pattern.layers) return;
+  const spec = pattern.paletteSpec;
+  if (!spec.swatches) spec.swatches = [{ role: 'base', kind: 'base' }];
+  const { byRole } = resolvePalette(pattern);
+  for (const sw of spec.swatches) {
+    if (sw.orig == null && sw.role && byRole[sw.role]) sw.orig = byRole[sw.role];
+  }
+  const known = new Set(spec.swatches.map(s => normHex(s.orig)).filter(Boolean));
+  let accentN = spec.swatches.reduce(
+    (n, s) => { const m = /^accent-(\d+)$/.exec(s.role || ''); return m ? Math.max(n, +m[1]) : n; }, 0);
+  for (const hex of collectColors(pattern.layers)) {
+    const k = normHex(hex);
+    if (!k || known.has(k)) continue;
+    known.add(k);
+    spec.swatches.push({ role: `accent-${++accentN}`, kind: 'abs', hex, orig: hex });
+  }
+}
+
 // Resolve a layer's effective palette for the current draw. A layer
 // with no palette of its own inherits the parent palette. A layer that
 // carries paletteRoles binds each slot to a project role (so it tracks
@@ -8072,6 +8099,10 @@ function mount() {
     if (!pattern.activeColorway || !pattern.colorways[pattern.activeColorway]) {
       pattern.activeColorway = Object.keys(pattern.colorways)[0];
     }
+    // Fold every layer colour into the spec so the matrix lists them and
+    // colourway edits recolour the whole pattern (covers layered / legacy
+    // patterns whose spec predates the colour, not just fresh loads).
+    ensureLayerColorsInSpec(pattern);
     refreshPaletteFromSpec(pattern);
   };
 
