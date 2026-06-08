@@ -699,6 +699,25 @@ function collectColors(node) {
   return out;
 }
 
+// Migrate a glyph layer's legacy colour fields (inks / ink+paper) into
+// the layer palette, then drop them so colour lives in ONE place. Adds
+// `twoTone` to preserve the transparent-ground look the `inks` array
+// used to imply. Recurses into nested layers. Idempotent.
+function seedGlyphPalette(l) {
+  if (!l) return;
+  const f = l.fill;
+  if (f && f.kind === 'glyph') {
+    if (f.twoTone == null) f.twoTone = !!(f.inks && f.inks.length);
+    if (!l.palette || !l.palette.length) {
+      l.palette = (f.inks && f.inks.length)
+        ? [...f.inks]
+        : [f.ink || '#21242b', f.paper || '#f3ede0'];
+    }
+    delete f.inks; delete f.ink; delete f.paper;
+  }
+  if (f && f.layer) seedGlyphPalette(f.layer);
+}
+
 // Dedupe a hex list down to distinct #rrggbb (dropping transparents /
 // short hex, which can't be project roles), keeping first-seen order.
 function dedupeHex(hexes) {
@@ -2414,6 +2433,12 @@ function loadSample(name, current, clear) {
   const sample = SAMPLES[name];
   if (!sample) return current;
   const layers = JSON.parse(JSON.stringify(sample.layers));
+  // Glyph layers historically stored colour in their own fields (inks /
+  // ink+paper). Migrate them into the layer palette — the single colour
+  // system — so the swatch editor, role binding and colourways drive
+  // them like every other fill. `twoTone` preserves the look that the
+  // `inks` array used to signal.
+  for (const l of layers) seedGlyphPalette(l);
   // Surface the sample's palette on each layer that uses palette
   // cycling but doesn't carry its own; otherwise the per-layer
   // palette editor would appear empty even though the renderer is
@@ -4200,17 +4225,26 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // keyed on the wrapped index so it tiles seamlessly.
       const salt = layerBounds?.salt ?? 1;
       const crng = cellRng(ci, ri, salt);
-      const ink = fill.ink || palette[0] || '#21242b';
-      const paper = fill.paper || '#f3ede0';
-      // With `inks` (an array), the cell ground is left transparent and
-      // the glyph is drawn in a random ink colour — for two-tone glyphs
-      // on a separate ground (Extrusions). Otherwise it's ink-on-paper
-      // with random inversion (the Menu look).
-      const inks = fill.inks;
-      const transparent = !!(inks && inks.length);
+      // Colours come from the layer palette (seeded from inks / ink+paper
+      // on load), so the swatch editor, role binding and colourways all
+      // drive them. Legacy patterns with no layer palette fall back to
+      // the raw fill fields.
+      const cols = (layer.palette && layer.palette.length)
+        ? palette
+        : (fill.inks && fill.inks.length
+            ? fill.inks
+            : [fill.ink || palette[0] || '#21242b', fill.paper || '#f3ede0']);
+      // two-tone: transparent ground, glyph drawn in a random ink (the
+      // Extrusions / Treads look). Otherwise ink-on-paper with random
+      // inversion (the Menu look). Migrated patterns carry fill.twoTone;
+      // legacy ones are inferred from the presence of an `inks` array.
+      const twoTone = fill.twoTone ?? !!(fill.inks && fill.inks.length);
+      const ink = cols[0] || palette[0] || '#21242b';
+      const paper = cols[1] ?? cols[0] ?? '#f3ede0';
+      const transparent = twoTone;
       const invert = !transparent && crng() < (fill.invert ?? 0.5);
       const bg = transparent ? 'none' : (invert ? ink : paper);
-      const fg = transparent ? inks[Math.floor(crng() * inks.length)] : (invert ? paper : ink);
+      const fg = transparent ? cols[Math.floor(crng() * cols.length)] : (invert ? paper : ink);
       const t = fill.weight ?? 0.22;            // bar thickness, × cell
       if (!transparent) parent.appendChild(el('rect', { x: ix, y: iy, width: iw, height: ih, fill: bg }));
       // R: filled rect in normalised cell coords (0..1).
@@ -7178,7 +7212,10 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
     } else if (fillKind.value === 'glyph') {
-      layer.fill = { kind: 'glyph', ink: '#21242b', paper: '#f3ede0', invert: 0.5, weight: 0.22 };
+      // Colour lives in the layer palette (the single colour system).
+      layer.fill = { kind: 'glyph', twoTone: false, invert: 0.5, weight: 0.22 };
+      layer.palette = ['#21242b', '#f3ede0'];
+      layer.paletteRoles = [null, null];
     } else if (fillKind.value === 'stones') {
       layer.fill = { kind: 'stones', color: '#efe9dc', gap: 0.18, round: 0.6, jitter: 0.08, sizeJitter: 0.22, roundJitter: 0.3 };
     } else if (fillKind.value === 'twigs') {
@@ -7530,10 +7567,21 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const rj = addCtrl('round jitter', 'number', layer.fill.roundJitter ?? 0.3, { min: 0, max: 0.5, step: 0.05 });
     rj.addEventListener('input', () => { layer.fill.roundJitter = Number(rj.value); onChange(); });
   } else if (layer.fill.kind === 'glyph') {
-    addColorCtrl('ink', layer.fill.ink || '#21242b', (v) => { layer.fill.ink = v; onChange(); });
-    addColorCtrl('paper', layer.fill.paper || '#f3ede0', (v) => { layer.fill.paper = v; onChange(); });
-    const inv = addCtrl('invert prob', 'number', layer.fill.invert ?? 0.5, { min: 0, max: 1, step: 0.05 });
-    inv.addEventListener('input', () => { layer.fill.invert = Number(inv.value); onChange(); });
+    // Colours live in the layer palette (edited via the palette swatches
+    // above). Here we only pick the look + structure.
+    //   two-tone     — transparent ground, glyph in a random palette ink
+    //   ink-on-paper — opaque, palette[0] on palette[1], random inversion
+    const twoTone = layer.fill.twoTone ?? !!(layer.fill.inks && layer.fill.inks.length);
+    const style = addCtrl('style', 'select', twoTone ? 'two-tone' : 'ink-on-paper',
+      { options: ['ink-on-paper', 'two-tone'] });
+    style.addEventListener('change', () => {
+      layer.fill.twoTone = style.value === 'two-tone';
+      onChange(); rebuild();
+    });
+    if (!twoTone) {
+      const inv = addCtrl('invert prob', 'number', layer.fill.invert ?? 0.5, { min: 0, max: 1, step: 0.05 });
+      inv.addEventListener('input', () => { layer.fill.invert = Number(inv.value); onChange(); });
+    }
     const wt = addCtrl('bar weight', 'number', layer.fill.weight ?? 0.22, { min: 0.08, max: 0.4, step: 0.02 });
     wt.addEventListener('input', () => { layer.fill.weight = Number(wt.value); onChange(); });
   } else if (layer.fill.kind === 'manhattan') {
