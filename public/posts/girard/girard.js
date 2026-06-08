@@ -751,7 +751,6 @@ const FILL_SLOT_SCHEMA = {
 // Group colours: array fields whose entries become several slots sharing
 // one label (edited as a group). The cycling set excludes them too.
 const FILL_SLOT_GROUPS = {
-  weave: ['warp', 'weft'],
   comb: ['colors'],
 };
 
@@ -1224,10 +1223,6 @@ function lutCmykToRgb(c, m, y, k, parsed) {
 // palette / repeat overrides. Loading either replaces the current
 // pattern (default palette + repeat reset) or appends the sample's
 // layers on top of the existing pattern.
-// Repeat a colour n times — handy for building striped warp / weft
-// thread sequences for the weave samples.
-const band = (c, n) => Array(n).fill(c);
-
 const SAMPLES = {
   'starter dots': {
     palette: ['#f5e9d0', '#e94e3b', '#f4c44b', '#1f6b8a', '#2c3e50'],
@@ -1661,30 +1656,6 @@ const SAMPLES = {
       },
     ],
   },
-  'Linomix': {
-    // Girard "Linomix": a warp-faced weave of many narrow colour stripes
-    // (orange, green, pink, red, blue, magenta, navy, brown) on a cream
-    // weft, which speckles through as the little woven dashes.
-    palette: ['#e8902f', '#5fa86a', '#e87fa0', '#d2503f', '#6fb0d8', '#b03a6a', '#3a3f5c', '#9c6b4a'],
-    layers: [
-      {
-        grid: { cols: 36, rows: 24, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: {
-          kind: 'weave', face: 'warp', gap: 0.06, round: 0.2, noise: 0.12,
-          warp: [
-            ...band('#9c6b4a', 2), ...band('#e9e0c8', 1), ...band('#e8902f', 2), ...band('#e9e0c8', 1),
-            ...band('#3a3f5c', 2), ...band('#e9e0c8', 1), ...band('#5fa86a', 1), ...band('#e9e0c8', 1),
-            ...band('#e87fa0', 2), ...band('#e9e0c8', 1), ...band('#d2503f', 2), ...band('#e9e0c8', 2),
-            ...band('#e87fa0', 1), ...band('#e9e0c8', 1), ...band('#6fb0d8', 2), ...band('#e9e0c8', 1),
-            ...band('#3a3f5c', 2), ...band('#e9e0c8', 1), ...band('#b03a6a', 1), ...band('#e9e0c8', 1),
-            ...band('#9c6b4a', 2), ...band('#e9e0c8', 1), ...band('#6fb0d8', 1), ...band('#e9e0c8', 1),
-            ...band('#e8902f', 1), ...band('#5fa86a', 1), ...band('#e9e0c8', 1),
-          ],
-          weft: ['#e9e0c8'],
-        },
-      },
-    ],
-  },
   'Jax': {
     // Girard "Jax": a tiny ditsy of green four-dot clovers on a dusty
     // pink linen ground, set on a dense half-drop grid.
@@ -1833,30 +1804,6 @@ const SAMPLES = {
           mode: 'checker',
         },
         palette: ['#f6f1e7', '#f4b8c9'],
-      },
-    ],
-  },
-  'Jacobs Coat': {
-    // Girard "Jacobs Coat": a warp-faced weave of many-coloured vertical
-    // stripes (pink, blue, orange, navy, maroon, coral) with a dark weft
-    // speckling horizontal woven texture into every band.
-    palette: ['#e0728c', '#2f6fb0', '#ef8f3a', '#27314f', '#9c3b3f', '#e2574c'],
-    layers: [
-      {
-        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', color: '#2a2030', mode: 'fixed' },
-      },
-      {
-        grid: { cols: 39, rows: 18, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: {
-          kind: 'weave', face: 'warp', gap: 0.0, round: 0.12, noise: 0.05, weftShade: 0.28,
-          warp: [
-            ...band('#e0728c', 5), ...band('#27314f', 2), ...band('#2f6fb0', 6),
-            ...band('#ef8f3a', 3), ...band('#27314f', 2), ...band('#ef8f3a', 4),
-            ...band('#9c3b3f', 3), ...band('#ef8f3a', 3), ...band('#27314f', 2),
-            ...band('#e2574c', 4), ...band('#27314f', 2), ...band('#ef8f3a', 3),
-          ],
-        },
       },
     ],
   },
@@ -2026,75 +1973,6 @@ const SAMPLES = {
           kind: 'windowpane',
           vColor: '#b7bbc0', hColor: '#9aa0a6',
           vWidth: 0.016, hWidth: 0.018, amp: 0.04, jitter: 0.18,
-        },
-      },
-    ],
-  },
-  'Lattice': {
-    // Girard "Lattice": a fine gingham — the same blue / linen thread
-    // sequence on warp and weft. Wide blue bands cross into solid slate
-    // squares, with a single light thread channel between them.
-    palette: ['#41505f', '#d2cab4'],
-    layers: [
-      {
-        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', color: '#d2cab4', mode: 'fixed' },
-      },
-      {
-        grid: { cols: 22, rows: 28, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: {
-          kind: 'weave', gap: 0.3, round: 0.16, noise: 0.1,
-          warp: ['#41505f'], weft: ['#41505f'],
-        },
-      },
-    ],
-  },
-  'Jutestripe': {
-    // Girard "Jutestripe": a plain weave whose vertical warp threads
-    // are striped (navy / cream / tan) crossing a natural light weft.
-    // Inside each stripe the weft shows through on alternate crossings,
-    // giving the speckled woven texture.
-    palette: ['#2c303a', '#e8dec3', '#c2a878'],
-    layers: [
-      {
-        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', color: '#1d2027', mode: 'fixed' },
-      },
-      {
-        grid: { cols: 30, rows: 18, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: {
-          kind: 'weave', face: 'warp', gap: 0.08, round: 0.28, noise: 0.13,
-          warp: [
-            ...band('#2c303a', 7), ...band('#e8dec3', 4), ...band('#c2a878', 4),
-            ...band('#2c303a', 7), ...band('#c2a878', 4), ...band('#e8dec3', 4),
-          ],
-          weft: ['#c2a878', '#e8dec3'],
-        },
-      },
-    ],
-  },
-  'Juteplaid': {
-    // Girard "Juteplaid": the same striped sequence on BOTH warp and
-    // weft, so the bands cross into a tartan — solid blocks where two
-    // like colours meet, woven checks where they differ.
-    palette: ['#2c303a', '#c2a878', '#e8dec3'],
-    layers: [
-      {
-        grid: { cols: 1, rows: 1, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: { kind: 'solid', color: '#1d2027', mode: 'fixed' },
-      },
-      {
-        grid: { cols: 14, rows: 14, offset: { x: 0, y: 0 }, offsetMode: 'none' },
-        fill: {
-          kind: 'weave', gap: 0.08, round: 0.28, noise: 0.13,
-          warp: [
-            ...band('#2c303a', 5), ...band('#c2a878', 4),
-            ...band('#e8dec3', 2), ...band('#c2a878', 3),
-          ],
-          weft: [
-            ...band('#2c303a', 5), ...band('#c2a878', 4),
-            ...band('#e8dec3', 2), ...band('#c2a878', 3),
-          ],
         },
       },
     ],
@@ -2452,7 +2330,6 @@ const FILL_TAG_MAP = {
   mesh:        ['grid', 'geometric'],
   windowpane:  ['grid', 'geometric'],
   graph:       ['grid', 'linear'],
-  weave:       ['textile', 'woven', 'dense'],
   honeycomb:   ['geometric', 'hexagonal'],
   manhattan:   ['architectural', 'dense'],
   glyph:       ['typographic', 'abstract'],
@@ -4516,47 +4393,6 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
           }
         }
       });
-      break;
-    }
-    case 'weave': {
-      // Plain over/under weave. warp = vertical thread colours (indexed
-      // by column), weft = horizontal thread colours (by row). At each
-      // crossing the warp is "on top" on one checker phase and the weft
-      // on the other, so colours interlace into the woven texture.
-      // Striped warp/weft give Jutestripe; striping both gives a plaid.
-      const warpG = fillSlotArray(layer, fullPalette, 'warp');
-      const weftG = fillSlotArray(layer, fullPalette, 'weft');
-      const warp = warpG.length ? warpG : (fill.warp && fill.warp.length ? fill.warp : palette);
-      const weft = weftG.length ? weftG : (fill.weft && fill.weft.length ? fill.weft : warp);
-      // Balanced = 50/50 checker. Warp-faced shows the vertical thread
-      // on 2 of every 3 crossings, so warp stripes stay dominant with
-      // the weft just speckling through (needs dims ÷3 to tile).
-      // warpN controls warp dominance for a warp-faced weave: the warp
-      // shows on (warpN-1) of every warpN crossings (default 3 → 2/3).
-      // Higher = more solid warp stripes. Dims must be ÷ warpN to tile.
-      const warpN = fill.warpN || 3;
-      const over = (fill.face === 'warp')
-        ? mod(ci + ri, warpN) !== 0
-        : mod(ci + ri, 2) === 0;
-      const warpColor = warp[mod(col, warp.length)];
-      // weftShade keeps the weft tone-on-tone: a darker shade of the
-      // warp colour right here, so stripes stay solid with just a woven
-      // ribbing rather than a contrasting checker.
-      let color = over ? warpColor
-        : (fill.weftShade != null ? shadeHex(warpColor, -fill.weftShade)
-                                  : weft[mod(row, weft.length)]);
-      if (fill.noise) {
-        const crng = cellRng(ci, ri, layerBounds?.salt ?? 1);
-        color = shadeHex(color, (crng() * 2 - 1) * fill.noise);
-      }
-      if (isTransparent(color)) break;
-      const g2 = (fill.gap ?? 0.12);
-      const gx2 = iw * g2 / 2, gy2 = ih * g2 / 2;
-      const rr = Math.min(iw, ih) * (fill.round ?? 0.35);
-      parent.appendChild(el('rect', {
-        x: ix + gx2, y: iy + gy2, width: iw - 2 * gx2, height: ih - 2 * gy2,
-        rx: rr, ry: rr, fill: color,
-      }));
       break;
     }
     case 'windowpane': {
@@ -6886,7 +6722,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     }, opts);
   };
 
-  // A group of colours sharing one label (warp, weft, comb colours):
+  // A group of colours sharing one label (e.g. comb colours):
   // each is a slot in layer.palette; add/remove rebuilds the form.
   const addSlotColorGroup = (label, key, def) => {
     if (!layer.palette) layer.palette = [];
@@ -7413,7 +7249,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'weave', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass', 'firecracker', 'comb', 'slant'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass', 'firecracker', 'comb', 'slant'] });
   fillKind.addEventListener('change', () => {
     if (fillKind.value === 'pinwheel') {
       layer.fill = { kind: 'pinwheel', spin: 0 };
@@ -7426,8 +7262,6 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
       layer.fill = { kind: 'stones', color: '#efe9dc', gap: 0.18, round: 0.6, jitter: 0.08, sizeJitter: 0.22, roundJitter: 0.3 };
     } else if (fillKind.value === 'twigs') {
       layer.fill = { kind: 'twigs', thickness: 0.03, height: 0.92, twig: 0.78 };
-    } else if (fillKind.value === 'weave') {
-      layer.fill = { kind: 'weave', gap: 0.14, round: 0.4, noise: 0.13, warp: ['#2c303a', '#c2a878', '#e8dec3'], weft: ['#c2a878', '#e8dec3'] };
     } else if (fillKind.value === 'windowpane') {
       layer.fill = { kind: 'windowpane', vColor: '#b7bbc0', hColor: '#9aa0a6', vWidth: 0.016, hWidth: 0.018, amp: 0.04, jitter: 0.18 };
     } else if (fillKind.value === 'honeycomb') {
@@ -7744,15 +7578,6 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     am.addEventListener('input', () => { layer.fill.amp = Number(am.value); onChange(); });
     const jt = addCtrl('jitter', 'number', layer.fill.jitter ?? 0.12, { min: 0, max: 0.5, step: 0.02 });
     jt.addEventListener('input', () => { layer.fill.jitter = Number(jt.value); onChange(); });
-  } else if (layer.fill.kind === 'weave') {
-    const gp = addCtrl('thread gap', 'number', layer.fill.gap ?? 0.14, { min: 0, max: 0.4, step: 0.02 });
-    gp.addEventListener('input', () => { layer.fill.gap = Number(gp.value); onChange(); });
-    const rd = addCtrl('thread round', 'number', layer.fill.round ?? 0.4, { min: 0, max: 0.5, step: 0.05 });
-    rd.addEventListener('input', () => { layer.fill.round = Number(rd.value); onChange(); });
-    const nz = addCtrl('fibre noise', 'number', layer.fill.noise ?? 0.13, { min: 0, max: 0.4, step: 0.02 });
-    nz.addEventListener('input', () => { layer.fill.noise = Number(nz.value); onChange(); });
-    addSlotColorGroup('warp', 'warp', '#888888');
-    addSlotColorGroup('weft', 'weft', '#888888');
   } else if (layer.fill.kind === 'twigs') {
     const th = addCtrl('thickness', 'number', layer.fill.thickness ?? 0.03, { min: 0.008, max: 0.08, step: 0.004 });
     th.addEventListener('input', () => { layer.fill.thickness = Number(th.value); onChange(); });
