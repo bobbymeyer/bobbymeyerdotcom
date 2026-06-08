@@ -3387,6 +3387,10 @@ function tileDims(pattern) {
 
 function buildTileGroup(pattern) {
   _currentCustomShapes = pattern.customShapes || {};
+  // Make sure every layer colour is a role before resolving, so a colour
+  // added since the last UI refresh (e.g. via a colour-picker edit, which
+  // only re-renders the stage) still maps into the active colourway.
+  ensureLayerColorsInSpec(pattern);
   _currentByRole = resolvePalette(pattern).byRole || {};
   _recolorMap = buildRecolorMap(pattern);
   const { w, h } = tileDims(pattern);
@@ -8187,6 +8191,10 @@ function mount() {
     },
   };
   const rerenderUI = () => {
+    // Fold any new layer colours into the spec and refresh the matrix
+    // first, so adding / duplicating a layer or switching a fill kind
+    // surfaces its colours as roles (and they respond to colourways).
+    refreshPaletteUI();
     rerenderSvg();
     renderLayerList(listEl, pattern, selected, layerHandlers);
     buildConfigForm(configEl, pattern.layers[selected], rerenderSvg, {
@@ -8519,8 +8527,7 @@ function mount() {
   // repaint the matrix, and rebuild the stage + layer panel so a layer's
   // role-bound swatches track the active colourway too.
   const commit = () => {
-    refreshPaletteFromSpec(pattern);
-    renderColorwayMatrix();
+    // rerenderUI now folds the spec + repaints the matrix itself.
     rerenderUI();
   };
 
@@ -8550,6 +8557,11 @@ function mount() {
     matrixEl.replaceChildren();
     const swatches = pattern.paletteSpec.swatches;
     const names = Object.keys(pattern.colorways);
+    // Colours a layer actually paints with. A role bound to one of these
+    // can't be deleted from the matrix (the render would just re-fold it),
+    // so we only offer "remove role" on orphan roles — delete the colour
+    // from its layer instead.
+    const usedColors = new Set(collectColors(pattern.layers).map(c => normHex(c)).filter(Boolean));
     matrixEl.style.gridTemplateColumns =
       `minmax(104px, 1.3fr) repeat(${names.length}, minmax(40px, 1fr)) auto`;
 
@@ -8695,19 +8707,23 @@ function mount() {
         });
         rh.appendChild(lock);
 
-        const rrm = document.createElement('button');
-        rrm.type = 'button';
-        rrm.className = 'cwm-rowrm';
-        rrm.appendChild(icon('remove', 12));
-        rrm.title = 'remove role';
-        rrm.addEventListener('click', () => {
-          pattern.paletteSpec.swatches.splice(i, 1);
-          for (const c of Object.values(pattern.colorways)) {
-            if (c.overrides) delete c.overrides[sw.role];
-          }
-          commit();
-        });
-        rh.appendChild(rrm);
+        // Only orphan roles (no layer paints their colour) are removable;
+        // an in-use role would just re-fold on the next render.
+        if (!usedColors.has(normHex(sw.orig))) {
+          const rrm = document.createElement('button');
+          rrm.type = 'button';
+          rrm.className = 'cwm-rowrm';
+          rrm.appendChild(icon('remove', 12));
+          rrm.title = 'remove role';
+          rrm.addEventListener('click', () => {
+            pattern.paletteSpec.swatches.splice(i, 1);
+            for (const c of Object.values(pattern.colorways)) {
+              if (c.overrides) delete c.overrides[sw.role];
+            }
+            commit();
+          });
+          rh.appendChild(rrm);
+        }
       }
       matrixEl.appendChild(rh);
 
