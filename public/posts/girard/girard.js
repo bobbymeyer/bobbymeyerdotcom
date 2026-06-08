@@ -737,6 +737,13 @@ const FILL_SLOT_SCHEMA = {
   graph: ['stroke'],
   honeycomb: ['stroke'],
   windowpane: ['vColor', 'hColor'],
+  fruit: ['stalk', 'leaf'],
+  bloom: ['stemColor'],
+  solid: ['color'],
+  mesh: ['color', 'stroke'],
+  voronoi: ['color'],
+  manhattan: ['color'],
+  triangles: ['color', 'stroke'],
 };
 
 // Move a fill's legacy named colour fields into labelled layer.palette
@@ -2501,7 +2508,6 @@ function loadSample(name, current, clear) {
   // them like every other fill. `twoTone` preserves the look that the
   // `inks` array used to signal.
   for (const l of layers) seedGlyphPalette(l);
-  for (const l of layers) seedFillPalette(l);
   // Surface the sample's palette on each layer that uses palette
   // cycling but doesn't carry its own; otherwise the per-layer
   // palette editor would appear empty even though the renderer is
@@ -2554,6 +2560,9 @@ function loadSample(name, current, clear) {
       if (usesPalette(l) && !l.palette) l.palette = [...sample.palette];
     }
   }
+  // After the cycling set is in place, append named accent slots so they
+  // sit *after* the cycling colours (and never join the rotation).
+  for (const l of layers) seedFillPalette(l);
   for (const l of layers) bindRoles(l);
   if (clear) {
     const baseP = defaultPattern();
@@ -3543,6 +3552,13 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
   // the colour of col=cols-1.
   const ci = mod(col, cols), ri = mod(row, rows);
   const fill = layer.fill;
+  // One colour system: a layer's named accents are labelled slots in
+  // layer.palette; the cycling set is the unlabelled slots. `fullPalette`
+  // keeps every slot (for fillSlotColor's index lookups); `palette` is
+  // narrowed to the cycling set so accents never enter the rotation.
+  // Identity when the layer has no labels.
+  const fullPalette = palette;
+  palette = cycleColors(layer, palette);
 
   // Transparent palette entries skip painting that cell — useful for
   // "draw only on certain grid positions" tricks (e.g. a cross made
@@ -3580,7 +3596,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         ? palette[Math.floor(rng() * palette.length)]
         : fill.mode === 'cell'
         ? palette[Math.floor(cellRng(ci, ri, 0x9E37)() * palette.length)]
-        : (fill.color || '#888');
+        : fillSlotColor(layer, fill, fullPalette, 'color', '#888');
       if (isTransparent(color)) break;
       // Optional per-cell jitter / scale — lets a "solid" layer break
       // its grid into a looser scatter of rectangles. jitter is
@@ -3692,7 +3708,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const s = lengthA / tcols;
       const h = lengthB / strips;
 
-      const sAttrs = strokeAttrs(fill.stroke, fill.strokeWidth, Math.min(s, h), '#ffffff');
+      const sAttrs = strokeAttrs(fillSlotColor(layer, fill, fullPalette, 'stroke', '#ffffff'), fill.strokeWidth, Math.min(s, h), '#ffffff');
 
       const triSalt = ((rng() * 0xffffffff) >>> 0) | 1;
       // Each triangle gets its own colour; horizontal wrap pairs land
@@ -3700,7 +3716,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // are distinct triangles (no rhombus pairing) so they don't
       // collapse into a visible diamond.
       const colorAt = (r, c, type) => {
-        if (fill.mode === 'fixed') return fill.color || palette[0] || '#888';
+        if (fill.mode === 'fixed') return fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#888');
         const idx = mod(r, strips) * tcols * 2 + mod(c, tcols) * 2 + (type === 'down' ? 1 : 0);
         if (fill.mode === 'palette-cycle') return palette[mod(idx, palette.length)];
         const seed = ((idx * 0x9E3779B1) ^ triSalt) >>> 0;
@@ -3775,11 +3791,11 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         const dy = (r() * 2 - 1) * jitterAmt * cellH;
         return { x: ox + i * cellW + dx, y: oy + j * cellH + dy };
       };
-      const sAttrs = strokeAttrs(fill.stroke, fill.strokeWidth, Math.min(cellW, cellH), '#ffffff');
+      const sAttrs = strokeAttrs(fillSlotColor(layer, fill, fullPalette, 'stroke', '#ffffff'), fill.strokeWidth, Math.min(cellW, cellH), '#ffffff');
       const paint = (pa, pb, pc, colorIdx) => {
         const color = fill.mode === 'palette-cycle'
           ? palette[mod(colorIdx, palette.length)]
-          : (fill.color || palette[0] || '#888');
+          : fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#888');
         if (isTransparent(color) && !sAttrs.stroke) return;
         // Paint the triangle at the 9 layer-canvas wraps so any
         // vertex pushed past an edge by jitter still tiles cleanly —
@@ -3876,7 +3892,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const lw = layerBounds?.w, lh = layerBounds?.h;
       const crng = cellRng(col, row, salt);
 
-      const stemColor = fillSlotColor(layer, fill, palette, 'stemColor', '#454545');
+      const stemColor = fillSlotColor(layer, fill, fullPalette, 'stemColor', '#454545');
       const stemW = (fill.stemWidth ?? 0.012) * Math.min(iw, ih);
       const nStems = Math.max(1, Math.round((fill.stems ?? 4) + (crng() * 2 - 1)));
       const spread = (fill.spread ?? 48) * Math.PI / 180;
@@ -3999,7 +4015,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
             ? palette[fill.mode === 'random'
                 ? Math.floor(makeRng((((c * 12347) ^ (r * 56789) ^ salt) >>> 0) || 1)() * palette.length)
                 : mod(c + r * nc, palette.length)]
-            : (fill.color || palette[0] || '#d8c79c');
+            : fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#d8c79c');
           if (isTransparent(color)) continue;
           const dPath = polyPath(pebble, round);
           drawWrapped(parent, lw, lh, (host, dx, dy) => {
@@ -4061,7 +4077,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         if (!advanced) stack.pop();
       }
 
-      const color = fillSlotColor(layer, fill, palette, 'color', palette[0] || '#2c3340');
+      const color = fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#2c3340');
       const thickness = (fill.thickness ?? 0.18) * Math.min(cellW, cellH);
       const segs = [];
       const addSeg = (x1, y1, x2, y2) => segs.push([x1, y1, x2, y2]);
@@ -4208,7 +4224,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       if (crng() > density) break;
 
       // Resolve the ink colour (white by default; can follow palette).
-      let ink = fill.color || palette[0] || '#ffffff';
+      let ink = fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#ffffff');
       if (palette.length > 0) {
         if (fill.mode === 'palette-cycle' || fill.mode === 'checker') ink = palette[paletteIndex(fill.mode)];
         else if (fill.mode === 'random') ink = palette[Math.floor(crng() * palette.length)];
@@ -4293,7 +4309,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // drive them. Legacy patterns with no layer palette fall back to
       // the raw fill fields.
       const cols = (layer.palette && layer.palette.length)
-        ? palette
+        ? fullPalette
         : (fill.inks && fill.inks.length
             ? fill.inks
             : [fill.ink || palette[0] || '#21242b', fill.paper || '#f3ede0']);
@@ -4350,7 +4366,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // the grid. Stones are wrap-painted so the tile is seamless.
       const salt = layerBounds?.salt ?? 1;
       const crng = cellRng(ci, ri, salt);
-      const stone = fillSlotColor(layer, fill, palette, 'color', palette[0] || '#efe9dc');
+      const stone = fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#efe9dc');
       if (isTransparent(stone)) break;
       const gap = fill.gap ?? 0.18;                  // inset, × cell
       const round = fill.round ?? 0.55;              // 0..1, × half-min
@@ -4501,8 +4517,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // edge, so the lines join into a continuous grid that tiles.
       const salt = layerBounds?.salt ?? 1;
       const crng = cellRng(ci, ri, salt);
-      const vColor = fillSlotColor(layer, fill, palette, 'vColor', '#b7bbc0');
-      const hColor = fillSlotColor(layer, fill, palette, 'hColor', '#9aa0a6');
+      const vColor = fillSlotColor(layer, fill, fullPalette, 'vColor', '#b7bbc0');
+      const hColor = fillSlotColor(layer, fill, fullPalette, 'hColor', '#9aa0a6');
       const vW = (fill.vWidth ?? 0.018) * iw;
       const hW = (fill.hWidth ?? 0.02) * ih;
       const jit = fill.jitter ?? 0.12;
@@ -4540,7 +4556,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const G = layerGeom(col, row, cw, rh, cols, rows, layerBounds);
       if (!G) break;
       const { lw, lh } = G;
-      const stroke = fillSlotColor(layer, fill, palette, 'stroke', palette[0] || '#3a4aa0');
+      const stroke = fillSlotColor(layer, fill, fullPalette, 'stroke', palette[0] || '#3a4aa0');
       const cx = lw / cols, cy = lh / rows;
       const Rx = cx / 1.5;                       // flat-top horizontal radius
       const hy = cy / 2;
@@ -4626,8 +4642,8 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
         ? pal[Math.floor(cellRng(ci, ri, 0x9E37)() * pal.length)]
         : pal[Math.floor(crng() * pal.length)];
       if (isTransparent(color)) break;
-      const stalkColor = fillSlotColor(layer, fill, palette, 'stalk', '#4f4a22');
-      const leafColor = fillSlotColor(layer, fill, palette, 'leaf', '#7d9a40');
+      const stalkColor = fillSlotColor(layer, fill, fullPalette, 'stalk', '#4f4a22');
+      const leafColor = fillSlotColor(layer, fill, fullPalette, 'leaf', '#7d9a40');
       const baseR = Math.min(iw, ih) * 0.42 * (fill.size ?? 1) * (0.78 + crng() * 0.44);
       const cx0 = ix + iw / 2 + (crng() * 2 - 1) * iw * 0.06;
       const cy0 = iy + ih / 2 + (crng() * 2 - 1) * ih * 0.06;
@@ -4674,7 +4690,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // offsets zigzag the rungs become stacked chevrons, and where they
       // are equal they stay a flat grid. `offsets` is per column
       // (fraction of a row), cycled — keep ends equal so it tiles.
-      const stroke = fillSlotColor(layer, fill, palette, 'stroke', palette[0] || '#8a9a4a');
+      const stroke = fillSlotColor(layer, fill, fullPalette, 'stroke', palette[0] || '#8a9a4a');
       const sw = (fill.strokeWidth ?? 0.012) * Math.min(iw, ih);
       const offsets = fill.offsets && fill.offsets.length ? fill.offsets : [0, 0.5, 0, -0.5];
       const P = offsets.length;
@@ -4705,7 +4721,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // are collected then wrap-painted for a seamless tile.
       const salt = layerBounds?.salt ?? 1;
       const crng = cellRng(ci, ri, salt);
-      const color = fillSlotColor(layer, fill, palette, 'color', palette[0] || '#3f7a8c');
+      const color = fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#3f7a8c');
       const sw = (fill.thickness ?? 0.01) * Math.min(iw, ih);
       const rootX = ix + iw / 2 + (crng() * 2 - 1) * iw * 0.45;
       const baseY = iy + ih * 1.02;
@@ -4754,7 +4770,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // A vertical "fuse" down each column with horizontal bars hanging
       // off ALTERNATING sides as they descend (fishbone). Bar height =
       // its gap, so each side reads 50/50 and the two sides mirror.
-      const color = fillSlotColor(layer, fill, palette, 'color', palette[0] || '#e0954a');
+      const color = fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#e0954a');
       const cx = ix + iw / 2;
       const fuseW = (fill.fuse ?? 0.08) * iw;
       parent.appendChild(el('rect', { x: cx - fuseW / 2, y: iy, width: fuseW, height: ih, fill: color }));
@@ -4929,7 +4945,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
     }
     case 'layer': {
       if (fill.layer) {
-        renderLayer(parent, fill.layer, ix, iy, iw, ih, palette,
+        renderLayer(parent, fill.layer, ix, iy, iw, ih, fullPalette,
           (rng() * 0xffffffff) | 0);
       }
       break;
@@ -7372,7 +7388,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker', 'random', 'cell'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'fixed') === 'fixed') {
-      addColorCtrl('color', layer.fill.color || '#8a8a8a', (v) => { layer.fill.color = v; onChange(); });
+      addSlotColorCtrl('color', 'color', '#8a8a8a');
     }
   } else if (layer.fill.kind === 'shape') {
     // Custom user-imported shapes pile onto the catalog with a
@@ -7537,7 +7553,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const orient = addCtrl('orient', 'select', layer.fill.orient || 'horizontal', { options: ['horizontal', 'vertical'] });
     orient.addEventListener('change', () => { layer.fill.orient = orient.value; onChange(); });
     if ((layer.fill.mode || 'random') === 'fixed') {
-      addColorCtrl('color', layer.fill.color || '#d24a45', (v) => { layer.fill.color = v; onChange(); });
+      addSlotColorCtrl('color', 'color', '#d24a45');
     }
     const sw = addCtrl('stroke (× cell)', 'number', layer.fill.strokeWidth ?? 0, { min: 0, max: 0.15, step: 0.005 });
     sw.addEventListener('input', () => {
@@ -7549,7 +7565,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
       if (was !== (v > 0)) rebuild();
     });
     if ((layer.fill.strokeWidth ?? 0) > 0) {
-      addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
+      addSlotColorCtrl('stroke color', 'stroke', '#ffffff');
     }
   } else if (layer.fill.kind === 'pinwheel') {
     const sp = addCtrl('spin (¼ turn)', 'number', layer.fill.spin ?? 0, { min: 0, max: 3, step: 1 });
@@ -7610,8 +7626,8 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     sz.addEventListener('input', () => { layer.fill.size = Number(sz.value); onChange(); });
     const lc = addCtrl('leaf chance', 'number', layer.fill.leafChance ?? 0.26, { min: 0, max: 1, step: 0.05 });
     lc.addEventListener('input', () => { layer.fill.leafChance = Number(lc.value); onChange(); });
-    addColorCtrl('stalk', layer.fill.stalk || '#4f4a22', (v) => { layer.fill.stalk = v; onChange(); });
-    addColorCtrl('leaf', layer.fill.leaf || '#7d9a40', (v) => { layer.fill.leaf = v; onChange(); });
+    addSlotColorCtrl('stalk', 'stalk', '#4f4a22');
+    addSlotColorCtrl('leaf', 'leaf', '#7d9a40');
   } else if (layer.fill.kind === 'honeycomb') {
     addSlotColorCtrl('line', 'stroke', '#3a4aa0');
     const sw = addCtrl('line width', 'number', layer.fill.strokeWidth ?? 0.03, { min: 0.005, max: 0.12, step: 0.005 });
@@ -7685,7 +7701,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'checker', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'fixed') === 'fixed') {
-      addColorCtrl('ink', layer.fill.color || '#ffffff', (v) => { layer.fill.color = v; onChange(); });
+      addSlotColorCtrl('ink', 'color', '#ffffff');
     }
     const den = addCtrl('density', 'number', layer.fill.density ?? 0.66, { min: 0, max: 1, step: 0.02 });
     den.addEventListener('input', () => { layer.fill.density = Number(den.value); onChange(); });
@@ -7733,7 +7749,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
       const ls = addCtrl('leaf size (× cell)', 'number', layer.fill.leafSize ?? 0.1, { min: 0.02, max: 0.3, step: 0.01 });
       ls.addEventListener('input', () => { layer.fill.leafSize = Number(ls.value); onChange(); });
     }
-    addColorCtrl('stem color', layer.fill.stemColor || '#454545', (v) => { layer.fill.stemColor = v; onChange(); });
+    addSlotColorCtrl('stem color', 'stemColor', '#454545');
   } else if (layer.fill.kind === 'voronoi') {
     const jit = addCtrl('jitter (× cell)', 'number', layer.fill.jitter ?? 0.4, { min: 0, max: 0.5, step: 0.02 });
     jit.addEventListener('input', () => { layer.fill.jitter = Number(jit.value); onChange(); });
@@ -7744,7 +7760,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle', 'random'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'fixed') === 'fixed') {
-      addColorCtrl('color', layer.fill.color || '#d8c79c', (v) => { layer.fill.color = v; onChange(); });
+      addSlotColorCtrl('color', 'color', '#d8c79c');
     }
   } else if (layer.fill.kind === 'maze') {
     addSlotColorCtrl('color', 'color', '#2c3340');
@@ -7756,7 +7772,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const cmode = addCtrl('colour', 'select', layer.fill.mode || 'fixed', { options: ['fixed', 'palette-cycle'] });
     cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); rebuild(); });
     if ((layer.fill.mode || 'fixed') === 'fixed') {
-      addColorCtrl('color', layer.fill.color || '#d24a45', (v) => { layer.fill.color = v; onChange(); });
+      addSlotColorCtrl('color', 'color', '#d24a45');
     }
     const sw = addCtrl('stroke (× cell)', 'number', layer.fill.strokeWidth ?? 0, { min: 0, max: 0.1, step: 0.002 });
     sw.addEventListener('input', () => {
@@ -7768,7 +7784,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
       if (was !== (v > 0)) rebuild();
     });
     if ((layer.fill.strokeWidth ?? 0) > 0) {
-      addColorCtrl('stroke color', layer.fill.stroke ?? '#ffffff', (v) => { layer.fill.stroke = v; onChange(); });
+      addSlotColorCtrl('stroke color', 'stroke', '#ffffff');
     }
   }
 
