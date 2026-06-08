@@ -6683,10 +6683,10 @@ function renderLayerList(listEl, pattern, selected, handlers) {
     );
     actions.appendChild(lockBtn);
     const soloBtn = btn(
-      'S',
+      layer.solo ? '◉' : '◎',
       layer.solo
-        ? 'unsolo'
-        : 'solo (hide all other layers in the preview)',
+        ? 'showing only this layer — click to show all'
+        : 'solo — show only this layer',
       () => handlers.solo(i),
       'layer-solo' + (layer.solo ? ' is-solo' : '')
     );
@@ -6694,7 +6694,7 @@ function renderLayerList(listEl, pattern, selected, handlers) {
     actions.appendChild(btn('↑', 'move up',   () => handlers.move(i, -1)));
     actions.appendChild(btn('↓', 'move down', () => handlers.move(i, +1)));
     actions.appendChild(btn('⧉', 'duplicate', () => handlers.duplicate(i)));
-    actions.appendChild(btn('×', 'delete',    () => handlers.remove(i)));
+    actions.appendChild(btn('×', 'delete',    () => handlers.remove(i), 'layer-rm'));
     li.appendChild(actions);
     return li;
   });
@@ -8617,7 +8617,9 @@ function mount() {
         const lock = document.createElement('button');
         lock.type = 'button';
         lock.className = 'cwm-lock';
-        lock.textContent = sw.kind === 'abs' ? '🔒' : '🔗';
+        // Anchor (⚓) = fixed colour; link (🔗) = tracks the base. (Not a
+        // padlock — that's the layer-freeze control, a different idea.)
+        lock.textContent = sw.kind === 'abs' ? '⚓' : '🔗';
         lock.title = sw.kind === 'abs'
           ? 'anchored: auto cells use a fixed colour — click to track the base'
           : 'tracked: auto cells follow each colourway base — click to anchor';

@@ -382,22 +382,33 @@
 .layer-actions {
   display: flex;
   gap: 2px;
+  flex: 0 0 auto;
 }
 
+/* Uniform square icon-buttons so the emoji + glyph controls line up and
+   read as a toolbar (not a cramped string of characters). */
 .layer-actions button {
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  padding: 0;
   background: transparent;
   border: 1px solid transparent;
+  border-radius: 2px;
   color: #444;
   cursor: pointer;
-  padding: 2px 6px;
 }
 
 .layer-actions button:hover {
   background: #1a1a1a;
   color: #fff;
 }
+.layer-actions .layer-rm:hover { background: #c4342b; }
 
 #girard-layer-config {
   display: flex;
@@ -1272,15 +1283,11 @@ button.ctrl:hover {
 /* Solo toggle on the layer list. Yellow-ish active state matches the
    mixer convention; dimmed rows fade in the list when something
    elsewhere is solo'd. */
-.layer-actions .layer-solo {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-}
 .layer-actions .layer-solo.is-solo {
   background: #e9c33b;
   color: #1a1a1a;
 }
+.layer-actions .layer-solo.is-solo:hover { background: #d9b32b; color: #1a1a1a; }
 .layer-item.is-solo .layer-label { color: #c9a328; font-weight: 600; }
 .layer-item.is-dimmed .layer-label { opacity: 0.35; }
 
