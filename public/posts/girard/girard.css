@@ -38,8 +38,7 @@
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  background: #f3f3f3;
-  border: 1px solid #e5e5e5;
+  background: #f3f3f3;       /* the fill groups the bar — no border needed */
   padding: 8px 12px;
   margin-top: 8px;
 }
@@ -339,15 +338,16 @@
   align-items: center;
   gap: 8px;
   padding: 6px 8px;
-  background: #fff;
-  border: 1px solid #ddd;
+  background: transparent;
+  /* Transparent border keeps the row height stable; the accent border
+     only appears on selection (see the accent rule). No per-row box —
+     rows read by spacing + hover, not hairline cages. */
+  border: 1px solid transparent;
   cursor: pointer;
 }
 
-.layer-item.selected {
-  border-color: #1a1a1a;
-  background: #f0f0f0;
-}
+.layer-item:hover { background: #f6f6f6; }
+.layer-item.selected { background: #f0f0f0; }
 
 .layer-label {
   flex: 1;
@@ -366,7 +366,7 @@
 }
 .layer-grip:active { cursor: grabbing; }
 .layer-item.dragging { opacity: 0.4; }
-.layer-item.drop-target { box-shadow: inset 0 2px 0 #1a1a1a; }
+.layer-item.drop-target { box-shadow: inset 0 2px 0 var(--accent); }
 .layer-name:hover { text-decoration: underline dotted; text-underline-offset: 2px; }
 
 /* Inline rename input (roles, colourways, layers) — replaces prompt(). */
@@ -689,7 +689,7 @@ h4.config-section {
 .ctrl select {
   font: inherit;
   padding: 6px 8px;
-  border: 1px solid #ccc;
+  border: 1px solid #ddd;
   background: #fff;
   border-radius: 0;
 }
