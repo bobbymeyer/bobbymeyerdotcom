@@ -745,25 +745,70 @@ const FILL_SLOT_SCHEMA = {
   pinwheel: ['ground'],
   dashes: ['color'],
   comb: ['color'],
+  shape: ['shape.stroke', 'shape.centerColor'],   // nested under fill.shape
 };
 
+// Group colours: array fields whose entries become several slots sharing
+// one label (edited as a group). The cycling set excludes them too.
+const FILL_SLOT_GROUPS = {
+  weave: ['warp', 'weft'],
+  comb: ['colors'],
+};
+
+// Read / delete a possibly-dotted field path ('shape.stroke').
+function dotGet(o, k) { let v = o; for (const p of k.split('.')) v = v && v[p]; return v; }
+function dotDel(o, k) {
+  const ps = k.split('.'); let v = o;
+  for (let i = 0; i < ps.length - 1; i++) v = v && v[ps[i]];
+  if (v) delete v[ps[ps.length - 1]];
+}
+
+// All resolved colours for the slots sharing a group label, in order.
+function fillSlotArray(layer, palette, key) {
+  const labels = layer && layer.paletteLabels;
+  if (!labels) return [];
+  const out = [];
+  for (let i = 0; i < labels.length; i++) {
+    if (labels[i] === key && palette[i] != null) out.push(palette[i]);
+  }
+  return out;
+}
+
 // Move a fill's legacy named colour fields into labelled layer.palette
-// slots (the single colour system), then drop the old fields. Idempotent;
+// slots (the single colour system), then drop the old fields. Handles
+// single accents (incl. dotted paths) and array groups. Idempotent;
 // recurses into nested layers.
 function seedFillPalette(l) {
   if (!l) return;
   const f = l.fill;
-  const keys = f && FILL_SLOT_SCHEMA[f.kind];
-  if (keys) {
-    if (!l.palette) l.palette = [];
-    if (!l.paletteLabels) l.paletteLabels = l.palette.map(() => null);
-    while (l.paletteLabels.length < l.palette.length) l.paletteLabels.push(null);
-    for (const key of keys) {
-      if (l.paletteLabels.includes(key)) continue;
-      if (f[key] == null) continue;
-      l.palette.push(f[key]);
-      l.paletteLabels.push(key);
-      delete f[key];
+  if (f) {
+    const ensure = () => {
+      if (!l.palette) l.palette = [];
+      if (!l.paletteLabels) l.paletteLabels = l.palette.map(() => null);
+      while (l.paletteLabels.length < l.palette.length) l.paletteLabels.push(null);
+    };
+    const singles = FILL_SLOT_SCHEMA[f.kind];
+    if (singles) {
+      ensure();
+      for (const key of singles) {
+        if (l.paletteLabels.includes(key)) continue;
+        const v = dotGet(f, key);
+        if (v == null) continue;
+        l.palette.push(v);
+        l.paletteLabels.push(key);
+        dotDel(f, key);
+      }
+    }
+    const groups = FILL_SLOT_GROUPS[f.kind];
+    if (groups) {
+      ensure();
+      for (const key of groups) {
+        if (l.paletteLabels.includes(key)) continue;
+        const arr = dotGet(f, key);
+        if (!Array.isArray(arr) || !arr.length) continue;
+        for (const c of arr) { l.palette.push(c); l.paletteLabels.push(key); }
+        dotDel(f, key);
+      }
     }
   }
   if (f && f.layer) seedFillPalette(f.layer);
@@ -3083,7 +3128,7 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         petalR: dim * (shape.petal ?? 0.26),
         fill,
       });
-      g.appendChild(el('circle', { cx: 0, cy: 0, r: dim * (shape.centerSize ?? 0.13), fill: shape.centerColor || '#ffffff' }));
+      g.appendChild(el('circle', { cx: 0, cy: 0, r: dim * (shape.centerSize ?? 0.13), fill: (ctx && ctx.center) || shape.centerColor || '#ffffff' }));
       return g;
     }
     case 'jacks': {
@@ -3155,7 +3200,7 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         const cs = dim * (shape.centerSize ?? 0.14);
         g.appendChild(el('rect', {
           x: -cs / 2, y: -cs / 2, width: cs, height: cs,
-          fill: shape.centerColor || '#f2b933',
+          fill: (ctx && ctx.center) || shape.centerColor || '#f2b933',
         }));
       }
       return g;
@@ -3649,7 +3694,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const fillColor = isTransparent(color) ? 'none' : color;
       // Stroke colour can follow its own palette mode independently
       // of the fill mode. Defaults to the shape's fixed stroke.
-      let strokeColor = shape.stroke;
+      let strokeColor = fillSlotColor(layer, fill, fullPalette, 'shape.stroke', shape.stroke);
       if (hasStroke && palette.length > 0) {
         const sMode = shape.strokeMode || 'fixed';
         if (sMode === 'palette-cycle' || sMode === 'checker') {
@@ -3674,7 +3719,7 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       const baseX = ix + iw / 2 + jx + (shape.offsetX ?? 0) * iw;
       const baseY = iy + ih / 2 + jy + (shape.offsetY ?? 0) * ih;
       drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, dx, dy) => {
-        const node = shapeNode(shape, iw, ih, fillColor, { textIndex, rng, palette, colorStart, stroke: strokeColor });
+        const node = shapeNode(shape, iw, ih, fillColor, { textIndex, rng, palette, colorStart, stroke: strokeColor, center: fillSlotColor(layer, fill, fullPalette, 'shape.centerColor') });
         node.setAttribute(
           'transform',
           `translate(${baseX + dx} ${baseY + dy}) rotate(${rot}) scale(${s})`,
@@ -4479,8 +4524,10 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       // crossing the warp is "on top" on one checker phase and the weft
       // on the other, so colours interlace into the woven texture.
       // Striped warp/weft give Jutestripe; striping both gives a plaid.
-      const warp = fill.warp && fill.warp.length ? fill.warp : palette;
-      const weft = fill.weft && fill.weft.length ? fill.weft : (fill.warp && fill.warp.length ? fill.warp : palette);
+      const warpG = fillSlotArray(layer, fullPalette, 'warp');
+      const weftG = fillSlotArray(layer, fullPalette, 'weft');
+      const warp = warpG.length ? warpG : (fill.warp && fill.warp.length ? fill.warp : palette);
+      const weft = weftG.length ? weftG : (fill.weft && fill.weft.length ? fill.weft : warp);
       // Balanced = 50/50 checker. Warp-faced shows the vertical thread
       // on 2 of every 3 crossings, so warp stripes stay dominant with
       // the weft just speckling through (needs dims ÷3 to tile).
@@ -4798,7 +4845,10 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
       if (profile === 'goo') profile = 'finger';
       if (profile === 'crown') profile = 'spearhead';
       if (profile === 'round') profile = 'drop';
-      const color = fill.colors ? fill.colors[mod(idx, fill.colors.length)] : fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#888');
+      const combColors = fillSlotArray(layer, fullPalette, 'colors');
+      const color = combColors.length ? combColors[mod(idx, combColors.length)]
+        : (fill.colors ? fill.colors[mod(idx, fill.colors.length)]
+        : fillSlotColor(layer, fill, fullPalette, 'color', palette[0] || '#888'));
       const teeth = Math.max(1, at(fill.teeth, 10));
       const base = at(fill.base, 0.3);            // spine width, × band
       const duty = at(fill.duty, 0.52);           // tooth height, × period
@@ -6836,6 +6886,47 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     }, opts);
   };
 
+  // A group of colours sharing one label (warp, weft, comb colours):
+  // each is a slot in layer.palette; add/remove rebuilds the form.
+  const addSlotColorGroup = (label, key, def) => {
+    if (!layer.palette) layer.palette = [];
+    if (!layer.paletteLabels) layer.paletteLabels = layer.palette.map(() => null);
+    while (layer.paletteLabels.length < layer.palette.length) layer.paletteLabels.push(null);
+    const idxs = layer.paletteLabels.map((l, i) => (l === key ? i : -1)).filter(i => i >= 0);
+    idxs.forEach((i, n) => {
+      const wrap = document.createElement('label');
+      wrap.className = 'ctrl ctrl-span-2';
+      const span = document.createElement('span');
+      span.textContent = `${label} ${n + 1}`;
+      wrap.appendChild(span);
+      wrap.appendChild(createColorWidget(layer.palette[i] ?? def, (v) => {
+        layer.palette[i] = v;
+        if (layer.paletteRoles) layer.paletteRoles[i] = null;
+        onChange();
+      }));
+      const rm = document.createElement('button');
+      rm.type = 'button'; rm.className = 'swatch-add'; rm.textContent = '−';
+      rm.title = `remove ${label} ${n + 1}`;
+      rm.addEventListener('click', () => {
+        layer.palette.splice(i, 1);
+        layer.paletteLabels.splice(i, 1);
+        if (layer.paletteRoles) layer.paletteRoles.splice(i, 1);
+        onChange(); rebuild();
+      });
+      wrap.appendChild(rm);
+      host.appendChild(wrap);
+    });
+    const add = document.createElement('button');
+    add.type = 'button'; add.className = 'swatch-add'; add.textContent = `+ ${label}`;
+    add.addEventListener('click', () => {
+      layer.palette.push(def);
+      layer.paletteLabels.push(key);
+      if (layer.paletteRoles) layer.paletteRoles.push(null);
+      onChange(); rebuild();
+    });
+    host.appendChild(add);
+  };
+
   const addCtrl = (label, kind, value, opts = {}) => {
     const wrap = document.createElement('label');
     wrap.className = 'ctrl' + (opts.span === 2 ? ' ctrl-span-2' : '');
@@ -7445,10 +7536,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
         rebuild();
       });
       if ((layer.fill.shape?.strokeMode || 'fixed') === 'fixed') {
-        addColorCtrl('stroke color', layer.fill.shape?.stroke ?? '#000000', (v) => {
-          layer.fill.shape = { ...(layer.fill.shape || { kind: 'circle' }), stroke: v };
-          onChange();
-        });
+        addSlotColorCtrl('stroke color', 'shape.stroke', '#000000');
       }
     }
     const rot = addCtrl('rotate°', 'number', layer.fill.shape?.rotate ?? 0, { min: -180, max: 180, step: 5 });
@@ -7492,7 +7580,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     if (layer.fill.shape?.kind === 'blossom') {
       const bp = addCtrl('petals', 'number', layer.fill.shape?.petals ?? 5, { min: 4, max: 12, step: 1 });
       bp.addEventListener('input', () => { layer.fill.shape = { ...(layer.fill.shape || { kind: 'blossom' }), petals: Number(bp.value) | 0 }; onChange(); });
-      addColorCtrl('center', layer.fill.shape?.centerColor ?? '#ffffff', (v) => { layer.fill.shape = { ...(layer.fill.shape || { kind: 'blossom' }), centerColor: v }; onChange(); });
+      addSlotColorCtrl('center', 'shape.centerColor', '#ffffff');
     }
     if (layer.fill.shape?.kind === 'star') {
       const pts = addCtrl('points', 'number', layer.fill.shape?.numPoints ?? 5, { min: 3, max: 16, step: 1 });
@@ -7580,6 +7668,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     const pf = addCtrl('profile', 'select', layer.fill.profile || 'square', { options: ['square', 'spear', 'spearhead', 'drop', 'finger', 'flame', 'checker', 'angle'] });
     pf.addEventListener('change', () => { layer.fill.profile = pf.value; onChange(); });
     addSlotColorCtrl('color', 'color', '#4a6fb0');
+    addSlotColorGroup('colour', 'colors', '#4a6fb0');
     const tt = addCtrl('teeth', 'number', layer.fill.teeth ?? 14, { min: 2, max: 40, step: 1 });
     tt.addEventListener('input', () => { layer.fill.teeth = Number(tt.value) | 0; onChange(); });
     const bs = addCtrl('base', 'number', layer.fill.base ?? 0.3, { min: 0.05, max: 0.6, step: 0.02 });
@@ -7662,6 +7751,8 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     rd.addEventListener('input', () => { layer.fill.round = Number(rd.value); onChange(); });
     const nz = addCtrl('fibre noise', 'number', layer.fill.noise ?? 0.13, { min: 0, max: 0.4, step: 0.02 });
     nz.addEventListener('input', () => { layer.fill.noise = Number(nz.value); onChange(); });
+    addSlotColorGroup('warp', 'warp', '#888888');
+    addSlotColorGroup('weft', 'weft', '#888888');
   } else if (layer.fill.kind === 'twigs') {
     const th = addCtrl('thickness', 'number', layer.fill.thickness ?? 0.03, { min: 0.008, max: 0.08, step: 0.004 });
     th.addEventListener('input', () => { layer.fill.thickness = Number(th.value); onChange(); });
