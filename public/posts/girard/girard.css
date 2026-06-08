@@ -964,19 +964,31 @@ button.ctrl:hover {
   border: 1px solid #ddd;
 }
 .cwm-cell.is-explicit { border: 1px solid #1a1a1a; }
-/* small filled dot marks a hand-set (explicit) colour */
-.cwm-cell.is-explicit::after {
-  content: '';
+/* Hand-set (explicit) cells carry a clear badge: marks them AND clears
+   the override on click — the touch-friendly replacement for the
+   right-click / alt-click shortcut. Faint by default, full on hover;
+   always shown on touch (see the hover:none block below). */
+.cwm-cell-clear {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 4px;
-  height: 4px;
-  border-radius: 50%;
-  background: #1a1a1a;
-  box-shadow: 0 0 0 1px #fff;
-  pointer-events: none;
+  top: 0;
+  right: 0;
+  width: 13px;
+  height: 13px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: 0 0 0 3px;
+  background: rgba(26, 26, 26, 0.78);
+  color: #fff;
+  font-size: 11px;
+  line-height: 11px;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 80ms ease;
 }
+.cwm-cell:hover .cwm-cell-clear { opacity: 1; }
+.cwm-cell-clear:hover { background: #c4342b; }
 .cwm-cell.is-auto {
   border: 1px dashed #cfcfcf;
   opacity: 0.55;
@@ -1320,3 +1332,19 @@ button.ctrl:hover {
   line-height: 1;
 }
 .shape-chip button:hover { color: #000; }
+
+/* ---------- Touch / coarse-pointer support ---------- */
+/* No hover on touch, so reveal controls that otherwise appear on hover. */
+@media (hover: none) {
+  .swatch button,
+  .cwm-colrm { opacity: 1; }
+  .cwm-cell-clear { opacity: 0.92; }
+}
+/* Long-press to rename shouldn't trigger the OS text-selection / callout. */
+.cwm-colname,
+.cwm-rolename,
+.layer-name {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

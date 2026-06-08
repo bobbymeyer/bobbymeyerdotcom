@@ -2681,6 +2681,29 @@ function inlineEditLabel(el, current, onCommit) {
     input.addEventListener(t, (e) => e.stopPropagation()));
 }
 
+// Bind a rename trigger to a label: double-click on a mouse, long-press
+// on touch / pen (since touch double-tap is unreliable). Starting the
+// edit replaces the label with the input mid-press, so the click that
+// follows lands on the input (which swallows it) instead of the row's
+// own select / activate handler. getCurrent() supplies the editable
+// text; onCommit(value|null) is called by inlineEditLabel.
+function addRenameTrigger(el, getCurrent, onCommit) {
+  const start = () => inlineEditLabel(el, getCurrent(), onCommit);
+  el.addEventListener('dblclick', (e) => { e.stopPropagation(); e.preventDefault(); start(); });
+  let timer = null, sx = 0, sy = 0;
+  const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse') return;   // mouse keeps double-click
+    sx = e.clientX; sy = e.clientY;
+    cancel();
+    timer = setTimeout(() => { timer = null; start(); }, 500);
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) cancel();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(t => el.addEventListener(t, cancel));
+}
+
 // ---------- Modifier evaluation ----------
 function evalMod(modSpec, rng, col, row, base) {
   if (!modSpec) return base;
@@ -6655,14 +6678,11 @@ function renderLayerList(listEl, pattern, selected, handlers) {
     const nameEl = document.createElement('span');
     nameEl.className = 'layer-name';
     nameEl.textContent = layerLabel(layer);
-    nameEl.title = 'double-click to rename';
+    nameEl.title = 'double-click (or long-press) to rename';
     label.appendChild(num);
     label.appendChild(nameEl);
     label.addEventListener('click', () => handlers.select(i));
-    nameEl.addEventListener('dblclick', (e) => {
-      e.stopPropagation();
-      inlineEditLabel(nameEl, layer.name || layerLabel(layer), (val) => handlers.rename(i, val));
-    });
+    addRenameTrigger(nameEl, () => layer.name || layerLabel(layer), (val) => handlers.rename(i, val));
     li.appendChild(label);
 
     const actions = document.createElement('span');
@@ -8542,18 +8562,16 @@ function mount() {
       label.className = 'cwm-colname';
       label.textContent = name;
       label.title = name === pattern.activeColorway
-        ? `${name} (active) — double-click to rename · drag to reorder`
-        : `${name} — click to make active · double-click to rename · drag to reorder`;
+        ? `${name} (active) — double-click / long-press to rename · drag to reorder`
+        : `${name} — click to make active · double-click / long-press to rename · drag to reorder`;
       label.addEventListener('click', () => {
         if (name === pattern.activeColorway) return;
         pattern.activeColorway = name;
         commit();
       });
-      label.addEventListener('dblclick', () => {
-        inlineEditLabel(label, name, (val) => {
-          if (val) renameColorway(name, val);
-          commit();
-        });
+      addRenameTrigger(label, () => name, (val) => {
+        if (val) renameColorway(name, val);
+        commit();
       });
       head.appendChild(label);
       if (names.length > 1) {
@@ -8601,12 +8619,10 @@ function mount() {
         rlabel.disabled = true;
         rlabel.title = 'base — the colour each colourway is built from';
       } else {
-        rlabel.title = 'double-click to rename role · drag to reorder';
-        rlabel.addEventListener('dblclick', () => {
-          inlineEditLabel(rlabel, sw.role, (val) => {
-            if (val) renameRole(sw, val);
-            commit();
-          });
+        rlabel.title = 'double-click / long-press to rename role · drag to reorder';
+        addRenameTrigger(rlabel, () => sw.role, (val) => {
+          if (val) renameRole(sw, val);
+          commit();
         });
       }
       rh.appendChild(rlabel);
@@ -8700,12 +8716,25 @@ function mount() {
           // Clear an override → the cell reverts to auto.
           const clearOverride = (e) => {
             if (!hasExplicitColor(sw, cw.overrides || {})) return;
-            e.preventDefault();
+            if (e) e.preventDefault();
             delete cw.overrides[sw.role];
             commit();
           };
           cell.addEventListener('contextmenu', clearOverride);
           cell.addEventListener('click', (e) => { if (e.altKey) clearOverride(e); });
+          // Explicit cells get a tappable clear badge — the touch-
+          // friendly equivalent of right-click / alt-click, and a
+          // clearer affordance on the desktop too.
+          if (explicit) {
+            const clr = document.createElement('button');
+            clr.type = 'button';
+            clr.className = 'cwm-cell-clear';
+            clr.textContent = '×';
+            clr.title = 'clear — revert this cell to auto';
+            clr.addEventListener('pointerdown', (e) => e.stopPropagation());
+            clr.addEventListener('click', (e) => { e.stopPropagation(); clearOverride(e); });
+            cell.appendChild(clr);
+          }
         }
         matrixEl.appendChild(cell);
       });
