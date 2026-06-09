@@ -1,17 +1,18 @@
 // element studio — a visual editor for girard's element-ir documents.
 //
-// girard's per-cell motifs collapse onto a small shape-grammar IR
-// (see ../girard/element-ir.js). This page authors those documents as
-// *data*: an op-tree editor on the left, a live tiling preview on the
-// right. The same `GirardElementIR.render` that paints girard's cells
-// paints the preview here, so what you see is what girard draws.
+// Canvas-first: a single large cell stage you draw on directly. Click a
+// shape to select it; drag to move, resize, or spin it. The op-tree is
+// demoted to a Layers panel (shapes named the way a maker thinks — Circle,
+// Ring of copies, Stripes — not the interpreter's ops). Properties are
+// plain-language sliders. The raw IR JSON lives in an Export drawer for the
+// power users and the girard handoff.
 //
-// Output is a plain element-ir JSON document. Author it, save it to your
-// browser library (localStorage), export it as .json, or load one of the
-// committed presets. girard imports the exported docs as `element` fills.
+// The drawing is produced by the very same GirardElementIR.render that
+// paints girard's cells (see ../girard/element-ir.js), so what you author
+// is exactly what girard draws. Output is a plain element-ir JSON document:
+// save it to your browser library, export .json, or load a preset.
 //
-// Framework-free, no build step — a plain global script loaded by the
-// post page, mirroring girard's setup.
+// Framework-free, no build step — a global script loaded by the post page.
 
 (function () {
   'use strict';
@@ -20,15 +21,14 @@
   if (!ROOT) return;
 
   const SVG = 'http://www.w3.org/2000/svg';
+  const CELL = 100;            // the stage's single cell, in user units
 
-  // --- tiny DOM helpers -------------------------------------------------
-  // svg(): namespaced node factory injected into the interpreter.
+  // --- DOM helpers ------------------------------------------------------
   const svg = (tag, attrs) => {
     const n = document.createElementNS(SVG, tag);
     for (const k in attrs) if (attrs[k] != null) n.setAttribute(k, attrs[k]);
     return n;
   };
-  // h(): HTML element builder for the UI chrome.
   const h = (tag, attrs, ...kids) => {
     const n = document.createElement(tag);
     if (attrs) for (const k in attrs) {
@@ -37,18 +37,14 @@
       else if (k.startsWith('on') && typeof attrs[k] === 'function') n.addEventListener(k.slice(2), attrs[k]);
       else if (attrs[k] != null) n.setAttribute(k, attrs[k]);
     }
-    for (const kid of kids) {
-      if (kid == null) continue;
-      n.appendChild(typeof kid === 'string' ? document.createTextNode(kid) : kid);
-    }
+    for (const kid of kids) { if (kid == null) continue; n.appendChild(typeof kid === 'string' ? document.createTextNode(kid) : kid); }
     return n;
   };
   const clear = (n) => { while (n.firstChild) n.removeChild(n.firstChild); return n; };
   const clone = (v) => (typeof structuredClone === 'function' ? structuredClone(v) : JSON.parse(JSON.stringify(v)));
   const mod = (a, n) => ((a % n) + n) % n;
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
-  // Deterministic per-cell RNG so jitter / rand are stable across repaints
-  // (mulberry32). Re-seed via the preview's "re-seed" button.
   function rngFor(seed) {
     let t = seed >>> 0;
     return function () {
@@ -60,111 +56,76 @@
   }
 
   // ---------------------------------------------------------------------
-  // Op metadata. Drives the param forms and the tree's add menu. Each op
-  // lists its editable params; `container` says how it nests children.
-  //   'children' -> children[]   (group, split, mirror)
-  //   'child'    -> child         (repeat, nest)
-  //   'boolean'  -> clip + child  (boolean)
-  //   null       -> a leaf draw
-  // `size` is handled separately (root + split/nest only — see below).
+  // Vocabulary. The "add" menu and Layers panel speak shapes, not ops.
   // ---------------------------------------------------------------------
-  const NUM = (key, label, def, opt) => Object.assign({ key, label, kind: 'num', def, step: 0.05 }, opt);
-  const INT = (key, label, def, opt) => Object.assign({ key, label, kind: 'int', def, step: 1 }, opt);
-
-  const OP_META = {
-    group:  { container: 'children', params: [] },
-    rect:   { container: null, params: [{ key: 'fill', label: 'fill', kind: 'colorRef' }, NUM('inset', 'inset', 0, { min: 0, max: 0.5 })] },
-    disc:   { container: null, params: [{ key: 'fill', label: 'fill', kind: 'colorRef' }, NUM('r', 'radius', 0.3), NUM('dx', 'offset x', 0), NUM('dy', 'offset y', 0)] },
-    poly:   { container: null, params: [
-      { key: 'fill', label: 'fill', kind: 'colorRef' },
-      INT('sides', 'sides', 5, { min: 3, max: 24 }),
-      NUM('depth', 'depth (·<1 = star)', 1, { min: 0.05, max: 1 }),
-      NUM('rotate', 'rotate°', 0, { step: 5 }),
-      NUM('jitter', 'jitter', 0, { min: 0, max: 1 }),
-      NUM('r', 'radius', 0.5),
-      NUM('rx', 'radius x (aspect)', null),
-      NUM('ry', 'radius y (aspect)', null),
-    ] },
-    path:   { container: null, params: [{ key: 'fill', label: 'fill', kind: 'colorRef' }, { key: 'segs', label: 'segments', kind: 'segs' }] },
-    box:    { container: null, params: [
-      { key: 'fill', label: 'fill', kind: 'colorRef' },
-      NUM('w', 'width', 0.5), NUM('h', 'height', 0.5),
-      NUM('dx', 'offset x', 0), NUM('dy', 'offset y', 0),
-      NUM('rx', 'corner rx', null), NUM('ry', 'corner ry', null),
-      NUM('rotate', 'rotate°', 0, { step: 5 }),
-    ] },
-    wedge:  { container: null, params: [
-      { key: 'fill', label: 'fill', kind: 'colorRef' },
-      { key: 'corner', label: 'corner', kind: 'select', def: 0, options: [['0', 'TL'], ['1', 'TR'], ['2', 'BR'], ['3', 'BL']], cast: Number },
-      NUM('r', 'radius', 1, { min: 0, max: 1 }),
-    ] },
-    split:  { container: 'children', params: [
-      { key: 'axis', label: 'axis', kind: 'select', def: 'y', options: [['y', 'y'], ['x', 'x']] },
-      INT('count', 'count', 4, { min: 1, max: 64 }),
-      NUM('offset', 'offset (brick)', 0, { min: 0, max: 1 }),
-    ] },
-    repeat: { container: 'child', params: [
-      INT('count', 'count', 6, { min: 1, max: 64 }),
-      NUM('radius', 'radius', 0.34),
-      NUM('phase', 'phase (rad)', 0, { step: 0.1 }),
-    ] },
-    nest:   { container: 'child', params: [INT('count', 'count', 3, { min: 1, max: 32 })] },
-    mirror: { container: 'children', params: [
-      { key: 'axis', label: 'axis', kind: 'select', def: 'x', options: [['x', 'x ↔'], ['y', 'y ↕'], ['xy', 'xy ✶']] },
-    ] },
-    boolean: { container: 'boolean', params: [] },
+  const SHAPES = [
+    { id: 'disc',  name: 'Circle',    make: () => ({ op: 'disc', r: 0.3, fill: { cycle: true } }) },
+    { id: 'poly',  name: 'Polygon',   make: () => ({ op: 'poly', sides: 6, r: 0.45, fill: { cycle: true } }) },
+    { id: 'star',  name: 'Star',      make: () => ({ op: 'poly', sides: 5, depth: 0.45, r: 0.5, fill: { cycle: true } }) },
+    { id: 'box',   name: 'Rectangle', make: () => ({ op: 'box', w: 0.5, h: 0.5, fill: { cycle: true } }) },
+    { id: 'wedge', name: 'Wedge',     make: () => ({ op: 'wedge', corner: 0, r: 1, fill: { cycle: true } }) },
+    { id: 'rect',  name: 'Fill',      make: () => ({ op: 'rect', fill: { cycle: true } }) },
+    { id: 'path',  name: 'Curve',     make: () => ({ op: 'path', fill: { cycle: true }, segs: [['M', 0, -0.5], ['Q', 0.5, 0, 0, 0.5], ['Q', -0.5, 0, 0, -0.5], ['Z']] }) },
+  ];
+  const CONTAINERS = [
+    { id: 'repeat',  name: 'Ring of copies',   make: () => ({ op: 'repeat', count: 6, radius: 0.34, child: { op: 'disc', r: 0.12, fill: { cycle: true } } }) },
+    { id: 'nest',    name: 'Concentric rings', make: () => ({ op: 'nest', count: 3, child: { op: 'poly', sides: 4, rx: 1, ry: 1, fill: { band: true } } }) },
+    { id: 'split',   name: 'Stripes',          make: () => ({ op: 'split', axis: 'y', count: 4, children: [{ op: 'rect', fill: { band: true } }] }) },
+    { id: 'mirror',  name: 'Reflect',          make: () => ({ op: 'mirror', axis: 'x', children: [{ op: 'disc', r: 0.22, dx: 0.32, fill: { cycle: true } }] }) },
+    { id: 'boolean', name: 'Clip / lens',      make: () => ({ op: 'boolean', clip: { op: 'disc', r: 0.5, dx: -0.3, fill: '#000000' }, child: { op: 'disc', r: 0.5, dx: 0.3, fill: { cycle: true } } }) },
+    { id: 'group',   name: 'Group',            make: () => ({ op: 'group', children: [] }) },
+  ];
+  const opLabel = (n) => {
+    if (!n) return '';
+    if (n.op === 'poly') return (n.depth != null && n.depth < 1) ? 'Star' : 'Polygon';
+    return ({ group: 'Group', rect: 'Fill', disc: 'Circle', box: 'Rectangle', wedge: 'Wedge', path: 'Curve', split: 'Stripes', repeat: 'Ring of copies', nest: 'Concentric rings', mirror: 'Reflect', boolean: 'Clip / lens' })[n.op] || n.op;
   };
-  const OP_LIST = Object.keys(OP_META);
+  const isContainer = (n) => ['group', 'split', 'mirror', 'repeat', 'nest', 'boolean'].includes(n.op);
 
-  // A node may carry `size` (0..1, the unit scale) when it's the document
-  // root or a split/nest band — those are the points where the interpreter
-  // reads it (ctxFor). Showing it elsewhere would be a no-op.
-  const takesSize = (node) => node === doc || node.op === 'split' || node.op === 'nest';
-
-  // Build a fresh node with sensible defaults for an op.
-  function newNode(op) {
-    switch (op) {
-      case 'group':  return { op: 'group', children: [] };
-      case 'rect':   return { op: 'rect', fill: { cycle: true } };
-      case 'disc':   return { op: 'disc', r: 0.3, fill: { cycle: true } };
-      case 'poly':   return { op: 'poly', sides: 5, r: 0.5, fill: { cycle: true } };
-      case 'path':   return { op: 'path', fill: { cycle: true }, segs: [['M', 0, -0.5], ['L', 0.5, 0.5], ['L', -0.5, 0.5], ['Z']] };
-      case 'box':    return { op: 'box', w: 0.5, h: 0.5, fill: { cycle: true } };
-      case 'wedge':  return { op: 'wedge', corner: 0, r: 1, fill: { cycle: true } };
-      case 'split':  return { op: 'split', axis: 'y', count: 4, children: [{ op: 'rect', fill: { band: true } }] };
-      case 'repeat': return { op: 'repeat', count: 6, radius: 0.34, child: { op: 'disc', r: 0.12, fill: { cycle: true } } };
-      case 'nest':   return { op: 'nest', count: 3, child: { op: 'poly', sides: 4, rx: 1, ry: 1, fill: { band: true } } };
-      case 'mirror': return { op: 'mirror', axis: 'x', children: [{ op: 'disc', r: 0.22, dx: 0.32, fill: { cycle: true } }] };
-      case 'boolean': return { op: 'boolean', clip: { op: 'disc', r: 0.5, dx: -0.32, fill: '#000000' }, child: { op: 'disc', r: 0.5, dx: 0.32, fill: { cycle: true } } };
-      default: return { op: 'group', children: [] };
-    }
-  }
-
-  // The container slot(s) of a node, as { label, get, set } so the tree
-  // can render and mutate uniformly.
+  // The child slots of a node, normalised so the tree can walk uniformly.
   function slotsOf(node) {
-    const c = OP_META[node.op]?.container;
-    if (c === 'children') {
-      if (!Array.isArray(node.children)) node.children = node.child ? [node.child] : [];
-      delete node.child;
-      return [{ key: 'children', list: true }];
+    switch (node.op) {
+      case 'group': case 'split': case 'mirror':
+        if (!Array.isArray(node.children)) node.children = node.child ? [node.child] : [];
+        delete node.child;
+        return [{ key: 'children', list: true }];
+      case 'repeat': case 'nest':
+        return [{ key: 'child', list: false }];
+      case 'boolean':
+        return [{ key: 'clip', list: false }, { key: 'child', list: false }];
+      default: return [];
     }
-    if (c === 'child') return [{ key: 'child', list: false }];
-    if (c === 'boolean') return [{ key: 'clip', list: false }, { key: 'child', list: false }];
-    return [];
   }
 
   // ---------------------------------------------------------------------
-  // Colour. The IR keeps colour symbolic; the host resolves. We mirror
-  // girard's resolver so the preview matches: a literal hex draws as-is;
-  // {cycle} walks the palette per cell (the colourway); {band}/{p} index
-  // it; {rand} picks at random; {center} is a literal escape hatch.
+  // Properties. Per-op fields with plain labels + sliders. `kind`:
+  //   slider  -> range + numeric echo        select -> dropdown
+  //   color   -> the colour widget           segs   -> advanced path editor
+  // `deg` converts a radian param to a degrees control.
+  // ---------------------------------------------------------------------
+  const S = (key, label, min, max, step, def) => ({ key, label, kind: 'slider', min, max, step, def });
+  const FIELDS = {
+    disc:  [color(), S('r', 'Size', 0.02, 0.6, 0.01, 0.3), S('dx', 'Move ↔', -0.6, 0.6, 0.01, 0), S('dy', 'Move ↕', -0.6, 0.6, 0.01, 0)],
+    poly:  [color(), S('sides', 'Sides', 3, 24, 1, 6), S('depth', 'Pointiness', 0.05, 1, 0.01, 1), S('rotate', 'Spin°', -180, 180, 1, 0), S('jitter', 'Roughness', 0, 1, 0.01, 0), S('r', 'Size', 0.05, 0.6, 0.01, 0.45)],
+    box:   [color(), S('w', 'Width', 0.05, 1, 0.01, 0.5), S('h', 'Height', 0.05, 1, 0.01, 0.5), S('dx', 'Move ↔', -0.6, 0.6, 0.01, 0), S('dy', 'Move ↕', -0.6, 0.6, 0.01, 0), S('rx', 'Round corners', 0, 0.5, 0.01, 0), S('rotate', 'Spin°', -180, 180, 1, 0)],
+    wedge: [color(), { key: 'corner', label: 'Corner', kind: 'select', options: [['0', 'top-left'], ['1', 'top-right'], ['2', 'bottom-right'], ['3', 'bottom-left']], cast: Number, def: 0 }, S('r', 'Size', 0.1, 1, 0.01, 1)],
+    rect:  [color(), S('inset', 'Inset', 0, 0.45, 0.01, 0)],
+    path:  [color(), { key: 'segs', label: 'Outline', kind: 'segs' }],
+    split: [{ key: 'axis', label: 'Direction', kind: 'select', options: [['y', 'horizontal bands'], ['x', 'vertical bands']], def: 'y' }, S('count', 'How many', 1, 24, 1, 4), S('offset', 'Brick shift', 0, 1, 0.01, 0)],
+    repeat:[S('count', 'How many', 1, 36, 1, 6), S('radius', 'Spread', 0, 0.6, 0.01, 0.34), { key: 'phase', label: 'Start angle°', kind: 'slider', min: 0, max: 360, step: 1, def: 0, deg: true }],
+    nest:  [S('count', 'How many', 1, 12, 1, 3)],
+    mirror:[{ key: 'axis', label: 'Reflect', kind: 'select', options: [['x', 'left ↔ right'], ['y', 'top ↕ bottom'], ['xy', 'both ✶']], def: 'x' }],
+    group: [],
+    boolean: [],
+  };
+  function color() { return { key: 'fill', label: 'Colour', kind: 'color' }; }
+
+  // ---------------------------------------------------------------------
+  // Colour. Mirrors girard's resolver so the preview matches: a literal hex
+  // draws as-is; {cycle} walks the palette per cell; {band}/{p} index it.
   // ---------------------------------------------------------------------
   let palette = ['#d24a45', '#2c7fb8', '#f2b933', '#3f7a8c', '#7d9a40', '#8a5fb0'];
-  const NAMED = { ground: '#e7e2d6', wedge: '#d24a45', center: '#ffffff' };
-
-  // The interpreter's signature is color(ref, ctx). Build a resolver that
-  // honours ctx.band for {band}-refs (used by split/nest cycling).
+  const NAMED = { ground: '#e7e2d6', wedge: '#d24a45' };
   function colorResolver(cellIndex, rng) {
     return (ref, ctx) => {
       if (ref == null) return null;
@@ -179,546 +140,522 @@
   }
 
   // ---------------------------------------------------------------------
-  // State
+  // State + history (path-based selection survives undo's doc swaps).
   // ---------------------------------------------------------------------
-  const DEFAULT_DOC = {
-    op: 'group', size: 0.6, children: [
+  const STARTERS = {
+    flower: { op: 'group', size: 0.6, children: [
       { op: 'disc', r: 0.34, fill: { cycle: true } },
       { op: 'repeat', count: 16, radius: 0.34, child: { op: 'disc', r: 0.105, fill: { cycle: true } } },
-    ],
+    ] },
   };
-  let doc = clone(DEFAULT_DOC);
-  let selected = doc;
-  let IR = null;           // window.GirardElementIR once loaded
-  let preview = { cols: 4, rows: 4, aspect: 1, grid: true, seed: 1 };
+  let doc = clone(STARTERS.flower);
+  let selPath = [];                 // path from root to the selected node
+  let IR = null;
+  let presets = [];
+  let tilePreview = false;
+  let seed = 1;
+  const history = []; let hIndex = -1;
 
   const LIB_KEY = 'element-studio:library';
-  const loadLibrary = () => {
-    try { return JSON.parse(localStorage.getItem(LIB_KEY)) || []; } catch (_) { return []; }
-  };
-  const saveLibrary = (lib) => { try { localStorage.setItem(LIB_KEY, JSON.stringify(lib)); } catch (_) {} };
+  const loadLibrary = () => { try { return JSON.parse(localStorage.getItem(LIB_KEY)) || []; } catch { return []; } };
+  const saveLibrary = (l) => { try { localStorage.setItem(LIB_KEY, JSON.stringify(l)); } catch {} };
   let library = loadLibrary();
-  let presets = [];        // committed presets.json + interpreter DEMOS/SHAPES
+
+  function nodePath(root, target, path) {
+    path = path || [];
+    if (root === target) return path;
+    for (const s of slotsOf(root)) {
+      if (s.list) { const arr = root[s.key] || []; for (let i = 0; i < arr.length; i++) { const r = nodePath(arr[i], target, path.concat([{ k: s.key, i }])); if (r) return r; } }
+      else { const c = root[s.key]; if (c) { const r = nodePath(c, target, path.concat([{ k: s.key }])); if (r) return r; } }
+    }
+    return null;
+  }
+  function getByPath(p) { let n = doc; for (const s of (p || [])) { n = s.i != null ? (n[s.k] || [])[s.i] : n[s.k]; if (!n) return null; } return n; }
+  function parentOf(p) { return p && p.length ? { parent: getByPath(p.slice(0, -1)), slot: p[p.length - 1] } : null; }
+  const selected = () => getByPath(selPath) || doc;
+
+  function pushHistory() {
+    history.splice(hIndex + 1);
+    history.push(JSON.stringify(doc));
+    if (history.length > 80) history.shift();
+    hIndex = history.length - 1;
+    refreshUndo();
+  }
+  function undo() { if (hIndex > 0) { hIndex--; doc = JSON.parse(history[hIndex]); selPath = []; refreshAll(); } }
+  function redo() { if (hIndex < history.length - 1) { hIndex++; doc = JSON.parse(history[hIndex]); selPath = []; refreshAll(); } }
 
   // ---------------------------------------------------------------------
-  // Layout scaffold
+  // Layout
   // ---------------------------------------------------------------------
-  const elTree = h('div', { class: 'es-tree' });
-  const elParams = h('div', { class: 'es-params' });
-  const elJson = h('textarea', { class: 'es-json', spellcheck: 'false', rows: '10' });
-  const elJsonMsg = h('div', { class: 'es-json-msg' });
-  const elPreview = h('div', { class: 'es-preview' });
+  const elLayers = h('div', { class: 'es-layers' });
+  const elAdd = h('div', { class: 'es-add-grid' });
+  const elProps = h('div', { class: 'es-props' });
+  const elStageWrap = h('div', { class: 'es-stage-wrap' });
+  const elTile = h('div', { class: 'es-tile' });
   const elPalette = h('div', { class: 'es-palette' });
   const elLibrary = h('div', { class: 'es-library' });
   const elPresetSel = h('select', { class: 'es-select' });
+  const elJson = h('textarea', { class: 'es-json', spellcheck: 'false', rows: '10' });
+  const elJsonMsg = h('div', { class: 'es-json-msg' });
+  let undoBtn, redoBtn, tileBtn;
 
   function build() {
     clear(ROOT);
+    ROOT.appendChild(h('div', { class: 'es-titlebar' },
+      h('h1', { class: 'es-title' }, 'element studio', h('sup', { class: 'es-version' }, 'v0.02')),
+      h('p', { class: 'es-subtitle' }, 'draw a motif — click a shape to select, drag to shape it; it tiles the way girard repeats it'),
+    ));
 
-    const title = h('div', { class: 'es-titlebar' },
-      h('h1', { class: 'es-title' }, 'element studio', h('sup', { class: 'es-version' }, 'v0.01a')),
-      h('p', { class: 'es-subtitle' }, 'author girard pattern elements as data — edit the op-tree, watch it tile'),
+    undoBtn = h('button', { class: 'es-btn', title: 'undo (⌘Z)', onclick: undo }, '↶ undo');
+    redoBtn = h('button', { class: 'es-btn', title: 'redo (⌘⇧Z)', onclick: redo }, '↷ redo');
+    tileBtn = h('button', { class: 'es-btn', title: 'see it tiled', onclick: () => { tilePreview = !tilePreview; renderStage(); tileBtn.classList.toggle('es-btn-on', tilePreview); } }, '▦ tiled');
+    const stageBar = h('div', { class: 'es-stagebar' }, undoBtn, redoBtn, tileBtn,
+      h('button', { class: 'es-btn', title: 're-roll random / roughness', onclick: () => { seed = (seed + 1) | 0; renderStage(); } }, '⟳ re-seed'));
+
+    const left = h('div', { class: 'es-rail es-rail-left' },
+      h('h3', { class: 'es-rail-head' }, 'add'),
+      elAdd,
+      h('h3', { class: 'es-rail-head' }, 'layers'),
+      elLayers,
     );
-
-    const toolbar = h('div', { class: 'es-toolbar' },
-      h('label', { class: 'es-tool-group' }, h('span', { class: 'es-tool-label' }, 'preset'), elPresetSel),
-      h('button', { class: 'es-btn', onclick: () => loadDoc(clone(DEFAULT_DOC), 'flower') }, 'new'),
-      h('button', { class: 'es-btn', onclick: importJSON }, 'import…'),
-      h('button', { class: 'es-btn', onclick: exportJSON }, 'export'),
-      h('button', { class: 'es-btn es-btn-accent', onclick: saveToLibrary }, 'save to library'),
-    );
-    elPresetSel.addEventListener('change', onPresetPick);
-
-    const editorCol = h('div', { class: 'es-col es-col-editor' },
-      h('h3', { class: 'es-panel-heading' }, 'op-tree'),
-      h('div', { class: 'es-panel' }, elTree),
-      h('h3', { class: 'es-panel-heading' }, 'parameters'),
-      h('div', { class: 'es-panel' }, elParams),
-      h('h3', { class: 'es-panel-heading' }, 'json source'),
-      h('div', { class: 'es-panel' },
-        elJson,
-        h('div', { class: 'es-json-row' },
-          h('button', { class: 'es-btn es-btn-sm', onclick: applyJSON }, 'apply json'),
-          elJsonMsg,
-        ),
+    const centre = h('div', { class: 'es-centre' }, stageBar, elStageWrap,
+      h('div', { class: 'es-centre-foot' },
+        h('div', { class: 'es-foot-block' }, h('h3', { class: 'es-rail-head' }, 'tile preview'), elTile),
+        h('div', { class: 'es-foot-block' }, h('h3', { class: 'es-rail-head' }, 'palette'), elPalette),
       ),
     );
-
-    const previewCol = h('div', { class: 'es-col es-col-preview' },
-      h('h3', { class: 'es-panel-heading' }, 'preview'),
-      buildPreviewControls(),
-      h('div', { class: 'es-panel es-panel-stage' }, elPreview),
-      h('h3', { class: 'es-panel-heading' }, 'palette'),
-      h('div', { class: 'es-panel' }, elPalette),
-      h('h3', { class: 'es-panel-heading' }, 'library'),
-      h('div', { class: 'es-panel' }, elLibrary),
+    const right = h('div', { class: 'es-rail es-rail-right' },
+      h('h3', { class: 'es-rail-head' }, 'properties'),
+      elProps,
+      h('h3', { class: 'es-rail-head' }, 'library'),
+      elLibrary,
     );
 
-    ROOT.appendChild(title);
-    ROOT.appendChild(toolbar);
-    ROOT.appendChild(h('div', { class: 'es-main' }, editorCol, previewCol));
+    ROOT.appendChild(h('div', { class: 'es-toolbar' },
+      h('label', { class: 'es-tool-group' }, h('span', { class: 'es-tool-label' }, 'start from'), elPresetSel),
+      h('button', { class: 'es-btn', onclick: () => loadDoc(clone(STARTERS.flower)) }, 'new'),
+      h('button', { class: 'es-btn es-btn-accent', onclick: saveToLibrary }, 'save'),
+      h('button', { class: 'es-btn', onclick: exportJSON }, 'export .json'),
+      h('button', { class: 'es-btn', onclick: importJSON }, 'import…'),
+    ));
+    ROOT.appendChild(h('div', { class: 'es-main' }, left, centre, right));
+
+    // Advanced drawer — the raw IR document, folded away.
+    const drawer = h('details', { class: 'es-drawer' },
+      h('summary', { class: 'es-drawer-sum' }, 'advanced — raw element-ir json'),
+      h('div', { class: 'es-drawer-body' },
+        h('p', { class: 'es-muted' }, 'this is the document girard imports. edit and apply, or copy it out.'),
+        elJson,
+        h('div', { class: 'es-json-row' }, h('button', { class: 'es-btn es-btn-sm', onclick: applyJSON }, 'apply json'), elJsonMsg),
+      ),
+    );
+    ROOT.appendChild(drawer);
+    elPresetSel.addEventListener('change', onPresetPick);
   }
 
-  function buildPreviewControls() {
-    const numCtl = (label, key, min, max, step) => {
-      const inp = h('input', {
-        type: 'number', class: 'es-num', value: String(preview[key]),
-        min: String(min), max: String(max), step: String(step || 1),
-        oninput: (e) => { preview[key] = Number(e.target.value) || min; renderPreview(); },
-      });
-      return h('label', { class: 'es-ctl' }, h('span', {}, label), inp);
+  // ---------------------------------------------------------------------
+  // Add menu — shape + container chips, each with a tiny live icon.
+  // ---------------------------------------------------------------------
+  function renderAdd() {
+    clear(elAdd);
+    const chip = (item) => {
+      const c = h('button', { class: 'es-chip', title: 'add ' + item.name, onclick: () => addNode(item.make()) });
+      c.appendChild(iconFor(item.make()));
+      c.appendChild(h('span', { class: 'es-chip-label' }, item.name));
+      return c;
     };
-    const gridToggle = h('label', { class: 'es-ctl es-ctl-check' },
-      h('input', { type: 'checkbox', checked: preview.grid ? '' : null,
-        onchange: (e) => { preview.grid = e.target.checked; renderPreview(); } }),
-      h('span', {}, 'cell guides'));
-    return h('div', { class: 'es-preview-controls' },
-      numCtl('cols', 'cols', 1, 16, 1),
-      numCtl('rows', 'rows', 1, 16, 1),
-      numCtl('aspect', 'aspect', 0.25, 4, 0.05),
-      gridToggle,
-      h('button', { class: 'es-btn es-btn-sm', onclick: () => { preview.seed = (preview.seed + 1) | 0; renderPreview(); } }, 're-seed'),
-    );
+    for (const it of SHAPES) elAdd.appendChild(chip(it));
+    elAdd.appendChild(h('div', { class: 'es-chip-sep' }, 'arrange'));
+    for (const it of CONTAINERS) elAdd.appendChild(chip(it));
   }
-
-  // ---------------------------------------------------------------------
-  // Tree
-  // ---------------------------------------------------------------------
-  function renderTree() {
-    clear(elTree);
-    elTree.appendChild(nodeRow(doc, null, null, 0));
-  }
-
-  // One node and its descendants. `parentSlot` describes where this node
-  // sits in its parent so delete / replace can mutate in place.
-  function nodeRow(node, parent, slot, depth) {
-    const wrap = h('div', { class: 'es-node', style: `--depth:${depth}` });
-    const row = h('div', { class: 'es-node-row' + (node === selected ? ' es-node-sel' : '') });
-
-    const sw = colorSwatch(node);
-    const label = h('button', { class: 'es-node-label', onclick: () => selectNode(node) },
-      sw, h('span', { class: 'es-node-op' }, node.op));
-    row.appendChild(label);
-
-    const acts = h('span', { class: 'es-node-acts' });
-    if (parent) {
-      acts.appendChild(h('button', { class: 'es-icon-btn', title: 'delete', onclick: () => deleteNode(parent, slot) }, '×'));
+  // A 28×28 thumbnail of a doc, drawn by the interpreter.
+  function iconFor(d) {
+    const s = svg('svg', { class: 'es-icon', viewBox: '0 0 100 100' });
+    if (IR) {
+      const rng = rngFor(1);
+      try { for (const n of IR.render(d, { x: 0, y: 0, w: 100, h: 100 }, { el: svg, color: colorResolver(0, rng), rng })) s.appendChild(n); } catch {}
     }
-    row.appendChild(acts);
-    wrap.appendChild(row);
+    return s;
+  }
 
-    // Children / slots.
+  // Insert a node into the selected container (or root), select it.
+  function addNode(node) {
+    const sel = selected();
+    let target, slot;
+    if (isContainer(sel) && slotsOf(sel).some((x) => x.list)) { target = sel; }
+    else { const p = parentOf(selPath); target = (p && p.parent && slotsOf(p.parent).some((x) => x.list)) ? p.parent : doc; }
+    if (!Array.isArray(target.children)) { slotsOf(target); }
+    if (!Array.isArray(target.children)) { // root isn't a list container — wrap it
+      doc = { op: 'group', size: doc.size, children: [doc] };
+      target = doc;
+    }
+    target.children.push(node);
+    selPath = nodePath(doc, node) || [];
+    pushHistory();
+    refreshAll();
+  }
+
+  // ---------------------------------------------------------------------
+  // Layers panel (the demoted op-tree)
+  // ---------------------------------------------------------------------
+  function renderLayers() {
+    clear(elLayers);
+    elLayers.appendChild(layerRow(doc, [], 0));
+  }
+  function layerRow(node, path, depth) {
+    const sel = node === selected();
+    const wrap = h('div', { class: 'es-layer' });
+    const row = h('div', { class: 'es-layer-row' + (sel ? ' es-layer-sel' : ''), style: `padding-left:${depth * 12 + 6}px` });
+    row.appendChild(h('button', { class: 'es-layer-label', onclick: () => selectPath(path) },
+      swatch(node), h('span', {}, opLabel(node))));
+    if (path.length) row.appendChild(h('button', { class: 'es-x', title: 'delete', onclick: (e) => { e.stopPropagation(); deletePath(path); } }, '×'));
+    wrap.appendChild(row);
     for (const s of slotsOf(node)) {
-      const slotWrap = h('div', { class: 'es-slot', style: `--depth:${depth + 1}` });
-      if (s.list) {
-        const list = node[s.key] || [];
-        for (let i = 0; i < list.length; i++) {
-          slotWrap.appendChild(nodeRow(list[i], node, { key: s.key, index: i }, depth + 1));
-        }
-        slotWrap.appendChild(addMenu(node, { key: s.key, index: list.length }));
-      } else {
-        const childNode = node[s.key];
-        const tag = h('div', { class: 'es-slot-tag' }, s.key);
-        slotWrap.appendChild(tag);
-        if (childNode) slotWrap.appendChild(nodeRow(childNode, node, { key: s.key }, depth + 1));
-        else slotWrap.appendChild(addMenu(node, { key: s.key }));
-      }
-      wrap.appendChild(slotWrap);
+      if (s.list) (node[s.key] || []).forEach((c, i) => wrap.appendChild(layerRow(c, path.concat([{ k: s.key, i }]), depth + 1)));
+      else if (node[s.key]) wrap.appendChild(layerRow(node[s.key], path.concat([{ k: s.key }]), depth + 1));
     }
     return wrap;
   }
-
-  // "+ add" control: a select of ops that inserts a new node into a slot.
-  function addMenu(parent, slot) {
-    const sel = h('select', { class: 'es-add', onchange: (e) => {
-      const op = e.target.value;
-      e.target.value = '';
-      if (!op) return;
-      const node = newNode(op);
-      if (slot.index != null) {
-        const list = parent[slot.key] || (parent[slot.key] = []);
-        list.splice(slot.index, 0, node);
-      } else {
-        parent[slot.key] = node;
-      }
-      selectNode(node);
-      refreshAll();
-    } });
-    sel.appendChild(h('option', { value: '' }, '+ add…'));
-    for (const op of OP_LIST) sel.appendChild(h('option', { value: op }, op));
-    return sel;
-  }
-
-  function deleteNode(parent, slot) {
-    if (slot.index != null) {
-      (parent[slot.key] || []).splice(slot.index, 1);
-    } else {
-      delete parent[slot.key];
-    }
-    selected = doc;
-    refreshAll();
-  }
-
-  function selectNode(node) {
-    selected = node;
-    renderTree();
-    renderParams();
-  }
-
-  // A small swatch summarising a node's fill ref (best-effort preview).
-  function colorSwatch(node) {
-    const ref = node.fill;
-    let bg = 'transparent', cls = 'es-swatch';
+  function swatch(node) {
+    const ref = node.fill; let bg = 'transparent', cls = 'es-sw';
     if (typeof ref === 'string') bg = NAMED[ref] != null ? NAMED[ref] : ref;
-    else if (ref && ref.cycle) { bg = palette[0]; cls += ' es-swatch-cycle'; }
-    else if (ref && ref.band != null) { bg = palette[0]; cls += ' es-swatch-cycle'; }
+    else if (ref && (ref.cycle || ref.band != null || ref.rand)) { bg = palette[0]; cls += ' es-sw-cycle'; }
     else if (ref && ref.p != null) bg = palette[mod(ref.p, palette.length)];
     else if (ref && 'center' in ref) bg = ref.center;
-    else if (ref && ref.rand) { bg = palette[0]; cls += ' es-swatch-cycle'; }
-    else if (OP_META[node.op]?.container) cls += ' es-swatch-none';
+    else if (isContainer(node)) cls += ' es-sw-none';
     return h('span', { class: cls, style: `background:${bg}` });
   }
+  function selectPath(p) { selPath = p; renderLayers(); renderProps(); drawSelection(); }
+  function deletePath(p) {
+    const pr = parentOf(p); if (!pr) return;
+    if (pr.slot.i != null) (pr.parent[pr.slot.k] || []).splice(pr.slot.i, 1);
+    else delete pr.parent[pr.slot.k];
+    selPath = []; pushHistory(); refreshAll();
+  }
 
   // ---------------------------------------------------------------------
-  // Parameter panel
+  // Properties
   // ---------------------------------------------------------------------
-  function renderParams() {
-    clear(elParams);
-    const node = selected;
-    if (!node) { elParams.appendChild(h('div', { class: 'es-muted' }, 'select a node')); return; }
+  function renderProps() {
+    clear(elProps);
+    const node = selected();
+    if (!node) { elProps.appendChild(h('div', { class: 'es-muted' }, 'select a shape')); return; }
+    elProps.appendChild(h('div', { class: 'es-props-head' }, opLabel(node)));
 
-    // Op switcher.
-    const opSel = h('select', { class: 'es-select', onchange: (e) => changeOp(node, e.target.value) });
-    for (const op of OP_LIST) {
-      const o = h('option', { value: op }, op);
-      if (op === node.op) o.setAttribute('selected', '');
-      opSel.appendChild(o);
+    if (node === doc) elProps.appendChild(sliderField(node, S('size', 'Overall scale', 0.1, 1, 0.01, 0.6)));
+    for (const f of FIELDS[node.op] || []) {
+      if (f.kind === 'color') elProps.appendChild(colorField(node, f));
+      else if (f.kind === 'select') elProps.appendChild(selectField(node, f));
+      else if (f.kind === 'segs') elProps.appendChild(segsField(node, f));
+      else elProps.appendChild(sliderField(node, f));
     }
-    elParams.appendChild(h('label', { class: 'es-field' }, h('span', { class: 'es-field-label' }, 'op'), opSel));
-
-    if (takesSize(node)) elParams.appendChild(numField(node, { key: 'size', label: 'size (unit)', kind: 'num', def: 0.6, min: 0.05, max: 1 }));
-
-    for (const p of OP_META[node.op]?.params || []) {
-      if (p.kind === 'colorRef') elParams.appendChild(colorRefField(node, p));
-      else if (p.kind === 'select') elParams.appendChild(selectField(node, p));
-      else if (p.kind === 'segs') elParams.appendChild(segsField(node, p));
-      else elParams.appendChild(numField(node, p));
+    // Star toggle for polygons (depth<1).
+    if (node.op === 'poly') {
+      const isStar = node.depth != null && node.depth < 1;
+      elProps.appendChild(h('label', { class: 'es-check' },
+        h('input', { type: 'checkbox', checked: isStar ? '' : null, onchange: (e) => {
+          if (e.target.checked) node.depth = 0.45; else delete node.depth;
+          pushHistory(); refreshAll();
+        } }),
+        h('span', {}, 'star points')));
     }
   }
 
-  function changeOp(node, op) {
-    if (op === node.op) return;
-    // Preserve children where both old and new ops are list-containers.
-    const keepChildren = OP_META[node.op]?.container === 'children' && OP_META[op]?.container === 'children' ? node.children : null;
-    for (const k of Object.keys(node)) delete node[k];
-    Object.assign(node, newNode(op));
-    if (keepChildren) node.children = keepChildren;
-    refreshAll();
-    renderParams();
+  function sliderField(node, f) {
+    const cur = node[f.key] != null ? (f.deg ? node[f.key] * 180 / Math.PI : node[f.key]) : f.def;
+    const echo = h('span', { class: 'es-echo' }, fmt(cur, f.step));
+    const range = h('input', { type: 'range', class: 'es-range', min: String(f.min), max: String(f.max), step: String(f.step), value: String(cur),
+      oninput: () => { const v = Number(range.value); node[f.key] = f.deg ? v * Math.PI / 180 : v; echo.textContent = fmt(v, f.step); renderStageLight(); },
+      onchange: () => { pushHistory(); renderLayers(); renderJson(); } });
+    return h('label', { class: 'es-field' }, h('span', { class: 'es-field-label' }, f.label), h('span', { class: 'es-field-ctl' }, range, echo));
+  }
+  const fmt = (v, step) => (step >= 1 ? String(Math.round(v)) : String(Math.round(v * 100) / 100));
+
+  function selectField(node, f) {
+    const cur = node[f.key] != null ? String(node[f.key]) : String(f.def);
+    const sel = h('select', { class: 'es-select', onchange: (e) => { node[f.key] = f.cast ? f.cast(e.target.value) : e.target.value; pushHistory(); refreshAll(); } });
+    for (const [val, lbl] of f.options) { const o = h('option', { value: val }, lbl); if (val === cur) o.setAttribute('selected', ''); sel.appendChild(o); }
+    return h('label', { class: 'es-field' }, h('span', { class: 'es-field-label' }, f.label), sel);
   }
 
-  function numField(node, p) {
-    const has = node[p.key] != null;
-    const inp = h('input', {
-      type: 'number', class: 'es-num', step: String(p.step ?? 0.05),
-      value: has ? String(node[p.key]) : '',
-      placeholder: p.def == null ? '—' : String(p.def),
-      min: p.min != null ? String(p.min) : null,
-      max: p.max != null ? String(p.max) : null,
-      oninput: (e) => {
-        const v = e.target.value;
-        if (v === '') delete node[p.key];
-        else node[p.key] = p.kind === 'int' ? Math.round(Number(v)) : Number(v);
-        refreshPreviewAndJson();
-        refreshSwatch(node);
-      },
-    });
-    return h('label', { class: 'es-field' }, h('span', { class: 'es-field-label' }, p.label), inp);
-  }
-
-  function selectField(node, p) {
-    const cur = node[p.key] != null ? String(node[p.key]) : String(p.def);
-    const sel = h('select', { class: 'es-select', onchange: (e) => {
-      node[p.key] = p.cast ? p.cast(e.target.value) : e.target.value;
-      refreshPreviewAndJson();
-    } });
-    for (const [val, lbl] of p.options) {
-      const o = h('option', { value: val }, lbl);
-      if (val === cur) o.setAttribute('selected', '');
-      sel.appendChild(o);
-    }
-    return h('label', { class: 'es-field' }, h('span', { class: 'es-field-label' }, p.label), sel);
-  }
-
-  // A colour-ref widget: choose the ref kind, then its value.
-  //   literal hex · cycle · rand · band · palette[i] · center hex · named
-  function colorRefField(node, p) {
-    const ref = node[p.key];
-    const kindOf = (r) => {
-      if (r == null) return 'none';
-      if (typeof r === 'string') return NAMED[r] != null && !/^#/.test(r) ? 'named' : 'hex';
-      if (r.cycle) return 'cycle';
-      if (r.rand) return 'rand';
-      if (r.band != null) return 'band';
-      if (r.p != null) return 'p';
-      if ('center' in r) return 'center';
-      return 'none';
-    };
+  // Colour widget: a swatch up front, with a small "source" menu for the
+  // symbolic modes (follow palette / by ring / a slot / random / literal).
+  function colorField(node, f) {
+    const ref = node[f.key];
+    const kindOf = (r) => r == null ? 'none' : typeof r === 'string' ? 'hex' : r.cycle ? 'cycle' : r.rand ? 'rand' : r.band != null ? 'band' : r.p != null ? 'p' : ('center' in r) ? 'center' : 'none';
     const kind = kindOf(ref);
-    const kinds = [['cycle', 'cycle (colourway)'], ['hex', 'literal hex'], ['band', 'band index'], ['p', 'palette[i]'], ['rand', 'random'], ['center', 'literal (center)'], ['named', 'named role'], ['none', 'none']];
-
-    const valWrap = h('span', { class: 'es-ref-val' });
-    const renderVal = (k) => {
-      clear(valWrap);
-      if (k === 'hex' || k === 'center') {
-        const cur = typeof ref === 'string' ? ref : (ref && ref.center) || palette[0];
-        valWrap.appendChild(h('input', { type: 'color', class: 'es-color', value: /^#/.test(cur) ? cur : palette[0],
-          oninput: (e) => { node[p.key] = k === 'center' ? { center: e.target.value } : e.target.value; refreshPreviewAndJson(); refreshSwatch(node); } }));
-      } else if (k === 'p') {
-        valWrap.appendChild(h('input', { type: 'number', class: 'es-num', min: '0', step: '1', value: String((ref && ref.p) || 0),
-          oninput: (e) => { node[p.key] = { p: Math.max(0, Math.round(Number(e.target.value) || 0)) }; refreshPreviewAndJson(); refreshSwatch(node); } }));
-      } else if (k === 'named') {
-        valWrap.appendChild(h('input', { type: 'text', class: 'es-text', value: typeof ref === 'string' ? ref : 'ground',
-          oninput: (e) => { node[p.key] = e.target.value; refreshPreviewAndJson(); refreshSwatch(node); } }));
-      }
-    };
-    const sel = h('select', { class: 'es-select', onchange: (e) => {
+    const swatchInput = h('input', { type: 'color', class: 'es-color', value: hexGuess(ref),
+      oninput: (e) => { node[f.key] = (kindOf(node[f.key]) === 'center') ? { center: e.target.value } : e.target.value; renderStageLight(); renderLayers(); },
+      onchange: () => { pushHistory(); renderJson(); } });
+    const idx = h('input', { type: 'number', class: 'es-num', min: '0', step: '1', value: String((ref && ref.p) || 0),
+      oninput: (e) => { node[f.key] = { p: Math.max(0, Math.round(Number(e.target.value) || 0)) }; renderStageLight(); renderLayers(); },
+      onchange: () => { pushHistory(); renderJson(); } });
+    const modeSel = h('select', { class: 'es-select es-select-sm', onchange: (e) => {
       const k = e.target.value;
-      if (k === 'cycle') node[p.key] = { cycle: true };
-      else if (k === 'rand') node[p.key] = { rand: true };
-      else if (k === 'band') node[p.key] = { band: true };
-      else if (k === 'p') node[p.key] = { p: 0 };
-      else if (k === 'hex') node[p.key] = palette[0];
-      else if (k === 'center') node[p.key] = { center: '#ffffff' };
-      else if (k === 'named') node[p.key] = 'ground';
-      else delete node[p.key];
-      renderVal(k); refreshPreviewAndJson(); refreshSwatch(node);
+      node[f.key] = k === 'cycle' ? { cycle: true } : k === 'rand' ? { rand: true } : k === 'band' ? { band: true } : k === 'p' ? { p: 0 } : k === 'center' ? { center: '#ffffff' } : k === 'hex' ? palette[0] : undefined;
+      if (node[f.key] === undefined) delete node[f.key];
+      pushHistory(); refreshAll();
     } });
-    for (const [val, lbl] of kinds) {
-      const o = h('option', { value: val }, lbl);
-      if (val === kind) o.setAttribute('selected', '');
-      sel.appendChild(o);
+    for (const [val, lbl] of [['cycle', 'follow palette'], ['hex', 'pick a colour'], ['center', 'pick (fixed)'], ['band', 'by ring'], ['p', 'palette slot'], ['rand', 'random'], ['none', 'invisible']]) {
+      const o = h('option', { value: val }, lbl); if (val === kind) o.setAttribute('selected', ''); modeSel.appendChild(o);
     }
-    renderVal(kind);
-    return h('label', { class: 'es-field es-field-ref' }, h('span', { class: 'es-field-label' }, p.label), sel, valWrap);
+    const ctl = h('span', { class: 'es-field-ctl' }, modeSel);
+    if (kind === 'hex' || kind === 'center') ctl.appendChild(swatchInput);
+    if (kind === 'p') ctl.appendChild(idx);
+    return h('label', { class: 'es-field' }, h('span', { class: 'es-field-label' }, f.label), ctl);
   }
+  const hexGuess = (ref) => typeof ref === 'string' ? (/^#/.test(ref) ? ref : palette[0]) : (ref && ref.center) || palette[0];
 
-  // Path segments are edited as JSON — advanced, but exact. Each segment
-  // is [cmd, ...coords], coords in unit-fractions from centre.
-  function segsField(node, p) {
-    const ta = h('textarea', { class: 'es-json es-segs', rows: '5', spellcheck: 'false' });
+  function segsField(node, f) {
+    const ta = h('textarea', { class: 'es-json es-segs', rows: '4', spellcheck: 'false' });
     ta.value = JSON.stringify(node.segs || [], null, 0);
     const msg = h('span', { class: 'es-json-msg' });
     ta.addEventListener('change', () => {
-      try {
-        const v = JSON.parse(ta.value);
-        if (!Array.isArray(v)) throw new Error('expected an array of segments');
-        node.segs = v; msg.textContent = ''; refreshPreviewAndJson();
-      } catch (err) { msg.textContent = '✗ ' + err.message; msg.className = 'es-json-msg es-err'; }
+      try { const v = JSON.parse(ta.value); if (!Array.isArray(v)) throw new Error('expected an array'); node.segs = v; msg.textContent = ''; pushHistory(); refreshAll(); }
+      catch (err) { msg.textContent = '✗ ' + err.message; msg.className = 'es-json-msg es-err'; }
     });
-    return h('div', { class: 'es-field es-field-col' }, h('span', { class: 'es-field-label' }, p.label), ta, msg);
-  }
-
-  // Keep the tree swatch in sync without a full tree rebuild.
-  function refreshSwatch(node) {
-    // Cheap: rebuild the whole tree only if structure could change. Fills
-    // don't change structure, so just repaint swatches by re-rendering.
-    renderTree();
+    return h('div', { class: 'es-field es-field-col' }, h('span', { class: 'es-field-label' }, f.label), ta, msg);
   }
 
   // ---------------------------------------------------------------------
-  // Preview — tile the document across a grid of cells.
+  // Stage — the single editable cell + direct-manipulation handles.
   // ---------------------------------------------------------------------
-  function renderPreview() {
-    clear(elPreview);
-    if (!IR) { elPreview.appendChild(h('div', { class: 'es-muted' }, 'loading interpreter…')); return; }
-    const cols = Math.max(1, preview.cols | 0), rows = Math.max(1, preview.rows | 0);
-    const aspect = preview.aspect || 1;       // cell w : h
-    const cw = 100, ch = 100 / aspect;
-    const W = cols * cw, H = rows * ch;
-    const stage = svg('svg', { class: 'es-stage', viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'xMidYMid meet' });
-    stage.setAttribute('width', '100%');
+  let stage = null, overlay = null, tagMap = new Map();
 
-    let err = null;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const idx = r * cols + c;
-        const region = { x: c * cw, y: r * ch, w: cw, h: ch };
-        const rng = rngFor((preview.seed * 2654435761 + idx * 40503) >>> 0);
-        const env = { el: svg, color: colorResolver(idx, rng), rng };
-        try {
-          const nodes = IR.render(doc, region, env);
-          for (const n of nodes) stage.appendChild(n);
-        } catch (e) { err = e; }
-        if (preview.grid) {
-          stage.appendChild(svg('rect', { x: region.x, y: region.y, width: cw, height: ch, fill: 'none', stroke: '#d0d0d0', 'stroke-dasharray': '2 3', 'stroke-width': 0.5 }));
-        }
-      }
+  function renderStage() {
+    clear(elStageWrap);
+    if (!IR) { elStageWrap.appendChild(h('div', { class: 'es-muted' }, 'loading…')); return; }
+    const cols = tilePreview ? 3 : 1, rows = tilePreview ? 3 : 1;
+    const W = cols * CELL, H = rows * CELL;
+    stage = svg('svg', { class: 'es-stage', viewBox: `0 0 ${W} ${H}` });
+    // Cell guides.
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++)
+      stage.appendChild(svg('rect', { x: c * CELL, y: r * CELL, width: CELL, height: CELL, fill: 'none', stroke: '#e2e2e2', 'stroke-width': 0.5 }));
+    tagMap = new Map(); let tagSeq = 0;
+    const tag = (elNode, irNode) => { if (elNode.__tagged) return; elNode.__tagged = true; const id = ++tagSeq; tagMap.set(id, irNode); elNode.setAttribute('data-ir', id); };
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c;
+      const rng = rngFor((seed * 2654435761 + idx * 40503) >>> 0);
+      const env = { el: svg, color: colorResolver(idx, rng), rng, tag: (tilePreview ? undefined : tag) };
+      try { for (const n of IR.render(doc, { x: c * CELL, y: r * CELL, w: CELL, h: CELL }, env)) stage.appendChild(n); } catch (e) { /* shown below */ }
     }
-    elPreview.appendChild(stage);
-    if (err) elPreview.appendChild(h('div', { class: 'es-json-msg es-err' }, '✗ render: ' + err.message));
+    overlay = svg('g', { class: 'es-overlay' });
+    stage.appendChild(overlay);
+    if (!tilePreview) {
+      stage.addEventListener('pointerdown', onStagePointerDown);
+      stage.style.cursor = 'default';
+    }
+    elStageWrap.appendChild(stage);
+    drawSelection();
+    renderTile();
+  }
+  // Light repaint during a slider/handle drag — no history, keep selection.
+  function renderStageLight() { renderStage(); renderJson(); }
+
+  function elementsFor(node) {
+    if (!stage) return [];
+    const out = [];
+    for (const el of stage.querySelectorAll('[data-ir]')) if (tagMap.get(+el.getAttribute('data-ir')) === node) out.push(el);
+    return out;
+  }
+  function unionBBox(els) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const el of els) { const b = el.getBBox(); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.width); y1 = Math.max(y1, b.y + b.height); }
+    if (!isFinite(x0)) return null;
+    return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
+  function drawSelection() {
+    if (!overlay) return;
+    clear(overlay);
+    const node = selected();
+    if (tilePreview || !node || node === doc) return;
+    const els = elementsFor(node);
+    const bb = unionBBox(els);
+    if (!bb) return;
+    overlay.appendChild(svg('rect', { x: bb.x, y: bb.y, width: bb.w, height: bb.h, fill: 'none', stroke: '#157a86', 'stroke-width': 0.8, 'stroke-dasharray': '3 2' }));
+    // Direct-manipulation handles, only for a single-instance leaf shape.
+    if (els.length !== 1) return;
+    const cap = handleCaps(node);
+    const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+    if (cap.move) overlay.appendChild(handle(cx, cy, 'move', 'move'));
+    if (cap.resize) overlay.appendChild(handle(bb.x + bb.w, bb.y + bb.h, 'resize', 'nwse-resize'));
+    if (cap.rotate) {
+      overlay.appendChild(svg('line', { x1: cx, y1: bb.y, x2: cx, y2: bb.y - 10, stroke: '#157a86', 'stroke-width': 0.6 }));
+      overlay.appendChild(handle(cx, bb.y - 10, 'rotate', 'grab'));
+    }
+  }
+  function handle(x, y, kind, cursor) {
+    const g = svg('circle', { cx: x, cy: y, r: 2.6, fill: '#fff', stroke: '#157a86', 'stroke-width': 0.8, 'data-handle': kind, style: `cursor:${cursor}` });
+    return g;
+  }
+  function handleCaps(node) {
+    return {
+      move: node.op === 'disc' || node.op === 'box',
+      resize: ['disc', 'box', 'poly', 'wedge'].includes(node.op),
+      rotate: node.op === 'poly' || node.op === 'box',
+    };
+  }
+
+  // Screen → user-space coordinate.
+  function toUser(evt) {
+    const pt = stage.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY;
+    const m = stage.getScreenCTM(); return m ? pt.matrixTransform(m.inverse()) : pt;
+  }
+
+  let drag = null;
+  function onStagePointerDown(evt) {
+    const handleEl = evt.target.closest('[data-handle]');
+    const node = selected();
+    if (handleEl && node && node !== doc) { startDrag(handleEl.getAttribute('data-handle'), node, evt); return; }
+    const hit = evt.target.closest('[data-ir]');
+    if (hit) { const n = tagMap.get(+hit.getAttribute('data-ir')); if (n) selectPath(nodePath(doc, n) || []); }
+    else selectPath([]);
+  }
+  function startDrag(kind, node, evt) {
+    evt.preventDefault();
+    const els = elementsFor(node); const bb = unionBBox(els); if (!bb) return;
+    const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+    const p = toUser(evt);
+    // Derive the node's world unit from its rendered size so edits map back
+    // to unit-fraction params without re-deriving the nesting chain.
+    let unit = CELL * (doc.size || 1);
+    if (node.op === 'disc') unit = (bb.w / 2) / (node.r || 0.3);
+    else if (node.op === 'poly') unit = (bb.w / 2) / (node.r || 0.45);
+    else if (node.op === 'box') unit = bb.w / (node.w || 0.5);
+    else if (node.op === 'wedge') unit = bb.w / (node.r || 1);
+    drag = { kind, node, cx, cy, unit,
+      start: { ...node }, p0: p,
+      d0: Math.hypot(p.x - cx, p.y - cy) || 1,
+      a0: Math.atan2(p.y - cy, p.x - cx) };
+    window.addEventListener('pointermove', onDragMove);
+    window.addEventListener('pointerup', onDragUp, { once: true });
+  }
+  function onDragMove(evt) {
+    if (!drag) return;
+    const p = toUser(evt); const n = drag.node;
+    if (drag.kind === 'move') {
+      n.dx = clamp((drag.start.dx || 0) + (p.x - drag.p0.x) / drag.unit, -1, 1);
+      n.dy = clamp((drag.start.dy || 0) + (p.y - drag.p0.y) / drag.unit, -1, 1);
+    } else if (drag.kind === 'resize') {
+      const ratio = (Math.hypot(p.x - drag.cx, p.y - drag.cy) || 1) / drag.d0;
+      if (n.op === 'disc') n.r = clamp((drag.start.r || 0.3) * ratio, 0.02, 0.7);
+      else if (n.op === 'poly') n.r = clamp((drag.start.r || 0.45) * ratio, 0.05, 0.7);
+      else if (n.op === 'wedge') n.r = clamp((drag.start.r || 1) * ratio, 0.1, 1);
+      else if (n.op === 'box') { n.w = clamp((drag.start.w || 0.5) * ratio, 0.05, 1.4); n.h = clamp((drag.start.h || 0.5) * ratio, 0.05, 1.4); }
+    } else if (drag.kind === 'rotate') {
+      const a = Math.atan2(p.y - drag.cy, p.x - drag.cx);
+      const deg = (drag.start.rotate || 0) + (a - drag.a0) * 180 / Math.PI;
+      n.rotate = Math.round(((deg + 180) % 360 + 360) % 360 - 180);
+    }
+    renderStageLight();
+  }
+  function onDragUp() { window.removeEventListener('pointermove', onDragMove); drag = null; pushHistory(); renderProps(); renderLayers(); }
+
   // ---------------------------------------------------------------------
-  // Palette
+  // Tile preview (small), palette, presets, library, I/O, JSON
   // ---------------------------------------------------------------------
+  function renderTile() {
+    clear(elTile);
+    if (!IR) return;
+    const cols = 4, rows = 4, s = svg('svg', { class: 'es-tilesvg', viewBox: `0 0 ${cols * CELL} ${rows * CELL}` });
+    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+      const idx = r * cols + c, rng = rngFor((seed * 2654435761 + idx * 40503) >>> 0);
+      try { for (const n of IR.render(doc, { x: c * CELL, y: r * CELL, w: CELL, h: CELL }, { el: svg, color: colorResolver(idx, rng), rng })) s.appendChild(n); } catch {}
+    }
+    elTile.appendChild(s);
+  }
   function renderPalette() {
     clear(elPalette);
     const row = h('div', { class: 'es-pal-row' });
-    palette.forEach((c, i) => {
-      const cell = h('div', { class: 'es-pal-cell' },
-        h('input', { type: 'color', class: 'es-color', value: c,
-          oninput: (e) => { palette[i] = e.target.value; renderPreview(); renderTree(); } }),
-        palette.length > 1 ? h('button', { class: 'es-icon-btn', title: 'remove', onclick: () => { palette.splice(i, 1); renderPalette(); renderPreview(); renderTree(); } }, '×') : null,
-      );
-      row.appendChild(cell);
-    });
+    palette.forEach((c, i) => row.appendChild(h('span', { class: 'es-pal-cell' },
+      h('input', { type: 'color', class: 'es-color', value: c, oninput: (e) => { palette[i] = e.target.value; renderStage(); renderLayers(); } }),
+      palette.length > 1 ? h('button', { class: 'es-x', title: 'remove', onclick: () => { palette.splice(i, 1); renderPalette(); renderStage(); renderLayers(); } }, '×') : null)));
     elPalette.appendChild(row);
-    elPalette.appendChild(h('button', { class: 'es-btn es-btn-sm', onclick: () => { palette.push('#888888'); renderPalette(); renderPreview(); } }, '+ colour'));
+    elPalette.appendChild(h('button', { class: 'es-btn es-btn-sm', onclick: () => { palette.push('#888888'); renderPalette(); renderStage(); } }, '+ colour'));
   }
-
-  // ---------------------------------------------------------------------
-  // Presets + library + import / export
-  // ---------------------------------------------------------------------
   function populatePresets() {
     clear(elPresetSel);
-    elPresetSel.appendChild(h('option', { value: '' }, 'load a preset…'));
-    const group = (label, items) => {
-      if (!items.length) return;
-      const g = h('optgroup', { label });
-      for (const it of items) g.appendChild(h('option', { value: it.id }, it.name));
-      elPresetSel.appendChild(g);
-    };
-    group('committed presets', presets.map((p, i) => ({ id: 'preset:' + i, name: p.name })));
-    if (IR) {
-      group('interpreter demos', Object.keys(IR.DEMOS || {}).map((k) => ({ id: 'demo:' + k, name: k })));
-      group('shape catalog', Object.keys(IR.SHAPES || {}).map((k) => ({ id: 'shape:' + k, name: k })));
-    }
+    elPresetSel.appendChild(h('option', { value: '' }, 'a preset…'));
+    const group = (label, items) => { if (!items.length) return; const g = h('optgroup', { label }); for (const it of items) g.appendChild(h('option', { value: it.id }, it.name)); elPresetSel.appendChild(g); };
+    group('presets', presets.map((p, i) => ({ id: 'preset:' + i, name: p.name })));
+    if (IR) { group('demos', Object.keys(IR.DEMOS || {}).map((k) => ({ id: 'demo:' + k, name: k }))); group('shapes', Object.keys(IR.SHAPES || {}).map((k) => ({ id: 'shape:' + k, name: k }))); }
   }
-
   function onPresetPick(e) {
-    const val = e.target.value;
-    e.target.value = '';
+    const val = e.target.value; e.target.value = '';
     if (!val) return;
-    const [kind, key] = val.split(':');
-    let d = null, name = key;
-    if (kind === 'preset') { const p = presets[Number(key)]; d = p && p.doc; name = p && p.name; }
+    const [kind, key] = val.split(':'); let d = null;
+    if (kind === 'preset') d = presets[Number(key)] && presets[Number(key)].doc;
     else if (kind === 'demo') d = IR && IR.DEMOS[key];
     else if (kind === 'shape') d = IR && IR.SHAPES[key];
-    if (d) loadDoc(clone(d), name);
+    if (d) loadDoc(clone(d));
   }
-
-  function loadDoc(d, name) {
-    doc = d; selected = doc;
-    refreshAll();
-  }
+  function loadDoc(d) { doc = d; selPath = []; pushHistory(); refreshAll(); }
 
   function renderLibrary() {
     clear(elLibrary);
-    if (!library.length) { elLibrary.appendChild(h('div', { class: 'es-muted' }, 'no saved elements yet — author one, then “save to library”.')); return; }
-    const list = h('ul', { class: 'es-lib-list' });
-    library.forEach((item, i) => {
-      list.appendChild(h('li', { class: 'es-lib-item' },
-        h('button', { class: 'es-lib-load', onclick: () => loadDoc(clone(item.doc), item.name) }, item.name),
-        h('button', { class: 'es-btn es-btn-sm', onclick: () => downloadDoc(item.doc, item.name) }, 'export'),
-        h('button', { class: 'es-icon-btn', title: 'delete', onclick: () => { library.splice(i, 1); saveLibrary(library); renderLibrary(); } }, '×'),
-      ));
-    });
-    elLibrary.appendChild(list);
+    if (!library.length) { elLibrary.appendChild(h('div', { class: 'es-muted' }, 'nothing saved yet — shape a motif, then “save”.')); return; }
+    const ul = h('ul', { class: 'es-lib-list' });
+    library.forEach((item, i) => ul.appendChild(h('li', { class: 'es-lib-item' },
+      h('button', { class: 'es-lib-load', onclick: () => loadDoc(clone(item.doc)) }, item.name),
+      h('button', { class: 'es-btn es-btn-sm', onclick: () => downloadDoc(item.doc, item.name) }, '↓'),
+      h('button', { class: 'es-x', title: 'delete', onclick: () => { library.splice(i, 1); saveLibrary(library); renderLibrary(); } }, '×'))));
+    elLibrary.appendChild(ul);
   }
-
   function saveToLibrary() {
-    const name = (prompt('Name this element:', 'untitled') || '').trim();
-    if (!name) return;
-    const existing = library.findIndex((x) => x.name === name);
+    const name = (prompt('Name this element:', 'untitled') || '').trim(); if (!name) return;
+    const i = library.findIndex((x) => x.name === name);
     const item = { name, doc: clone(doc), ts: Date.now() };
-    if (existing >= 0) library[existing] = item; else library.push(item);
-    saveLibrary(library);
-    renderLibrary();
+    if (i >= 0) library[i] = item; else library.push(item);
+    saveLibrary(library); renderLibrary();
   }
-
   function downloadDoc(d, name) {
-    const blob = new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(d, null, 2)], { type: 'application/json' }));
     const a = h('a', { href: url, download: (name || 'element').replace(/[^a-z0-9_-]+/gi, '-') + '.json' });
-    document.body.appendChild(a); a.click(); a.remove();
-    URL.revokeObjectURL(url);
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
   }
-  const exportJSON = () => downloadDoc(doc, (selected && selected.op) || 'element');
-
+  const exportJSON = () => downloadDoc(doc, opLabel(doc));
   function importJSON() {
     const inp = h('input', { type: 'file', accept: '.json,application/json' });
     inp.addEventListener('change', () => {
-      const file = inp.files && inp.files[0];
-      if (!file) return;
+      const f = inp.files && inp.files[0]; if (!f) return;
       const reader = new FileReader();
-      reader.onload = () => {
-        try { loadDoc(JSON.parse(reader.result), file.name.replace(/\.json$/, '')); }
-        catch (err) { alert('Could not parse JSON: ' + err.message); }
-      };
-      reader.readAsText(file);
+      reader.onload = () => { try { loadDoc(JSON.parse(reader.result)); } catch (err) { alert('Could not parse JSON: ' + err.message); } };
+      reader.readAsText(f);
     });
     inp.click();
   }
 
-  // ---------------------------------------------------------------------
-  // JSON source — a two-way view of the whole document.
-  // ---------------------------------------------------------------------
-  function renderJson() {
-    elJson.value = JSON.stringify(doc, null, 2);
-    elJsonMsg.textContent = '';
-    elJsonMsg.className = 'es-json-msg';
-  }
+  function renderJson() { elJson.value = JSON.stringify(doc, null, 2); elJsonMsg.textContent = ''; elJsonMsg.className = 'es-json-msg'; }
   function applyJSON() {
-    try {
-      const d = JSON.parse(elJson.value);
-      if (!d || typeof d !== 'object' || !d.op) throw new Error('document needs an "op"');
-      doc = d; selected = doc;
-      renderTree(); renderParams(); renderPreview();
-      elJsonMsg.textContent = '✓ applied';
-      elJsonMsg.className = 'es-json-msg es-ok';
-    } catch (err) {
-      elJsonMsg.textContent = '✗ ' + err.message;
-      elJsonMsg.className = 'es-json-msg es-err';
-    }
+    try { const d = JSON.parse(elJson.value); if (!d || typeof d !== 'object' || !d.op) throw new Error('document needs an "op"'); doc = d; selPath = []; pushHistory(); refreshAll(); elJsonMsg.textContent = '✓ applied'; elJsonMsg.className = 'es-json-msg es-ok'; }
+    catch (err) { elJsonMsg.textContent = '✗ ' + err.message; elJsonMsg.className = 'es-json-msg es-err'; }
   }
 
-  // ---------------------------------------------------------------------
-  // Refresh orchestration
-  // ---------------------------------------------------------------------
-  const refreshPreviewAndJson = () => { renderPreview(); renderJson(); };
-  function refreshAll() {
-    renderTree(); renderParams(); renderPreview(); renderJson();
-  }
+  function refreshUndo() { if (undoBtn) undoBtn.disabled = hIndex <= 0; if (redoBtn) redoBtn.disabled = hIndex >= history.length - 1; }
+  function refreshAll() { renderAdd(); renderLayers(); renderProps(); renderStage(); renderJson(); refreshUndo(); }
 
   // ---------------------------------------------------------------------
   // Boot
   // ---------------------------------------------------------------------
   function loadScript(src) {
-    return new Promise((res, rej) => {
-      if (window.GirardElementIR) return res();
-      const s = document.createElement('script');
-      s.src = src; s.onload = res; s.onerror = () => rej(new Error('failed to load ' + src));
-      document.head.appendChild(s);
-    });
+    return new Promise((res, rej) => { if (window.GirardElementIR) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('failed to load ' + src)); document.head.appendChild(s); });
   }
+  window.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+  });
 
   build();
-  renderPalette();
-  renderLibrary();
-  renderTree();
-  renderParams();
-  renderJson();
-  elPreview.appendChild(h('div', { class: 'es-muted' }, 'loading interpreter…'));
+  renderAdd(); renderLayers(); renderProps(); renderPalette(); renderLibrary(); renderJson();
+  elStageWrap.appendChild(h('div', { class: 'es-muted' }, 'loading interpreter…'));
+  pushHistory();
 
-  // Committed presets (authored "for us") + the shared interpreter.
   fetch('/posts/element-studio/presets.json')
-    .then((r) => (r.ok ? r.json() : []))
-    .then((p) => { presets = Array.isArray(p) ? p : []; })
+    .then((r) => (r.ok ? r.json() : [])).then((p) => { presets = Array.isArray(p) ? p : []; })
     .catch(() => { presets = []; })
     .finally(() => {
       loadScript('/posts/girard/element-ir.js')
-        .then(() => { IR = window.GirardElementIR; populatePresets(); renderPreview(); })
-        .catch((err) => { elPreview.appendChild(h('div', { class: 'es-json-msg es-err' }, '✗ ' + err.message)); });
+        .then(() => { IR = window.GirardElementIR; populatePresets(); refreshAll(); })
+        .catch((err) => { clear(elStageWrap); elStageWrap.appendChild(h('div', { class: 'es-json-msg es-err' }, '✗ ' + err.message)); });
     });
 })();

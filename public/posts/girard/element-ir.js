@@ -47,6 +47,7 @@
       rng: base.rng,
       band: base.band,
       idx: base.idx,
+      tag: base.tag,
     };
   }
 
@@ -267,7 +268,19 @@
   function render(node, ctx, out) {
     if (!node) return;
     const op = OPS[node.op];
-    if (op) op(node, ctx, out);
+    if (!op) return;
+    // Optional authoring hook: tag every emitted element with the IR node
+    // that produced it, so a host (the studio) can hit-test a click back
+    // to a node. Deepest node wins — children render (and tag) first, so a
+    // container's pass only stamps the elements its descendants left bare.
+    // No-op for callers (girard, the proof) that don't inject `tag`.
+    if (ctx.tag) {
+      const start = out.length;
+      op(node, ctx, out);
+      for (let i = start; i < out.length; i++) ctx.tag(out[i], node);
+    } else {
+      op(node, ctx, out);
+    }
   }
 
   // Public entry. Returns an array of nodes built via env.el; the host
