@@ -112,7 +112,20 @@
 .es-field-label { min-width: 92px; color: #555; }
 .es-field-ctl { display: inline-flex; align-items: center; gap: 6px; flex: 1; }
 .es-range { flex: 1; min-width: 80px; accent-color: var(--accent); }
-.es-echo { min-width: 34px; font-size: var(--fs-sm); color: #333; }
+/* The value box next to a slider: looks like a readout, edits like an
+   input (border appears on hover/focus; native spinners hidden). */
+.es-echo {
+  width: 48px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: #333;
+  background: transparent;
+  border: 1px solid transparent;
+  padding: 1px 3px;
+}
+.es-echo:hover, .es-echo:focus { border-color: #cfcfcf; background: #fff; }
+.es-echo::-webkit-outer-spin-button, .es-echo::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.es-echo[type='number'] { appearance: textfield; -moz-appearance: textfield; }
 .es-select, .es-num { font-family: var(--font-mono); font-size: var(--fs-sm); border: 1px solid #cfcfcf; background: #fff; padding: 3px 5px; color: #1a1a1a; }
 .es-select { flex: 1; }
 .es-select-sm { flex: 0 0 auto; }

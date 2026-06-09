@@ -161,6 +161,17 @@
   const saveLibrary = (l) => { try { localStorage.setItem(LIB_KEY, JSON.stringify(l)); } catch {} };
   let library = loadLibrary();
 
+  // Autosave: the working document + palette survive a refresh (single
+  // slot, mirroring girard's autosave model).
+  const AUTOSAVE_KEY = 'element-studio:autosave:v1';
+  function persist() { try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ v: 1, doc, palette })); } catch {} }
+  (function restore() {
+    try {
+      const d = JSON.parse(localStorage.getItem(AUTOSAVE_KEY));
+      if (d && d.doc && d.doc.op) { doc = d.doc; if (Array.isArray(d.palette) && d.palette.length) palette = d.palette; }
+    } catch { /* corrupt / unavailable → start fresh */ }
+  })();
+
   function nodePath(root, target, path) {
     path = path || [];
     if (root === target) return path;
@@ -180,9 +191,20 @@
     if (history.length > 80) history.shift();
     hIndex = history.length - 1;
     refreshUndo();
+    persist();
   }
-  function undo() { if (hIndex > 0) { hIndex--; doc = JSON.parse(history[hIndex]); selPath = []; refreshAll(); } }
-  function redo() { if (hIndex < history.length - 1) { hIndex++; doc = JSON.parse(history[hIndex]); selPath = []; refreshAll(); } }
+  // Undo/redo keep the selection path: after the doc swap it re-resolves
+  // against the new tree (same position ≈ same node), so the tweak–undo–
+  // compare loop doesn't lose your place.
+  function undo() { if (hIndex > 0) { hIndex--; doc = JSON.parse(history[hIndex]); if (!getByPath(selPath)) selPath = []; refreshAll(); persist(); } }
+  function redo() { if (hIndex < history.length - 1) { hIndex++; doc = JSON.parse(history[hIndex]); if (!getByPath(selPath)) selPath = []; refreshAll(); persist(); } }
+  // Debounced history for high-frequency edits (arrow nudges): one undo
+  // step per burst, not per keypress.
+  let pushTimer = null;
+  function schedulePush() {
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => { pushHistory(); renderProps(); renderLayers(); }, 400);
+  }
 
   // ---------------------------------------------------------------------
   // Layout
@@ -209,7 +231,9 @@
     undoBtn = h('button', { class: 'es-btn', title: 'undo (⌘Z)', onclick: undo }, '↶ undo');
     redoBtn = h('button', { class: 'es-btn', title: 'redo (⌘⇧Z)', onclick: redo }, '↷ redo');
     tileBtn = h('button', { class: 'es-btn', title: 'see it tiled', onclick: () => { tilePreview = !tilePreview; renderStage(); tileBtn.classList.toggle('es-btn-on', tilePreview); } }, '▦ tiled');
-    const stageBar = h('div', { class: 'es-stagebar' }, undoBtn, redoBtn, tileBtn,
+    const stageBar = h('div', { class: 'es-stagebar' }, undoBtn, redoBtn,
+      h('button', { class: 'es-btn', title: 'duplicate selected (⌘D)', onclick: duplicateSelected }, '⧉ duplicate'),
+      tileBtn,
       h('button', { class: 'es-btn', title: 're-roll random / roughness', onclick: () => { seed = (seed + 1) | 0; renderStage(); } }, '⟳ re-seed'));
 
     const left = h('div', { class: 'es-rail es-rail-left' },
@@ -404,6 +428,37 @@
     selPath = []; pushHistory(); refreshAll();
   }
 
+  // Duplicate the selected layer (⌘D / button). In a list container the
+  // copy lands right after the original; in a single slot (Ring child,
+  // Clip parts) the slot is wrapped in a Group holding both. Shapes that
+  // can carry an offset get a small nudge so the copy is visibly distinct.
+  function duplicateSelected() {
+    const node = selected();
+    if (node === doc) return;
+    const pr = parentOf(selPath); if (!pr) return;
+    const copy = clone(node);
+    if (copy.op === 'disc' || copy.op === 'box') {
+      copy.dx = clamp((copy.dx || 0) + 0.08, -1, 1);
+      copy.dy = clamp((copy.dy || 0) + 0.08, -1, 1);
+    }
+    if (pr.slot.i != null) pr.parent[pr.slot.k].splice(pr.slot.i + 1, 0, copy);
+    else pr.parent[pr.slot.k] = { op: 'group', children: [node, copy] };
+    selPath = nodePath(doc, copy) || [];
+    pushHistory(); refreshAll();
+  }
+
+  // Arrow-key nudge for shapes that carry an offset. Returns false when
+  // the selection can't move so the page keeps its scroll behaviour.
+  function nudgeSelected(dx, dy) {
+    const n = selected();
+    if (n === doc || !(n.op === 'disc' || n.op === 'box')) return false;
+    n.dx = clamp((n.dx || 0) + dx, -1, 1);
+    n.dy = clamp((n.dy || 0) + dy, -1, 1);
+    renderStageLight();
+    schedulePush();
+    return true;
+  }
+
   // ---------------------------------------------------------------------
   // Properties
   // ---------------------------------------------------------------------
@@ -432,12 +487,16 @@
     }
   }
 
+  // Slider + an editable value box: drag to explore, type for exact.
   function sliderField(node, f) {
     const cur = node[f.key] != null ? (f.deg ? node[f.key] * 180 / Math.PI : node[f.key]) : f.def;
-    const echo = h('span', { class: 'es-echo' }, fmt(cur, f.step));
+    const apply = (v) => { node[f.key] = f.deg ? v * Math.PI / 180 : v; renderStageLight(); };
+    const echo = h('input', { type: 'number', class: 'es-echo', step: String(f.step), min: String(f.min), max: String(f.max), value: fmt(cur, f.step),
+      oninput: () => { const v = Number(echo.value); if (Number.isFinite(v)) { apply(clamp(v, f.min, f.max)); range.value = String(clamp(v, f.min, f.max)); } },
+      onchange: () => { pushHistory(); renderLayers(); } });
     const range = h('input', { type: 'range', class: 'es-range', min: String(f.min), max: String(f.max), step: String(f.step), value: String(cur),
-      oninput: () => { const v = Number(range.value); node[f.key] = f.deg ? v * Math.PI / 180 : v; echo.textContent = fmt(v, f.step); renderStageLight(); },
-      onchange: () => { pushHistory(); renderLayers(); renderJson(); } });
+      oninput: () => { const v = Number(range.value); apply(v); echo.value = fmt(v, f.step); },
+      onchange: () => { pushHistory(); renderLayers(); } });
     return h('label', { class: 'es-field' }, h('span', { class: 'es-field-label' }, f.label), h('span', { class: 'es-field-ctl' }, range, echo));
   }
   const fmt = (v, step) => (step >= 1 ? String(Math.round(v)) : String(Math.round(v * 100) / 100));
@@ -493,7 +552,7 @@
   // ---------------------------------------------------------------------
   let stage = null, overlay = null, tagMap = new Map();
 
-  function renderStage() {
+  function renderStage(skipTile) {
     clear(elStageWrap);
     if (!IR) { elStageWrap.appendChild(h('div', { class: 'es-muted' }, 'loading…')); return; }
     const cols = tilePreview ? 3 : 1, rows = tilePreview ? 3 : 1;
@@ -518,10 +577,17 @@
     }
     elStageWrap.appendChild(stage);
     drawSelection();
-    renderTile();
+    if (!skipTile) renderTile();
   }
-  // Light repaint during a slider/handle drag — no history, keep selection.
-  function renderStageLight() { renderStage(); renderJson(); }
+  // Light repaint during a slider/handle drag: redraw the stage now, but
+  // defer the 16-cell tile preview and the JSON serialisation until the
+  // gesture pauses — rebuilding those per pointermove makes drags stutter.
+  let lightTimer = null;
+  function renderStageLight() {
+    renderStage(true);
+    clearTimeout(lightTimer);
+    lightTimer = setTimeout(() => { renderTile(); renderJson(); }, 150);
+  }
 
   function elementsFor(node) {
     if (!stage) return [];
@@ -640,10 +706,10 @@
     clear(elPalette);
     const row = h('div', { class: 'es-pal-row' });
     palette.forEach((c, i) => row.appendChild(h('span', { class: 'es-pal-cell' },
-      h('input', { type: 'color', class: 'es-color', value: c, oninput: (e) => { palette[i] = e.target.value; renderStage(); renderLayers(); } }),
-      palette.length > 1 ? h('button', { class: 'es-x', title: 'remove', onclick: () => { palette.splice(i, 1); renderPalette(); renderStage(); renderLayers(); } }, '×') : null)));
+      h('input', { type: 'color', class: 'es-color', value: c, oninput: (e) => { palette[i] = e.target.value; renderStage(); renderLayers(); persist(); } }),
+      palette.length > 1 ? h('button', { class: 'es-x', title: 'remove', onclick: () => { palette.splice(i, 1); renderPalette(); renderStage(); renderLayers(); persist(); } }, '×') : null)));
     elPalette.appendChild(row);
-    elPalette.appendChild(h('button', { class: 'es-btn es-btn-sm', onclick: () => { palette.push('#888888'); renderPalette(); renderStage(); } }, '+ colour'));
+    elPalette.appendChild(h('button', { class: 'es-btn es-btn-sm', onclick: () => { palette.push('#888888'); renderPalette(); renderStage(); persist(); } }, '+ colour'));
   }
   function populatePresets() {
     clear(elPresetSel);
@@ -713,7 +779,18 @@
     return new Promise((res, rej) => { if (window.GirardElementIR) return res(); const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('failed to load ' + src)); document.head.appendChild(s); });
   }
   window.addEventListener('keydown', (e) => {
-    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+    // Don't steal keys from form fields (typing a value, editing JSON).
+    const t = document.activeElement;
+    if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelected(); return; }
+    if (e.key === 'Escape') { selectPath([]); return; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selPath.length) { e.preventDefault(); deletePath(selPath); return; }
+    const step = e.shiftKey ? 0.05 : 0.01;
+    if (e.key === 'ArrowLeft'  && nudgeSelected(-step, 0)) e.preventDefault();
+    else if (e.key === 'ArrowRight' && nudgeSelected(step, 0)) e.preventDefault();
+    else if (e.key === 'ArrowUp'    && nudgeSelected(0, -step)) e.preventDefault();
+    else if (e.key === 'ArrowDown'  && nudgeSelected(0, step)) e.preventDefault();
   });
 
   build();
