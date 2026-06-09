@@ -2465,6 +2465,7 @@ function loadSample(name, current, clear) {
         || (l.fill?.kind === 'twigs')
         || (l.fill?.kind === 'dashes' && l.fill?.mode === 'random')
         || (l.fill?.kind === 'multiform')
+        || (l.fill?.kind === 'element')
         || (l.fill?.kind === 'fruit')
         || (l.fill?.kind === 'slant');
   };
@@ -2617,6 +2618,14 @@ function baseFillForKind(kind) {
     case 'bloom':       return { fill: { kind: 'bloom', bloom: 'circle', stems: 4, spread: 48, bloomSize: 0.16, points: 5, round: 0.5, distort: 0.15, stemColor: '#454545', stemWidth: 0.012 } };
     case 'manhattan':   return { fill: { kind: 'manhattan', mode: 'fixed', color: '#ffffff', density: 0.66, pixel: 0.16 } };
     case 'flower-seal': return { fill: { kind: 'flower-seal', petals: 5, sealSize: 0.95, petalSize: 0.42, petalOffset: 0.55, centerSize: 0.45, dotSize: 0.18 } };
+    case 'element':     return { fill: { kind: 'element', mode: 'palette-cycle', element: {
+      // Default element = the 'flower' motif, authored in the element-ir
+      // grammar (disc + radial repeat) instead of a bespoke generator.
+      op: 'group', size: 0.6, children: [
+        { op: 'disc', r: 0.34, fill: { cycle: true } },
+        { op: 'repeat', count: 16, radius: 0.34, child: { op: 'disc', r: 0.105, fill: { cycle: true } } },
+      ],
+    } } };
     default:            return { fill: { kind: 'triangles', mode: 'random', strokeWidth: 0.02, stroke: '#ffffff' } };
   }
 }
@@ -3755,6 +3764,61 @@ function placeCellRect(parent, layer, cx, cy, cw, rh, col, row, cols, rows, rng,
           `translate(${baseX + dx} ${baseY + dy}) rotate(${rot}) scale(${s})`,
         );
         host.appendChild(node);
+      });
+      break;
+    }
+    case 'element': {
+      // Shape-grammar fill (see element-ir.js). The IR document in
+      // fill.element is interpreted into SVG nodes; colour refs stay
+      // symbolic and are resolved here against the live palette so the
+      // colourway / cycle behaviour matches every other fill. The
+      // interpreter is lazy-loaded — the cell renders empty until it
+      // arrives, then mount() repaints.
+      const IRlib = (typeof window !== 'undefined') && window.GirardElementIR;
+      if (!IRlib || !fill.element) break;
+
+      // Map an IR colour ref onto the cell's resolved palette.
+      //   string        -> literal / role name (el() recolours it)
+      //   {cycle:true}  -> the layer's colour mode (cycle / random / cell)
+      //   {rand:true}   -> a random palette pick
+      //   {band:i}      -> palette indexed by a split's band (ctx.band)
+      //   {p:i}         -> palette[i]
+      const colorRef = (ref, ctx) => {
+        if (ref == null) return null;
+        if (typeof ref === 'string') return ref;
+        if (ref.cycle) {
+          if (fill.mode === 'random') return randColor(rng, palette);
+          if (fill.mode === 'cell')   return palette[Math.floor(cellRng(ci, ri, 0x9E37)() * palette.length)];
+          return palette[paletteIndex(fill.mode || 'palette-cycle')];
+        }
+        if (ref.rand) return randColor(rng, palette);
+        if (ref.band != null) return palette[mod(ctx.band || 0, palette.length)];
+        if (ref.p != null)    return palette[mod(ref.p, palette.length)];
+        return null;
+      };
+      const env = { el, color: colorRef, rng };
+
+      // Per-cell vary (scale / rotate / jitter) about the cell centre,
+      // matching the 'shape' fill so element layers animate identically.
+      let s = 1, rot = (fill.element.rotate ?? 0), jx = 0, jy = 0;
+      if (layer.vary?.scale)  s    = evalMod(layer.vary.scale,  rng, col, row, 1);
+      if (layer.vary?.rotate) rot += evalMod(layer.vary.rotate, rng, col, row, 0);
+      if (layer.vary?.jitter) {
+        jx = evalMod(layer.vary.jitter, rng, col, row, 0) * iw;
+        jy = evalMod(layer.vary.jitter, rng, col, row, 0) * ih;
+      }
+      const ecx = ix + iw / 2, ecy = iy + ih / 2;
+      const region = { x: ix, y: iy, w: iw, h: ih };
+      drawWrapped(parent, layerBounds?.w, layerBounds?.h, (host, dx, dy) => {
+        const nodes = IRlib.render(fill.element, region, env);
+        if (!nodes.length) return;
+        const g = el('g', {});
+        const xf = [];
+        if (dx || dy || jx || jy) xf.push(`translate(${(dx + jx).toFixed(3)} ${(dy + jy).toFixed(3)})`);
+        if (rot || s !== 1) xf.push(`translate(${ecx} ${ecy}) rotate(${rot}) scale(${s}) translate(${-ecx} ${-ecy})`);
+        if (xf.length) g.setAttribute('transform', xf.join(' '));
+        for (const n of nodes) g.appendChild(n);
+        host.appendChild(g);
       });
       break;
     }
@@ -7448,7 +7512,7 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
 
   // --- Fill ---
   addHeader('fill');
-  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass', 'firecracker', 'comb', 'slant'] });
+  const fillKind = addCtrl('kind', 'select', layer.fill.kind, { options: ['solid', 'shape', 'split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi', 'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph', 'stones', 'twigs', 'windowpane', 'honeycomb', 'dashes', 'multiform', 'fruit', 'graph', 'grass', 'firecracker', 'comb', 'slant', 'element'] });
   fillKind.addEventListener('change', () => {
     const kind = fillKind.value;
     const def = baseFillForKind(kind);
@@ -8127,6 +8191,13 @@ function mount() {
       });
     }
   };
+  // element-ir (the shape-grammar interpreter) backs fill.kind 'element'.
+  // It's a same-origin sibling script that attaches window.GirardElementIR.
+  // Loaded lazily; element layers paint empty until it lands, then repaint.
+  loadScript('/posts/girard/element-ir.js')
+    .then(() => { if (pattern.layers?.some(l => l.fill?.kind === 'element')) rerenderSvg(); })
+    .catch((err) => console.warn('girard: element-ir failed to load', err));
+
   const layerHandlers = {
     select: (i) => { selected = i; rerenderUI(); },
     // name === null → rename cancelled (just restore the label); empty
@@ -8220,7 +8291,7 @@ function mount() {
     ...['split', 'arc-split', 'arc-block', 'mesh', 'triangles', 'voronoi',
         'bloom', 'flower-seal', 'maze', 'manhattan', 'pinwheel', 'glyph',
         'stones', 'twigs', 'windowpane', 'honeycomb', 'dashes', 'multiform',
-        'fruit', 'graph', 'grass', 'firecracker', 'comb', 'slant']
+        'fruit', 'graph', 'grass', 'firecracker', 'comb', 'slant', 'element']
       .map(k => ({ name: k.replace(/-/g, ' '), make: () => makeLayerOfKind(k) })),
   ];
   let addLayerBuilt = false;
