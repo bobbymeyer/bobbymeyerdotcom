@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>element-ir spike — IR vs legacy girard</title>
+<style>
+  body { font: 14px/1.5 system-ui, sans-serif; color: #1a1a1a; margin: 2rem; max-width: 60rem; }
+  h1 { font-size: 1.2rem; }
+  p.lede { color: #444; }
+  .row { display: flex; gap: 2rem; align-items: flex-start; border-top: 1px dashed #ccc; padding: 1.25rem 0; }
+  .row h2 { font-size: .95rem; margin: 0 0 .25rem; }
+  .pair { display: flex; gap: 1.5rem; }
+  .panel { }
+  .panel .cap { font-size: .75rem; color: #666; margin-top: .25rem; }
+  svg.stage { width: 160px; height: 160px; border: 1px dashed #ccc; background: #fff; }
+  .verdict { font-weight: 600; }
+  .pass { color: #1a7f37; }
+  .fail { color: #c0362c; }
+  code { background: #f2f2f2; padding: 0 .25rem; border-radius: 3px; }
+  pre { background: #f7f7f7; padding: .5rem .75rem; border-radius: 4px; font-size: .72rem; overflow:auto; max-width: 22rem; }
+</style>
+</head>
+<body>
+<h1>element-ir spike</h1>
+<p class="lede">
+  Each row draws one motif twice: <strong>left</strong> = girard's existing
+  hand-coded draw, <strong>right</strong> = the same motif produced by the
+  <code>element-ir</code> interpreter from a small IR document. The verdict
+  compares the generated SVG node-for-node. Three different generator
+  <em>families</em> collapse onto the same handful of ops
+  (<code>disc, repeat, split, rect, wedge</code>).
+</p>
+<div id="rows"></div>
+
+<script src="./element-ir.js"></script>
+<script>
+const SVG = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs) => {
+  const n = document.createElementNS(SVG, tag);
+  for (const k in attrs) if (attrs[k] != null) n.setAttribute(k, attrs[k]);
+  return n;
+};
+
+const PAL = ['#d24a45', '#2c7fb8', '#f2b933', '#3f7a8c', '#7d9a40', '#8a5fb0'];
+const NAMED = { ground: '#e7e2d6', wedge: '#d24a45' };
+const color = (ref, ctx) => {
+  if (ref == null) return null;
+  if (typeof ref === 'string') return NAMED[ref] != null ? NAMED[ref] : ref;
+  if (ref.cycle) return PAL[0];
+  if (ref.band) return PAL[(ctx.band || 0) % PAL.length];
+  if (ref.p != null) return PAL[ref.p % PAL.length];
+  return null;
+};
+const env = { el, color };
+
+// ---- legacy reference draws (verbatim from girard.js) ----------------
+function legacyFlower(cx, cy, w, h, fill) {
+  const dim = Math.min(w, h) * 0.6;
+  const n = 16, R = dim * 0.34, pr = dim * 0.105;
+  const out = [el('circle', { cx, cy, r: R, fill })];
+  for (let i = 0; i < n; i++) {
+    const a = (2 * Math.PI * i) / n;
+    out.push(el('circle', { cx: cx + Math.cos(a) * R, cy: cy + Math.sin(a) * R, r: pr, fill }));
+  }
+  return out;
+}
+function legacyStripes(x, y, w, h) {
+  const n = 6, out = [];
+  for (let i = 0; i < n; i++) {
+    const bh = h / n;
+    out.push(el('rect', { x, y: y + i * bh, width: w, height: bh, fill: PAL[i % PAL.length] }));
+  }
+  return out;
+}
+function legacyArcSplit(x, y, w, h, cw, cg, corner) {
+  const out = [];
+  if (!(cg == null || cg === 'transparent' || cg === 'none'))
+    out.push(el('rect', { x, y, width: w, height: h, fill: cg }));
+  if (cw == null || cw === 'transparent' || cw === 'none') return out;
+  const r = Math.min(w, h);
+  let d;
+  switch (((corner % 4) + 4) % 4) {
+    case 0: d = `M${x},${y} L${x + r},${y} A${r},${r} 0 0,1 ${x},${y + r} Z`; break;
+    case 1: d = `M${x + w},${y} L${x + w},${y + r} A${r},${r} 0 0,1 ${x + w - r},${y} Z`; break;
+    case 2: d = `M${x + w},${y + h} L${x + w - r},${y + h} A${r},${r} 0 0,1 ${x + w},${y + h - r} Z`; break;
+    case 3: d = `M${x},${y + h} L${x},${y + h - r} A${r},${r} 0 0,1 ${x + r},${y + h} Z`; break;
+  }
+  out.push(el('path', { d, fill: cw }));
+  return out;
+}
+
+// ---- compare ---------------------------------------------------------
+const round = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) && String(v).trim() !== '' ? Math.round(n * 1000) / 1000 : v;
+};
+const canon = (n) => {
+  const keys = n.getAttributeNames().sort();
+  return n.tagName + '|' + keys.map((k) => `${k}=${round(n.getAttribute(k))}`).join(';');
+};
+const same = (A, B) => A.length === B.length && A.every((n, i) => canon(n) === canon(B[i]));
+
+const IR = window.GirardElementIR;
+const REGION = { x: 0, y: 0, w: 100, h: 100 };
+const cases = [
+  { name: 'flower — motif family', ops: 'disc + repeat:radial',
+    legacy: legacyFlower(50, 50, 100, 100, PAL[0]),
+    ir: IR.render(IR.DEMOS.flower, REGION, env), doc: IR.DEMOS.flower },
+  { name: 'stripes / brick — split family', ops: 'split:y + rect/band',
+    legacy: legacyStripes(0, 0, 100, 100),
+    ir: IR.render(IR.DEMOS.stripes, REGION, env), doc: IR.DEMOS.stripes },
+  { name: 'arc-split — divide family', ops: 'rect + wedge',
+    legacy: legacyArcSplit(0, 0, 100, 100, NAMED.wedge, NAMED.ground, 1),
+    ir: IR.render(IR.DEMOS.arcSplit, REGION, env), doc: IR.DEMOS.arcSplit },
+];
+
+const stage = (nodes) => {
+  const svg = el('svg', { class: 'stage', viewBox: '-4 -4 108 108' });
+  svg.classList.add('stage');
+  svg.appendChild(el('rect', { x: 0, y: 0, width: 100, height: 100, fill: 'none', stroke: '#ddd', 'stroke-dasharray': '2 2' }));
+  for (const n of nodes) svg.appendChild(n);
+  return svg;
+};
+const panel = (nodes, cap) => {
+  const d = document.createElement('div'); d.className = 'panel';
+  d.appendChild(stage(nodes));
+  const c = document.createElement('div'); c.className = 'cap'; c.textContent = cap;
+  d.appendChild(c); return d;
+};
+
+const root = document.getElementById('rows');
+for (const c of cases) {
+  // clone node lists for display vs comparison (a node can't live twice)
+  const legacyA = c.legacy, legacyB = c.legacy.map((n) => n.cloneNode(true));
+  const irA = c.ir, irB = c.ir.map((n) => n.cloneNode(true));
+  const ok = same(legacyB, irB);
+
+  const row = document.createElement('div'); row.className = 'row';
+  const left = document.createElement('div'); left.style.flex = '1';
+  const h2 = document.createElement('h2'); h2.textContent = c.name; left.appendChild(h2);
+  const v = document.createElement('div'); v.className = 'verdict ' + (ok ? 'pass' : 'fail');
+  v.textContent = (ok ? '✓ identical' : '✗ differs') + ` — ops: ${c.ops}`;
+  left.appendChild(v);
+  const pre = document.createElement('pre'); pre.textContent = JSON.stringify(c.doc, null, 1);
+  left.appendChild(pre);
+
+  const pair = document.createElement('div'); pair.className = 'pair';
+  pair.appendChild(panel(legacyA, 'legacy girard'));
+  pair.appendChild(panel(irA, 'element-ir'));
+
+  row.appendChild(left); row.appendChild(pair);
+  root.appendChild(row);
+}
+</script>
+</body>
+</html>

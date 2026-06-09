@@ -1,0 +1,220 @@
+// element-ir — a tiny shape-grammar interpreter for girard.
+//
+// SPIKE (see element-ir-demo.html). girard's per-cell fills are ~40
+// hand-written `case` arms, and the shape sub-fill is ~25 more. Most of
+// them are the same few operations with different parameters. This
+// interpreter is a proof that distinct families collapse into one small
+// set of composable ops. Three representatives are reproduced from a
+// single evaluator:
+//
+//   motif    (flower)     -> disc + repeat:radial
+//   split    (stripes)    -> split:y + rect-per-band   (== h/v-stripes, brick)
+//   divide   (arc-split)  -> rect ground + wedge
+//
+// The interpreter is framework-free: the caller injects an `el(tag,
+// attrs)` factory and a `color(ref, ctx)` resolver. That way the exact
+// same code runs in the standalone demo AND (later) inside girard's
+// render pipeline, where `el` already remaps fills to the active
+// colourway and `color` already knows the palette / cycle index. The IR
+// never sees a hex unless it's literal — colours stay symbolic
+// (`{cycle:true}`, `{p:i}`, `{band:true}`, or a named slot) so the host
+// stays in charge of palette behaviour.
+//
+// An IR document is a tree of `{ op, ...params, child|children }`. Two
+// idioms share the tree: motif ops (disc/poly/repeat) size off a `unit`
+// (min cell dim x `size`, mirroring shapeNode's `shape.size`); region
+// ops (rect/split/wedge) act on the sub-rect directly. `split` recurses,
+// so the grammar is genuinely nested, not a flat list.
+
+(function (root) {
+  'use strict';
+
+  // Build the evaluation context for a region. `size` (0..1) shrinks the
+  // motif reference dimension the way shapeNode's `shape.size` does;
+  // region ops ignore `unit` and use the rect. `base` carries the
+  // injected el/color/rng plus any inherited index hints (band/idx).
+  function ctxFor(region, size, base) {
+    const { x, y, w, h } = region;
+    return {
+      x, y, w, h,
+      cx: x + w / 2,
+      cy: y + h / 2,
+      unit: Math.min(w, h) * (size == null ? 1 : size),
+      el: base.el,
+      color: base.color,
+      rng: base.rng,
+      band: base.band,
+      idx: base.idx,
+    };
+  }
+
+  // Resolve a colour ref and skip the draw entirely when it reads as
+  // empty — same sentinels girard uses for transparent palette slots.
+  function paint(ctx, ref, build) {
+    const c = ctx.color ? ctx.color(ref, ctx) : ref;
+    if (c == null || c === 'transparent' || c === 'none') return null;
+    return build(c);
+  }
+
+  const OPS = {
+    group(node, ctx, out) {
+      for (const child of node.children || []) render(child, ctx, out);
+    },
+
+    // Fill the (optionally inset) region rect.
+    rect(node, ctx, out) {
+      const inset = node.inset || 0;
+      const ix = ctx.x + ctx.w * inset, iy = ctx.y + ctx.h * inset;
+      const iw = ctx.w * (1 - 2 * inset), ih = ctx.h * (1 - 2 * inset);
+      const node2 = paint(ctx, node.fill, (c) =>
+        ctx.el('rect', { x: ix, y: iy, width: iw, height: ih, fill: c }));
+      if (node2) out.push(node2);
+    },
+
+    // Circle centred in the region (with optional unit-relative offset).
+    disc(node, ctx, out) {
+      const r = (node.r == null ? 0.5 : node.r) * ctx.unit;
+      const cx = ctx.cx + (node.dx || 0) * ctx.unit;
+      const cy = ctx.cy + (node.dy || 0) * ctx.unit;
+      const node2 = paint(ctx, node.fill, (c) =>
+        ctx.el('circle', { cx, cy, r, fill: c }));
+      if (node2) out.push(node2);
+    },
+
+    // Regular polygon or star. depth === 1 -> regular n-gon; depth < 1
+    // alternates an inner radius to make a star. This is the bloomPolygon
+    // generalisation that already subsumes circle/triangle/square/star.
+    poly(node, ctx, out) {
+      const sides = Math.max(3, node.sides | 0 || 3);
+      const depth = node.depth == null ? 1 : node.depth;
+      const R = (node.r == null ? 0.5 : node.r) * ctx.unit;
+      const rot = ((node.rotate || 0) * Math.PI) / 180 - Math.PI / 2;
+      const n = depth < 1 ? sides * 2 : sides;
+      const pts = [];
+      for (let i = 0; i < n; i++) {
+        const a = rot + (Math.PI * 2 * i) / n;
+        const rr = (depth < 1 && i % 2) ? R * depth : R;
+        pts.push(`${(ctx.cx + Math.cos(a) * rr).toFixed(2)},${(ctx.cy + Math.sin(a) * rr).toFixed(2)}`);
+      }
+      const node2 = paint(ctx, node.fill, (c) =>
+        ctx.el('polygon', { points: pts.join(' '), fill: c }));
+      if (node2) out.push(node2);
+    },
+
+    // Quarter-circle wedge at a cell corner (0=TL,1=TR,2=BR,3=BL). The
+    // path is identical to girard's drawArcSplit so output is
+    // byte-for-byte comparable.
+    wedge(node, ctx, out) {
+      const { x, y, w, h } = ctx;
+      const r = (node.r == null ? 1 : node.r) * Math.min(w, h);
+      const corner = (((node.corner | 0) % 4) + 4) % 4;
+      let d;
+      switch (corner) {
+        case 0: d = `M${x},${y} L${x + r},${y} A${r},${r} 0 0,1 ${x},${y + r} Z`; break;
+        case 1: d = `M${x + w},${y} L${x + w},${y + r} A${r},${r} 0 0,1 ${x + w - r},${y} Z`; break;
+        case 2: d = `M${x + w},${y + h} L${x + w - r},${y + h} A${r},${r} 0 0,1 ${x + w},${y + h - r} Z`; break;
+        case 3: d = `M${x},${y + h} L${x},${y + h - r} A${r},${r} 0 0,1 ${x + r},${y + h} Z`; break;
+      }
+      const node2 = paint(ctx, node.fill, (c) => ctx.el('path', { d, fill: c }));
+      if (node2) out.push(node2);
+    },
+
+    // CGA-style subdivision: cut the region into `count` equal bands
+    // along an axis and recurse a child into each (a single child
+    // repeats; an array cycles). The band index rides in ctx as `band`
+    // so a child's colour ref can read it. This one op is the
+    // generalisation of the h-stripes / v-stripes / brick presets.
+    split(node, ctx, out) {
+      const count = Math.max(1, node.count | 0 || 1);
+      const axis = node.axis === 'x' ? 'x' : 'y';
+      const offset = node.offset || 0;   // brick: shift alternate bands
+      const kids = Array.isArray(node.children) ? node.children
+                 : (node.child ? [node.child] : []);
+      if (!kids.length) return;
+      for (let i = 0; i < count; i++) {
+        let sub;
+        if (axis === 'y') {
+          const bh = ctx.h / count;
+          const shift = (i % 2 ? offset : 0) * ctx.w;
+          sub = { x: ctx.x + shift, y: ctx.y + i * bh, w: ctx.w, h: bh };
+        } else {
+          const bw = ctx.w / count;
+          const shift = (i % 2 ? offset : 0) * ctx.h;
+          sub = { x: ctx.x + i * bw, y: ctx.y + shift, w: bw, h: ctx.h };
+        }
+        const cctx = ctxFor(sub, node.size, ctx);
+        cctx.band = i;
+        cctx.idx = i;
+        render(kids[i % kids.length], cctx, out);
+      }
+    },
+
+    // Radial repeat: place `child` at `count` points on a circle of
+    // `radius` (x unit) around the centre. The petal-ring half of the
+    // flower motif. Children keep the parent `unit` so their geometry
+    // sizes off the same dim; only the centre moves.
+    repeat(node, ctx, out) {
+      const count = Math.max(1, node.count | 0 || 1);
+      const R = (node.radius == null ? 0.34 : node.radius) * ctx.unit;
+      const phase = node.phase || 0;
+      for (let i = 0; i < count; i++) {
+        const a = phase + (Math.PI * 2 * i) / count;
+        const cctx = Object.assign({}, ctx, {
+          cx: ctx.cx + Math.cos(a) * R,
+          cy: ctx.cy + Math.sin(a) * R,
+          idx: i,
+        });
+        render(node.child, cctx, out);
+      }
+    },
+  };
+
+  function render(node, ctx, out) {
+    if (!node) return;
+    const op = OPS[node.op];
+    if (op) op(node, ctx, out);
+  }
+
+  // Public entry. Returns an array of nodes built via env.el; the host
+  // appends them wherever it likes (a <g>, the cell, etc.).
+  function renderDoc(doc, region, env) {
+    const out = [];
+    render(doc, ctxFor(region, doc && doc.size, env), out);
+    return out;
+  }
+
+  // The three spike documents. Defaults chosen to match girard's
+  // existing generators exactly (see element-ir-demo.html for the A/B).
+  const DEMOS = {
+    // shapeNode 'flower': central disc r=dim*0.34, ring of 16 bump discs
+    // r=dim*0.105 at radius dim*0.34, all the cell colour. dim = min*0.6.
+    flower: {
+      op: 'group', size: 0.6, children: [
+        { op: 'disc', r: 0.34, fill: { cycle: true } },
+        { op: 'repeat', count: 16, radius: 0.34, child: { op: 'disc', r: 0.105, fill: { cycle: true } } },
+      ],
+    },
+
+    // h-stripes / brick preset, expressed in-cell: 6 horizontal bands,
+    // each band painted from the palette by its index. offset>0 + the
+    // brick look (shift alternate bands).
+    stripes: {
+      op: 'split', axis: 'y', count: 6,
+      child: { op: 'rect', fill: { band: true } },
+    },
+
+    // drawArcSplit: solid ground rect + a quarter-circle wedge at a
+    // corner. corner is supplied by the host per cell (here fixed for
+    // the A/B).
+    arcSplit: {
+      op: 'group', children: [
+        { op: 'rect', fill: 'ground' },
+        { op: 'wedge', corner: 1, fill: 'wedge' },
+      ],
+    },
+  };
+
+  const api = { render: renderDoc, DEMOS, OPS: Object.keys(OPS) };
+  root.GirardElementIR = api;
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})(typeof window !== 'undefined' ? window : globalThis);
