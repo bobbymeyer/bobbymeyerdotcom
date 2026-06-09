@@ -81,6 +81,8 @@
     return ({ group: 'Group', rect: 'Fill', disc: 'Circle', box: 'Rectangle', wedge: 'Wedge', path: 'Curve', split: 'Stripes', repeat: 'Ring of copies', nest: 'Concentric rings', mirror: 'Reflect', boolean: 'Clip / lens' })[n.op] || n.op;
   };
   const isContainer = (n) => ['group', 'split', 'mirror', 'repeat', 'nest', 'boolean'].includes(n.op);
+  // Ops that carry a unit-relative dx/dy offset (movable on the canvas).
+  const MOVABLE = ['disc', 'box', 'poly', 'path'];
 
   // The child slots of a node, normalised so the tree can walk uniformly.
   function slotsOf(node) {
@@ -106,11 +108,11 @@
   const S = (key, label, min, max, step, def) => ({ key, label, kind: 'slider', min, max, step, def });
   const FIELDS = {
     disc:  [color(), S('r', 'Size', 0.02, 0.6, 0.01, 0.3), S('dx', 'Move ↔', -0.6, 0.6, 0.01, 0), S('dy', 'Move ↕', -0.6, 0.6, 0.01, 0)],
-    poly:  [color(), S('sides', 'Sides', 3, 24, 1, 6), S('depth', 'Pointiness', 0.05, 1, 0.01, 1), S('rotate', 'Spin°', -180, 180, 1, 0), S('jitter', 'Roughness', 0, 1, 0.01, 0), S('r', 'Size', 0.05, 0.6, 0.01, 0.45)],
+    poly:  [color(), S('sides', 'Sides', 3, 24, 1, 6), S('depth', 'Pointiness', 0.05, 1, 0.01, 1), S('rotate', 'Spin°', -180, 180, 1, 0), S('jitter', 'Roughness', 0, 1, 0.01, 0), S('r', 'Size', 0.05, 0.6, 0.01, 0.45), S('dx', 'Move ↔', -0.6, 0.6, 0.01, 0), S('dy', 'Move ↕', -0.6, 0.6, 0.01, 0)],
     box:   [color(), S('w', 'Width', 0.05, 1, 0.01, 0.5), S('h', 'Height', 0.05, 1, 0.01, 0.5), S('dx', 'Move ↔', -0.6, 0.6, 0.01, 0), S('dy', 'Move ↕', -0.6, 0.6, 0.01, 0), S('rx', 'Round corners', 0, 0.5, 0.01, 0), S('rotate', 'Spin°', -180, 180, 1, 0)],
     wedge: [color(), { key: 'corner', label: 'Corner', kind: 'select', options: [['0', 'top-left'], ['1', 'top-right'], ['2', 'bottom-right'], ['3', 'bottom-left']], cast: Number, def: 0 }, S('r', 'Size', 0.1, 1, 0.01, 1)],
     rect:  [color(), S('inset', 'Inset', 0, 0.45, 0.01, 0)],
-    path:  [color(), { key: 'segs', label: 'Outline', kind: 'segs' }],
+    path:  [color(), S('dx', 'Move ↔', -0.6, 0.6, 0.01, 0), S('dy', 'Move ↕', -0.6, 0.6, 0.01, 0), { key: 'segs', label: 'Outline', kind: 'segs' }],
     split: [{ key: 'axis', label: 'Direction', kind: 'select', options: [['y', 'horizontal bands'], ['x', 'vertical bands']], def: 'y' }, S('count', 'How many', 1, 24, 1, 4), S('offset', 'Brick shift', 0, 1, 0.01, 0)],
     repeat:[S('count', 'How many', 1, 36, 1, 6), S('radius', 'Spread', 0, 0.6, 0.01, 0.34), { key: 'phase', label: 'Start angle°', kind: 'slider', min: 0, max: 360, step: 1, def: 0, deg: true }],
     nest:  [S('count', 'How many', 1, 12, 1, 3)],
@@ -152,7 +154,6 @@
   let selPath = [];                 // path from root to the selected node
   let IR = null;
   let presets = [];
-  let tilePreview = false;
   let seed = 1;
   const history = []; let hIndex = -1;
 
@@ -219,7 +220,7 @@
   const elPresetSel = h('select', { class: 'es-select' });
   const elJson = h('textarea', { class: 'es-json', spellcheck: 'false', rows: '10' });
   const elJsonMsg = h('div', { class: 'es-json-msg' });
-  let undoBtn, redoBtn, tileBtn;
+  let undoBtn, redoBtn;
 
   function build() {
     clear(ROOT);
@@ -230,10 +231,8 @@
 
     undoBtn = h('button', { class: 'es-btn', title: 'undo (⌘Z)', onclick: undo }, '↶ undo');
     redoBtn = h('button', { class: 'es-btn', title: 'redo (⌘⇧Z)', onclick: redo }, '↷ redo');
-    tileBtn = h('button', { class: 'es-btn', title: 'see it tiled', onclick: () => { tilePreview = !tilePreview; renderStage(); tileBtn.classList.toggle('es-btn-on', tilePreview); } }, '▦ tiled');
     const stageBar = h('div', { class: 'es-stagebar' }, undoBtn, redoBtn,
       h('button', { class: 'es-btn', title: 'duplicate selected (⌘D)', onclick: duplicateSelected }, '⧉ duplicate'),
-      tileBtn,
       h('button', { class: 'es-btn', title: 're-roll random / roughness', onclick: () => { seed = (seed + 1) | 0; renderStage(); } }, '⟳ re-seed'));
 
     const left = h('div', { class: 'es-rail es-rail-left' },
@@ -333,8 +332,27 @@
     const listy = slotsOf(node).some((s) => s.list);
     const wrap = h('div', { class: 'es-layer' });
     const row = h('div', { class: 'es-layer-row' + (sel ? ' es-layer-sel' : ''), style: `padding-left:${depth * 12 + 6}px` });
-    row.appendChild(h('button', { class: 'es-layer-label', onclick: () => selectPath(path) },
-      swatch(node), h('span', {}, opLabel(node))));
+    // Double-click the name to rename the layer in place. The name rides
+    // on the IR node (the interpreter ignores unknown keys).
+    const nameSpan = h('span', {}, node.name || opLabel(node));
+    const label = h('button', { class: 'es-layer-label', onclick: () => selectPath(path) }, swatch(node), nameSpan);
+    label.addEventListener('dblclick', (e) => {
+      e.preventDefault();
+      const inp = h('input', { type: 'text', class: 'es-rename', value: node.name || opLabel(node) });
+      const commit = () => {
+        const v = inp.value.trim();
+        if (v && v !== opLabel(node)) node.name = v; else delete node.name;
+        pushHistory(); refreshAll();
+      };
+      inp.addEventListener('blur', commit);
+      inp.addEventListener('keydown', (ke) => {
+        if (ke.key === 'Enter') inp.blur();
+        else if (ke.key === 'Escape') { inp.removeEventListener('blur', commit); renderLayers(); }
+      });
+      label.replaceChild(inp, nameSpan);
+      inp.focus(); inp.select();
+    });
+    row.appendChild(label);
     if (path.length) row.appendChild(h('button', { class: 'es-x', title: 'delete', onclick: (e) => { e.stopPropagation(); deletePath(path); } }, '×'));
 
     // Drag the layer (non-root) to reorder it among its siblings or into
@@ -437,7 +455,7 @@
     if (node === doc) return;
     const pr = parentOf(selPath); if (!pr) return;
     const copy = clone(node);
-    if (copy.op === 'disc' || copy.op === 'box') {
+    if (MOVABLE.includes(copy.op)) {
       copy.dx = clamp((copy.dx || 0) + 0.08, -1, 1);
       copy.dy = clamp((copy.dy || 0) + 0.08, -1, 1);
     }
@@ -451,7 +469,7 @@
   // the selection can't move so the page keeps its scroll behaviour.
   function nudgeSelected(dx, dy) {
     const n = selected();
-    if (n === doc || !(n.op === 'disc' || n.op === 'box')) return false;
+    if (n === doc || !MOVABLE.includes(n.op)) return false;
     n.dx = clamp((n.dx || 0) + dx, -1, 1);
     n.dy = clamp((n.dy || 0) + dy, -1, 1);
     renderStageLight();
@@ -466,7 +484,7 @@
     clear(elProps);
     const node = selected();
     if (!node) { elProps.appendChild(h('div', { class: 'es-muted' }, 'select a shape')); return; }
-    elProps.appendChild(h('div', { class: 'es-props-head' }, opLabel(node)));
+    elProps.appendChild(h('div', { class: 'es-props-head' }, node.name || opLabel(node)));
 
     if (node === doc) elProps.appendChild(sliderField(node, S('size', 'Overall scale', 0.1, 1, 0.01, 0.6)));
     for (const f of FIELDS[node.op] || []) {
@@ -555,26 +573,17 @@
   function renderStage(skipTile) {
     clear(elStageWrap);
     if (!IR) { elStageWrap.appendChild(h('div', { class: 'es-muted' }, 'loading…')); return; }
-    const cols = tilePreview ? 3 : 1, rows = tilePreview ? 3 : 1;
-    const W = cols * CELL, H = rows * CELL;
-    stage = svg('svg', { class: 'es-stage', viewBox: `0 0 ${W} ${H}` });
-    // Cell guides.
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++)
-      stage.appendChild(svg('rect', { x: c * CELL, y: r * CELL, width: CELL, height: CELL, fill: 'none', stroke: '#e2e2e2', 'stroke-width': 0.5 }));
+    stage = svg('svg', { class: 'es-stage', viewBox: `0 0 ${CELL} ${CELL}` });
+    stage.appendChild(svg('rect', { x: 0, y: 0, width: CELL, height: CELL, fill: 'none', stroke: '#e2e2e2', 'stroke-width': 0.5 }));
     tagMap = new Map(); let tagSeq = 0;
     const tag = (elNode, irNode) => { if (elNode.__tagged) return; elNode.__tagged = true; const id = ++tagSeq; tagMap.set(id, irNode); elNode.setAttribute('data-ir', id); };
-    for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-      const idx = r * cols + c;
-      const rng = rngFor((seed * 2654435761 + idx * 40503) >>> 0);
-      const env = { el: svg, color: colorResolver(idx, rng), rng, tag: (tilePreview ? undefined : tag) };
-      try { for (const n of IR.render(doc, { x: c * CELL, y: r * CELL, w: CELL, h: CELL }, env)) stage.appendChild(n); } catch (e) { /* shown below */ }
-    }
+    const rng = rngFor((seed * 2654435761) >>> 0);
+    const env = { el: svg, color: colorResolver(0, rng), rng, tag };
+    try { for (const n of IR.render(doc, { x: 0, y: 0, w: CELL, h: CELL }, env)) stage.appendChild(n); } catch (e) { /* draw what we can */ }
     overlay = svg('g', { class: 'es-overlay' });
     stage.appendChild(overlay);
-    if (!tilePreview) {
-      stage.addEventListener('pointerdown', onStagePointerDown);
-      stage.style.cursor = 'default';
-    }
+    stage.addEventListener('pointerdown', onStagePointerDown);
+    stage.style.cursor = 'default';
     elStageWrap.appendChild(stage);
     drawSelection();
     if (!skipTile) renderTile();
@@ -602,17 +611,63 @@
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
+  // All rendered elements belonging to a container's subtree (containers
+  // own no elements themselves under deepest-wins tagging).
+  function elementsForSubtree(node) {
+    if (!stage) return [];
+    const out = [];
+    for (const el of stage.querySelectorAll('[data-ir]')) {
+      const src = tagMap.get(+el.getAttribute('data-ir'));
+      if (src && (src === node || isDescendant(node, src))) out.push(el);
+    }
+    return out;
+  }
+  // True when every ancestor of the selected node renders exactly once
+  // (group / clip) — i.e. no ring/stripe/reflect multiplies it — so its
+  // context is the plain cell and on-canvas handles map back exactly.
+  function singleInstancePath(p) {
+    let n = doc;
+    for (const s of p) {
+      if (!(n.op === 'group' || n.op === 'boolean')) return false;
+      n = s.i != null ? (n[s.k] || [])[s.i] : n[s.k];
+      if (!n) return false;
+    }
+    return true;
+  }
+  // Snap guides shown while a move-drag is snapped to an axis.
+  let dragGuides = null;
+
   function drawSelection() {
     if (!overlay) return;
     clear(overlay);
     const node = selected();
-    if (tilePreview || !node || node === doc) return;
-    const els = elementsFor(node);
+    if (!node || node === doc) return;
+    let els = elementsFor(node);
+    const direct = els.length;
+    if (!direct) els = elementsForSubtree(node);     // container: outline its contents
     const bb = unionBBox(els);
-    if (!bb) return;
-    overlay.appendChild(svg('rect', { x: bb.x, y: bb.y, width: bb.w, height: bb.h, fill: 'none', stroke: '#157a86', 'stroke-width': 0.8, 'stroke-dasharray': '3 2' }));
+    if (bb) overlay.appendChild(svg('rect', { x: bb.x, y: bb.y, width: bb.w, height: bb.h, fill: 'none', stroke: '#157a86', 'stroke-width': 0.8, 'stroke-dasharray': '3 2' }));
+
+    // Snap guide flash (during a move drag).
+    if (dragGuides) {
+      if (dragGuides.x != null) overlay.appendChild(svg('line', { x1: dragGuides.x, y1: 0, x2: dragGuides.x, y2: CELL, stroke: '#157a86', 'stroke-width': 0.5 }));
+      if (dragGuides.y != null) overlay.appendChild(svg('line', { x1: 0, y1: dragGuides.y, x2: CELL, y2: dragGuides.y, stroke: '#157a86', 'stroke-width': 0.5 }));
+    }
+
+    // Ring of copies: a draggable spread handle on the ring itself, when
+    // the ring's centre is the plain cell centre (single-instance path).
+    if (node.op === 'repeat' && singleInstancePath(selPath)) {
+      const u = CELL * (doc.size == null ? 1 : doc.size);   // min(cell) × size
+      const R = (node.radius == null ? 0.34 : node.radius) * u;
+      const a = node.phase || 0;
+      const hx = CELL / 2 + Math.cos(a) * R, hy = CELL / 2 + Math.sin(a) * R;
+      overlay.appendChild(svg('circle', { cx: CELL / 2, cy: CELL / 2, r: R, fill: 'none', stroke: '#157a86', 'stroke-width': 0.5, 'stroke-dasharray': '1.5 2' }));
+      overlay.appendChild(handle(hx, hy, 'spread', 'ew-resize'));
+      return;
+    }
+
     // Direct-manipulation handles, only for a single-instance leaf shape.
-    if (els.length !== 1) return;
+    if (direct !== 1 || !bb) return;
     const cap = handleCaps(node);
     const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
     if (cap.move) overlay.appendChild(handle(cx, cy, 'move', 'move'));
@@ -628,7 +683,7 @@
   }
   function handleCaps(node) {
     return {
-      move: node.op === 'disc' || node.op === 'box',
+      move: MOVABLE.includes(node.op),
       resize: ['disc', 'box', 'poly', 'wedge'].includes(node.op),
       rotate: node.op === 'poly' || node.op === 'box',
     };
@@ -651,9 +706,18 @@
   }
   function startDrag(kind, node, evt) {
     evt.preventDefault();
+    const p = toUser(evt);
+    // Spread handle: the ring centre is the cell centre (guaranteed by
+    // singleInstancePath before the handle is shown) and the unit is the
+    // root's, so the radius maps back exactly.
+    if (kind === 'spread') {
+      drag = { kind, node, cx: CELL / 2, cy: CELL / 2, unit: CELL * (doc.size == null ? 1 : doc.size), start: { ...node }, p0: p, d0: 1, a0: 0 };
+      window.addEventListener('pointermove', onDragMove);
+      window.addEventListener('pointerup', onDragUp, { once: true });
+      return;
+    }
     const els = elementsFor(node); const bb = unionBBox(els); if (!bb) return;
     const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
-    const p = toUser(evt);
     // Derive the node's world unit from its rendered size so edits map back
     // to unit-fraction params without re-deriving the nesting chain.
     let unit = CELL * (doc.size || 1);
@@ -662,6 +726,9 @@
     else if (node.op === 'box') unit = bb.w / (node.w || 0.5);
     else if (node.op === 'wedge') unit = bb.w / (node.r || 1);
     drag = { kind, node, cx, cy, unit,
+      // Where the shape's centre sits at dx/dy = 0 — the snap target.
+      baseCx: cx - (node.dx || 0) * unit,
+      baseCy: cy - (node.dy || 0) * unit,
       start: { ...node }, p0: p,
       d0: Math.hypot(p.x - cx, p.y - cy) || 1,
       a0: Math.atan2(p.y - cy, p.x - cx) };
@@ -672,8 +739,17 @@
     if (!drag) return;
     const p = toUser(evt); const n = drag.node;
     if (drag.kind === 'move') {
-      n.dx = clamp((drag.start.dx || 0) + (p.x - drag.p0.x) / drag.unit, -1, 1);
-      n.dy = clamp((drag.start.dy || 0) + (p.y - drag.p0.y) / drag.unit, -1, 1);
+      let ndx = (drag.start.dx || 0) + (p.x - drag.p0.x) / drag.unit;
+      let ndy = (drag.start.dy || 0) + (p.y - drag.p0.y) / drag.unit;
+      // Snap to the natural centre with a guide flash.
+      dragGuides = null;
+      if (Math.abs(ndx) < 0.03) { ndx = 0; (dragGuides = dragGuides || {}).x = drag.baseCx; }
+      if (Math.abs(ndy) < 0.03) { ndy = 0; (dragGuides = dragGuides || {}).y = drag.baseCy; }
+      n.dx = clamp(ndx, -1, 1);
+      n.dy = clamp(ndy, -1, 1);
+    } else if (drag.kind === 'spread') {
+      const d = Math.hypot(p.x - drag.cx, p.y - drag.cy);
+      n.radius = clamp(Math.round((d / drag.unit) * 100) / 100, 0, 0.7);
     } else if (drag.kind === 'resize') {
       const ratio = (Math.hypot(p.x - drag.cx, p.y - drag.cy) || 1) / drag.d0;
       if (n.op === 'disc') n.r = clamp((drag.start.r || 0.3) * ratio, 0.02, 0.7);
@@ -687,7 +763,7 @@
     }
     renderStageLight();
   }
-  function onDragUp() { window.removeEventListener('pointermove', onDragMove); drag = null; pushHistory(); renderProps(); renderLayers(); }
+  function onDragUp() { window.removeEventListener('pointermove', onDragMove); drag = null; dragGuides = null; pushHistory(); renderProps(); renderLayers(); renderStage(); }
 
   // ---------------------------------------------------------------------
   // Tile preview (small), palette, presets, library, I/O, JSON
@@ -727,14 +803,20 @@
     else if (kind === 'shape') d = IR && IR.SHAPES[key];
     if (d) loadDoc(clone(d));
   }
-  function loadDoc(d) { doc = d; selPath = []; pushHistory(); refreshAll(); }
+  // A motif is designed in a colourway — library entries carry their
+  // palette and restore it on load.
+  function loadDoc(d, pal) {
+    doc = d; selPath = [];
+    if (Array.isArray(pal) && pal.length) { palette = pal.slice(); renderPalette(); }
+    pushHistory(); refreshAll();
+  }
 
   function renderLibrary() {
     clear(elLibrary);
     if (!library.length) { elLibrary.appendChild(h('div', { class: 'es-muted' }, 'nothing saved yet — shape a motif, then “save”.')); return; }
     const ul = h('ul', { class: 'es-lib-list' });
     library.forEach((item, i) => ul.appendChild(h('li', { class: 'es-lib-item' },
-      h('button', { class: 'es-lib-load', onclick: () => loadDoc(clone(item.doc)) }, item.name),
+      h('button', { class: 'es-lib-load', onclick: () => loadDoc(clone(item.doc), item.palette) }, item.name),
       h('button', { class: 'es-btn es-btn-sm', onclick: () => downloadDoc(item.doc, item.name) }, '↓'),
       h('button', { class: 'es-x', title: 'delete', onclick: () => { library.splice(i, 1); saveLibrary(library); renderLibrary(); } }, '×'))));
     elLibrary.appendChild(ul);
@@ -742,7 +824,7 @@
   function saveToLibrary() {
     const name = (prompt('Name this element:', 'untitled') || '').trim(); if (!name) return;
     const i = library.findIndex((x) => x.name === name);
-    const item = { name, doc: clone(doc), ts: Date.now() };
+    const item = { name, doc: clone(doc), palette: palette.slice(), ts: Date.now() };
     if (i >= 0) library[i] = item; else library.push(item);
     saveLibrary(library); renderLibrary();
   }

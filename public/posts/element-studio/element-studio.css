@@ -79,6 +79,7 @@
 .es-sw { width: 11px; height: 11px; border: 1px solid rgba(0,0,0,0.25); border-radius: 2px; display: inline-block; flex: 0 0 auto; }
 .es-sw-cycle { background-image: linear-gradient(135deg, var(--accent) 50%, #999 50%); }
 .es-sw-none { border-style: dashed; background: transparent !important; }
+.es-rename { font-family: var(--font-mono); font-size: var(--fs-base); border: 1px solid var(--accent); background: #fff; padding: 0 3px; width: 110px; }
 
 /* drag-to-reorder */
 .es-layer-row[draggable="true"] { cursor: grab; }

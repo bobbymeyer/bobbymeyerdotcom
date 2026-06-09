@@ -95,6 +95,8 @@
       const depth = node.depth == null ? 1 : node.depth;
       const Rx = node.rx != null ? node.rx * (ctx.w / 2) : (node.r == null ? 0.5 : node.r) * ctx.unit;
       const Ry = node.ry != null ? node.ry * (ctx.h / 2) : (node.r == null ? 0.5 : node.r) * ctx.unit;
+      const cx = ctx.cx + (node.dx || 0) * ctx.unit;   // unit-relative offset,
+      const cy = ctx.cy + (node.dy || 0) * ctx.unit;   // same contract as disc/box
       const rot = ((node.rotate || 0) * Math.PI) / 180 - Math.PI / 2;
       const n = depth < 1 ? sides * 2 : sides;
       const jitter = node.jitter || 0;        // star vertex wobble
@@ -103,7 +105,7 @@
         const a = rot + (Math.PI * 2 * i) / n;
         let m = (depth < 1 && i % 2) ? depth : 1;
         if (jitter > 0 && ctx.rng) m += (ctx.rng() * 2 - 1) * jitter;
-        pts.push(`${(ctx.cx + Math.cos(a) * Rx * m).toFixed(2)},${(ctx.cy + Math.sin(a) * Ry * m).toFixed(2)}`);
+        pts.push(`${(cx + Math.cos(a) * Rx * m).toFixed(2)},${(cy + Math.sin(a) * Ry * m).toFixed(2)}`);
       }
       const node2 = paint(ctx, node.fill, (c) =>
         ctx.el('polygon', { points: pts.join(' '), fill: c }));
@@ -116,12 +118,14 @@
     // absolute coords. This is the curve primitive behind the petal /
     // vesica / onion family (lens, onion, leaf-margin, etc.).
     path(node, ctx, out) {
+      const cx = ctx.cx + (node.dx || 0) * ctx.unit;   // unit-relative offset,
+      const cy = ctx.cy + (node.dy || 0) * ctx.unit;   // same contract as disc/box
       let d = '';
       for (const s of node.segs || []) {
         if (s[0] === 'Z') { d += 'Z'; continue; }
         const pts = [];
         for (let i = 1; i < s.length; i += 2)
-          pts.push(`${(ctx.cx + s[i] * ctx.unit).toFixed(3)},${(ctx.cy + s[i + 1] * ctx.unit).toFixed(3)}`);
+          pts.push(`${(cx + s[i] * ctx.unit).toFixed(3)},${(cy + s[i + 1] * ctx.unit).toFixed(3)}`);
         d += s[0] + pts.join(' ') + ' ';
       }
       const node2 = paint(ctx, node.fill, (c) => ctx.el('path', { d: d.trim(), fill: c }));
