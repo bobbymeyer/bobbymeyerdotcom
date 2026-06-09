@@ -3088,9 +3088,34 @@ function shapeNode(shape, cw, rh, fill, ctx) {
     return g;
   }
 
+  // Ported shapes render through the shared element-ir grammar — one
+  // path instead of a bespoke arm each. The cell's resolved fill flows
+  // in via the {cycle} ref; the wrapping <g> carries the stroke, which
+  // the leaves inherit, so outline-only shapes (transparent fill +
+  // stroke) still draw. Falls back to the switch below when element-ir
+  // hasn't loaded or doesn't (yet) cover the kind.
+  const IRlib = (typeof window !== 'undefined') && window.GirardElementIR;
+  if (IRlib && IRlib.shapeToElement) {
+    const doc = IRlib.shapeToElement(shape);
+    if (doc) {
+      const outline = !fill || fill === 'none' || fill === 'transparent';
+      const drawFill = outline ? '#000000' : fill;   // placeholder, overridden below
+      const env = {
+        el,
+        rng: ctx && ctx.rng,
+        color: (ref) => (ref == null ? null : typeof ref === 'string' ? ref : ref.cycle ? drawFill : null),
+      };
+      const region = { x: -cw / 2, y: -rh / 2, w: cw, h: rh };
+      const g = el('g', sAttrs);
+      for (const node of IRlib.render(doc, region, env)) {
+        if (outline) node.setAttribute('fill', 'none');
+        g.appendChild(node);
+      }
+      return g;
+    }
+  }
+
   switch (shape.kind) {
-    case 'circle':
-      return el('circle', { r: dim / 2, fill, ...sAttrs });
     case 'diamond': {
       // Concentric rhombi filling the cell, cycling the palette so
       // each cell nests several colours. Uses cw/rh directly so the
@@ -3112,19 +3137,6 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         }));
       }
       return g;
-    }
-    case 'square':
-      return el('rect', {
-        x: -dim / 2, y: -dim / 2, width: dim, height: dim, fill,
-        ...sAttrs,
-      });
-    case 'triangle': {
-      const r = dim / 2;
-      return el('polygon', {
-        points: `0,${-r} ${r * 0.866},${r * 0.5} ${-r * 0.866},${r * 0.5}`,
-        fill,
-        ...sAttrs,
-      });
     }
     case 'right-triangle': {
       // Right-isoceles triangle, right angle at top-left, hypotenuse
@@ -3280,54 +3292,6 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       const hx = hy * (shape.ratio ?? 0.5);
       return el('path', {
         d: `M 0,${-hy} Q ${hx},0 0,${hy} Q ${-hx},0 0,${-hy} Z`,
-        fill,
-        ...sAttrs,
-      });
-    }
-    case 'quatrefoil': {
-      // 4 tangent circles forming a clover. r = off = dim/4 makes
-      // the lobes touch at single points on the axes (sharp cusps).
-      // shape.center adds a 5th circle at the origin with radius
-      // (shape.center × dim/4) — 0 disables it, 1 matches the lobe
-      // radius, default 0.5 = a soft accent that fills the centre
-      // diamond.
-      const r = dim / 4;
-      const off = dim / 4;
-      // Default 1: centre circle radius equals lobe radius, which
-      // exactly inscribes the four tangent points — the diamond gap
-      // between the lobes is fully covered.
-      const centerScale = shape.center ?? 1;
-      const g = el('g', {});
-      for (const [sx, sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]) {
-        g.appendChild(el('circle', {
-          cx: sx * off, cy: sy * off, r,
-          fill, ...sAttrs,
-        }));
-      }
-      if (centerScale > 0) {
-        g.appendChild(el('circle', {
-          cx: 0, cy: 0, r: r * centerScale,
-          fill, ...sAttrs,
-        }));
-      }
-      return g;
-    }
-    case 'star': {
-      const numPoints = Math.max(3, shape.numPoints | 0 || 5);
-      const depth = Math.max(0.05, Math.min(1, shape.depth ?? 0.5));
-      const jitter = Math.max(0, Math.min(1, shape.jitter ?? 0));
-      const rng = ctx?.rng;
-      const outerR = dim / 2;
-      const innerR = outerR * depth;
-      const verts = [];
-      for (let i = 0; i < numPoints * 2; i++) {
-        const angle = (Math.PI * 2 * i) / (numPoints * 2) - Math.PI / 2;
-        let r = i % 2 === 0 ? outerR : innerR;
-        if (jitter > 0 && rng) r += (rng() * 2 - 1) * jitter * outerR;
-        verts.push(`${(r * Math.cos(angle)).toFixed(2)},${(r * Math.sin(angle)).toFixed(2)}`);
-      }
-      return el('polygon', {
-        points: verts.join(' '),
         fill,
         ...sAttrs,
       });
@@ -8191,11 +8155,13 @@ function mount() {
       });
     }
   };
-  // element-ir (the shape-grammar interpreter) backs fill.kind 'element'.
-  // It's a same-origin sibling script that attaches window.GirardElementIR.
-  // Loaded lazily; element layers paint empty until it lands, then repaint.
+  // element-ir (the shape-grammar interpreter) backs fill.kind 'element'
+  // and the ported shape primitives (circle / triangle / square / star /
+  // quatrefoil). It's a same-origin sibling script that attaches
+  // window.GirardElementIR. Loaded lazily; the first paint may run before
+  // it lands (those shapes draw empty), so repaint once it's ready.
   loadScript('/posts/girard/element-ir.js')
-    .then(() => { if (pattern.layers?.some(l => l.fill?.kind === 'element')) rerenderSvg(); })
+    .then(() => rerenderSvg())
     .catch((err) => console.warn('girard: element-ir failed to load', err));
 
   const layerHandlers = {

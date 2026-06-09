@@ -272,7 +272,7 @@
   // centred motifs; diamond fills the cell like its 1.0 default).
   const SHAPES = {
     triangle:   { op: 'poly', size: 0.6, sides: 3, r: 0.5, fill: { cycle: true } },
-    square:     { op: 'poly', size: 0.6, sides: 4, rotate: 45, r: 0.5, fill: { cycle: true } },
+    square:     { op: 'poly', size: 0.6, sides: 4, rotate: 45, r: Math.SQRT1_2, fill: { cycle: true } },
     pentagon:   { op: 'poly', size: 0.6, sides: 5, r: 0.5, fill: { cycle: true } },
     hexagon:    { op: 'poly', size: 0.6, sides: 6, rotate: 30, r: 0.5, fill: { cycle: true } },
     star:       { op: 'poly', size: 0.6, sides: 5, depth: 0.5, r: 0.5, fill: { cycle: true } },
@@ -291,7 +291,47 @@
     },
   };
 
-  const api = { render: renderDoc, DEMOS, SHAPES, OPS: Object.keys(OPS) };
+  // Build an IR document from a live shapeNode `shape` spec, honouring
+  // its size / params. Returns null for shapes not yet ported (the
+  // caller then falls back to its legacy arm). The single resolved cell
+  // colour flows in via the {cycle} ref; stroke is applied by the caller
+  // on a wrapping group, so these docs stay fill-only.
+  function shapeToElement(shape) {
+    if (!shape) return null;
+    const size = shape.size == null ? 0.6 : shape.size;
+    switch (shape.kind) {
+      case 'circle':
+        return { op: 'disc', size, r: 0.5, fill: { cycle: true } };
+      case 'triangle':
+        return { op: 'poly', size, sides: 3, r: 0.5, fill: { cycle: true } };
+      case 'square':
+        // circumradius (√2/2)·dim puts the corners at ±dim/2 → a side-dim
+        // square once the intrinsic 45° rotation is applied.
+        return { op: 'poly', size, sides: 4, rotate: 45, r: Math.SQRT1_2, fill: { cycle: true } };
+      case 'star':
+        return {
+          op: 'poly', size, r: 0.5, fill: { cycle: true },
+          sides: Math.max(3, shape.numPoints | 0 || 5),
+          depth: Math.max(0.05, Math.min(1, shape.depth == null ? 0.5 : shape.depth)),
+          jitter: Math.max(0, Math.min(1, shape.jitter || 0)),
+        };
+      case 'quatrefoil': {
+        const cs = shape.center == null ? 1 : shape.center;
+        const children = [
+          { op: 'disc', r: 0.25, dx: -0.25, dy: -0.25, fill: { cycle: true } },
+          { op: 'disc', r: 0.25, dx:  0.25, dy: -0.25, fill: { cycle: true } },
+          { op: 'disc', r: 0.25, dx: -0.25, dy:  0.25, fill: { cycle: true } },
+          { op: 'disc', r: 0.25, dx:  0.25, dy:  0.25, fill: { cycle: true } },
+        ];
+        if (cs > 0) children.push({ op: 'disc', r: 0.25 * cs, fill: { cycle: true } });
+        return { op: 'group', size, children };
+      }
+      default:
+        return null;
+    }
+  }
+
+  const api = { render: renderDoc, shapeToElement, DEMOS, SHAPES, OPS: Object.keys(OPS) };
   root.GirardElementIR = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
