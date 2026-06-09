@@ -86,19 +86,23 @@
     // Regular polygon or star. depth === 1 -> regular n-gon; depth < 1
     // alternates an inner radius to make a star. This is the bloomPolygon
     // generalisation that already subsumes circle/triangle/square/star.
+    // rx/ry (fractions of the region half-width/height) give an
+    // aspect-stretched radius instead of the unit circumradius — the
+    // rhombus 'diamond' uses this to track the cell's aspect.
     poly(node, ctx, out) {
       const sides = Math.max(3, node.sides | 0 || 3);
       const depth = node.depth == null ? 1 : node.depth;
-      const R = (node.r == null ? 0.5 : node.r) * ctx.unit;
+      const Rx = node.rx != null ? node.rx * (ctx.w / 2) : (node.r == null ? 0.5 : node.r) * ctx.unit;
+      const Ry = node.ry != null ? node.ry * (ctx.h / 2) : (node.r == null ? 0.5 : node.r) * ctx.unit;
       const rot = ((node.rotate || 0) * Math.PI) / 180 - Math.PI / 2;
       const n = depth < 1 ? sides * 2 : sides;
       const jitter = node.jitter || 0;        // star vertex wobble
       const pts = [];
       for (let i = 0; i < n; i++) {
         const a = rot + (Math.PI * 2 * i) / n;
-        let rr = (depth < 1 && i % 2) ? R * depth : R;
-        if (jitter > 0 && ctx.rng) rr += (ctx.rng() * 2 - 1) * jitter * R;
-        pts.push(`${(ctx.cx + Math.cos(a) * rr).toFixed(2)},${(ctx.cy + Math.sin(a) * rr).toFixed(2)}`);
+        let m = (depth < 1 && i % 2) ? depth : 1;
+        if (jitter > 0 && ctx.rng) m += (ctx.rng() * 2 - 1) * jitter;
+        pts.push(`${(ctx.cx + Math.cos(a) * Rx * m).toFixed(2)},${(ctx.cy + Math.sin(a) * Ry * m).toFixed(2)}`);
       }
       const node2 = paint(ctx, node.fill, (c) =>
         ctx.el('polygon', { points: pts.join(' '), fill: c }));
@@ -208,14 +212,18 @@
       }
     },
 
-    // Concentric copies of a child at shrinking unit, the ring index
-    // riding in ctx as band/idx for palette cycling. Reproduces the
-    // nested-rhombi 'diamond' (and any onion/target motif).
+    // Concentric copies of a child at shrinking size, the ring index
+    // riding in ctx as band/idx for palette cycling. Shrinks the region
+    // centred (not just `unit`) so aspect-radii (rx/ry) track per ring —
+    // reproduces the nested-rhombi 'diamond' (and any onion/target).
     nest(node, ctx, out) {
       const count = Math.max(1, node.count | 0 || 1);
       for (let k = 0; k < count; k++) {
         const f = 1 - k / count;            // outer -> inner
-        const cctx = Object.assign({}, ctx, { unit: ctx.unit * f, band: k, idx: k });
+        const w = ctx.w * f, h = ctx.h * f;
+        const cctx = ctxFor({ x: ctx.cx - w / 2, y: ctx.cy - h / 2, w, h }, node.size, ctx);
+        cctx.band = k;
+        cctx.idx = k;
         render(node.child, cctx, out);
       }
     },
@@ -314,6 +322,15 @@
     switch (shape.kind) {
       case 'circle':
         return { op: 'disc', size, r: 0.5, fill: { cycle: true } };
+      case 'diamond': {
+        // Concentric rhombi tracking the cell aspect (rx/ry = sizeF of
+        // the half-width/height), each ring a palette colour ({band}).
+        // sizeF defaults to 1 (fills the cell), unlike the other motifs.
+        const rings = Math.max(1, shape.rings | 0 || 3);
+        const sizeF = shape.size == null ? 1 : shape.size;
+        return { op: 'nest', count: rings,
+          child: { op: 'poly', sides: 4, rx: sizeF, ry: sizeF, fill: { band: true } } };
+      }
       case 'triangle':
         return { op: 'poly', size, sides: 3, r: 0.5, fill: { cycle: true } };
       case 'square':
@@ -449,7 +466,7 @@
     pentagon:   { op: 'poly', size: 0.6, sides: 5, r: 0.5, fill: { cycle: true } },
     hexagon:    { op: 'poly', size: 0.6, sides: 6, rotate: 30, r: 0.5, fill: { cycle: true } },
     star:       shapeToElement({ kind: 'star' }),
-    diamond:    { op: 'nest', size: 1, count: 3, child: { op: 'poly', sides: 4, r: 0.5, fill: { band: true } } },
+    diamond:    shapeToElement({ kind: 'diamond' }),
     quatrefoil: shapeToElement({ kind: 'quatrefoil' }),
     blossom:    shapeToElement({ kind: 'blossom' }),
     onion:      shapeToElement({ kind: 'onion' }),

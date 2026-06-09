@@ -3099,23 +3099,32 @@ function shapeNode(shape, cw, rh, fill, ctx) {
     const doc = IRlib.shapeToElement(shape);
     if (doc) {
       const outline = !fill || fill === 'none' || fill === 'transparent';
-      const drawFill = outline ? '#000000' : fill;   // placeholder, overridden below
+      const PLACEHOLDER = 'rgb(1,2,3)';                // sentinel for {cycle}
+      const drawFill = outline ? PLACEHOLDER : fill;
+      const pal = (ctx && ctx.palette && ctx.palette.length) ? ctx.palette : [fill];
+      const start = (ctx && ctx.colorStart) || 0;
       const env = {
         el,
         rng: ctx && ctx.rng,
-        color: (ref) => {
+        // second arg is the interpreter ctx (carries the ring index for
+        // {band}); `ictx` lets diamond's nest cycle the cell palette.
+        color: (ref, ictx) => {
           if (ref == null) return null;
           if (typeof ref === 'string') return ref;
           // {center: defaultHex} — a palette role override (ctx.center)
           // wins, else the shape's own default carried in the ref.
           if ('center' in ref) return (ctx && ctx.center) || ref.center;
+          // {band} — concentric ring colour from the cell palette.
+          if (ref.band) return pal[mod(start + (ictx && ictx.band || 0), pal.length)];
           return ref.cycle ? drawFill : null;
         },
       };
       const region = { x: -cw / 2, y: -rh / 2, w: cw, h: rh };
       const g = el('g', sAttrs);
+      // In outline mode only the {cycle} fills (the sentinel) become
+      // 'none' so the stroke shows; {band}/{center} colours are kept.
       for (const node of IRlib.render(doc, region, env)) {
-        if (outline) node.setAttribute('fill', 'none');
+        if (outline && node.getAttribute('fill') === PLACEHOLDER) node.setAttribute('fill', 'none');
         g.appendChild(node);
       }
       return g;
@@ -3123,28 +3132,6 @@ function shapeNode(shape, cw, rh, fill, ctx) {
   }
 
   switch (shape.kind) {
-    case 'diamond': {
-      // Concentric rhombi filling the cell, cycling the palette so
-      // each cell nests several colours. Uses cw/rh directly so the
-      // diamond matches the cell aspect.
-      const g = el('g', {});
-      const rings = Math.max(1, shape.rings | 0 || 3);
-      const pal = (ctx && ctx.palette && ctx.palette.length) ? ctx.palette : [fill];
-      const start = ctx?.colorStart ?? 0;
-      const sizeF = shape.size ?? 1;
-      const hw = (cw / 2) * sizeF, hh = (rh / 2) * sizeF;
-      for (let k = 0; k < rings; k++) {
-        const f = 1 - k / rings;            // outer → inner
-        const w = hw * f, h = hh * f;
-        const c = pal[mod(start + k, pal.length)];
-        if (c == null || c === 'transparent' || c === 'none') continue;
-        g.appendChild(el('polygon', {
-          points: `0,${(-h).toFixed(2)} ${w.toFixed(2)},0 0,${h.toFixed(2)} ${(-w).toFixed(2)},0`,
-          fill: c,
-        }));
-      }
-      return g;
-    }
     case 'leaf': {
       // Outlined pointed oval (a pepita with no fill) plus a vein down
       // the centre that extends past the bottom into a stem. Drawn in
