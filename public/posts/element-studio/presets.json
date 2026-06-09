@@ -1,0 +1,64 @@
+[
+  {
+    "name": "flower",
+    "doc": {
+      "op": "group", "size": 0.6, "children": [
+        { "op": "disc", "r": 0.34, "fill": { "cycle": true } },
+        { "op": "repeat", "count": 16, "radius": 0.34, "child": { "op": "disc", "r": 0.105, "fill": { "cycle": true } } }
+      ]
+    }
+  },
+  {
+    "name": "brick stripes",
+    "doc": {
+      "op": "split", "axis": "y", "count": 6, "offset": 0.5,
+      "child": { "op": "rect", "fill": { "band": true } }
+    }
+  },
+  {
+    "name": "arc split",
+    "doc": {
+      "op": "group", "children": [
+        { "op": "rect", "fill": { "p": 3 } },
+        { "op": "wedge", "corner": 1, "r": 1, "fill": { "cycle": true } }
+      ]
+    }
+  },
+  {
+    "name": "nested rhombi",
+    "doc": {
+      "op": "nest", "count": 4,
+      "child": { "op": "poly", "sides": 4, "rx": 1, "ry": 1, "fill": { "band": true } }
+    }
+  },
+  {
+    "name": "starburst",
+    "doc": {
+      "op": "poly", "size": 0.7, "sides": 8, "depth": 0.45, "r": 0.5, "fill": { "cycle": true }
+    }
+  },
+  {
+    "name": "mirrored fan",
+    "doc": {
+      "op": "mirror", "axis": "x", "size": 0.7, "children": [
+        { "op": "poly", "sides": 3, "rotate": 90, "r": 0.42, "fill": { "cycle": true } },
+        { "op": "disc", "r": 0.12, "dx": 0.28, "dy": -0.28, "fill": { "p": 2 } }
+      ]
+    }
+  },
+  {
+    "name": "vesica lens",
+    "doc": {
+      "op": "boolean", "size": 0.65,
+      "clip": { "op": "disc", "r": 0.5, "dx": -0.3, "fill": "#000000" },
+      "child": { "op": "disc", "r": 0.5, "dx": 0.3, "fill": { "cycle": true } }
+    }
+  },
+  {
+    "name": "target",
+    "doc": {
+      "op": "nest", "count": 5, "size": 0.8,
+      "child": { "op": "disc", "r": 0.5, "fill": { "band": true } }
+    }
+  }
+]
