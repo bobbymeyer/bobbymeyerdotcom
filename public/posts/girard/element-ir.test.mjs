@@ -27,6 +27,7 @@ const NAMED = { ground: '#e7e2d6', wedge: '#d24a45', center: '#ffffff' };
 const color = (ref, ctx) => {
   if (ref == null) return null;
   if (typeof ref === 'string') return NAMED[ref] != null ? NAMED[ref] : ref;
+  if ('center' in ref) return ref.center;
   if (ref.cycle) return PAL[0];
   if (ref.band) return PAL[(ctx.band || 0) % PAL.length];
   if (ref.p != null) return PAL[ref.p % PAL.length];
@@ -112,6 +113,51 @@ function legacyLens(cx, cy, w, h) {
   return [el('path', { d: `M ${cx},${cy - hy} Q ${cx + hx},${cy} ${cx},${cy + hy} Q ${cx - hx},${cy} ${cx},${cy - hy} Z`, fill: PAL[0] })];
 }
 
+function legacyPlus(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6, L = dim, a = dim * 0.34;
+  return [
+    el('rect', { x: cx - a / 2, y: cy - L / 2, width: a, height: L, fill: PAL[0] }),
+    el('rect', { x: cx - L / 2, y: cy - a / 2, width: L, height: a, fill: PAL[0] }),
+  ];
+}
+function legacyQuadDots(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6, sq = dim * 0.36, gap = dim * 0.12, o = (sq + gap) / 2, out = [];
+  for (const px of [-o, o]) for (const py of [-o, o])
+    out.push(el('rect', { x: cx + px - sq / 2, y: cy + py - sq / 2, width: sq, height: sq, fill: PAL[0] }));
+  return out;
+}
+function legacyBarbell(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6, len = dim, bw = dim * 0.13, kr = dim * 0.2;
+  return [
+    el('rect', { x: cx - bw / 2, y: cy - len / 2, width: bw, height: len, fill: PAL[0] }),
+    el('circle', { cx, cy: cy - len / 2, r: kr, fill: PAL[0] }),
+    el('circle', { cx, cy: cy + len / 2, r: kr, fill: PAL[0] }),
+  ];
+}
+function legacyJacks(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6, r = dim * 0.17, off = dim * 0.3, bw = dim * 0.09, out = [];
+  out.push(el('rect', { x: cx - bw / 2, y: cy - off, width: bw, height: off * 2, fill: PAL[0] }));
+  out.push(el('rect', { x: cx - off, y: cy - bw / 2, width: off * 2, height: bw, fill: PAL[0] }));
+  for (const [dx, dy] of [[0, -off], [0, off], [-off, 0], [off, 0]])
+    out.push(el('circle', { cx: cx + dx, cy: cy + dy, r, fill: PAL[0] }));
+  return out;
+}
+function legacySpike(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6, topW = dim, hh = topW * 4, botW = topW * 0.3;
+  const tx = topW / 2, bx = botW / 2, y0 = -hh / 2, y1 = hh / 2;
+  return [el('polygon', { points: `${cx - tx},${cy + y0} ${cx + tx},${cy + y0} ${cx + bx},${cy + y1} ${cx - bx},${cy + y1}`, fill: PAL[0] })];
+}
+function legacyRightTri(cx, cy, w, h) {
+  const r = Math.min(w, h) * 0.6 / 2;
+  return [el('polygon', { points: `${cx - r},${cy - r} ${cx + r},${cy - r} ${cx - r},${cy + r}`, fill: PAL[0] })];
+}
+function legacyCross(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6, L = dim, ww = dim * 0.28, out = [];
+  for (const a of [45, -45])
+    out.push(el('rect', { x: cx - L / 2, y: cy - ww / 2, width: L, height: ww, rx: ww / 2, ry: ww / 2, fill: PAL[0], transform: `rotate(${a} ${cx} ${cy})` }));
+  return out;
+}
+
 function legacyArcSplit(x, y, w, h, colorWedge, colorGround, corner) {
   const out = [];
   if (!(colorGround == null || colorGround === 'transparent' || colorGround === 'none'))
@@ -171,6 +217,20 @@ const cases = [
     legacy: legacyQuatrefoil(C, C, 100, 100), ir: IR.render(IR.SHAPES.quatrefoil, REGION, env) },
   { name: 'blossom     (repeat:radial + centre)', compare: 'byte',
     legacy: legacyBlossom(C, C, 100, 100), ir: IR.render(IR.SHAPES.blossom, REGION, env) },
+  { name: 'plus        (2 boxes)', compare: 'byte',
+    legacy: legacyPlus(C, C, 100, 100), ir: IR.render(IR.SHAPES.plus, REGION, env) },
+  { name: 'quadDots    (4 boxes)', compare: 'byte',
+    legacy: legacyQuadDots(C, C, 100, 100), ir: IR.render(IR.SHAPES.quadDots, REGION, env) },
+  { name: 'barbell     (box + 2 discs)', compare: 'byte',
+    legacy: legacyBarbell(C, C, 100, 100), ir: IR.render(IR.SHAPES.barbell, REGION, env) },
+  { name: 'jacks       (2 boxes + 4 discs)', compare: 'byte',
+    legacy: legacyJacks(C, C, 100, 100), ir: IR.render(IR.SHAPES.jacks, REGION, env) },
+  { name: 'cross       (2 rounded boxes, rot ±45)', compare: 'render',
+    legacy: legacyCross(C, C, 100, 100), ir: IR.render(IR.SHAPES.cross, REGION, env) },
+  { name: 'right-tri   (path)', compare: 'render',
+    legacy: legacyRightTri(C, C, 100, 100), ir: IR.render(IR.SHAPES.rightTriangle, REGION, env) },
+  { name: 'spike       (path: trapezoid)', compare: 'render',
+    legacy: legacySpike(C, C, 100, 100), ir: IR.render(IR.SHAPES.spike, REGION, env) },
   { name: 'square      (poly:4 rot45 -> polygon vs rect)', compare: 'render',
     legacy: legacySquare(C, C, 100, 100), ir: IR.render(IR.SHAPES.square, REGION, env) },
   { name: 'onion       (path: cubic curve)', compare: 'render',

@@ -123,6 +123,24 @@
       if (node2) out.push(node2);
     },
 
+    // Centred rectangle sized in unit-fractions (w/h), with optional
+    // offset (dx/dy), corner radius (rx/ry) and rotation about its own
+    // centre. The workhorse for the rectilinear family: plus, cross,
+    // jacks, barbell, quadDots.
+    box(node, ctx, out) {
+      const w = (node.w == null ? 1 : node.w) * ctx.unit;
+      const h = (node.h == null ? 1 : node.h) * ctx.unit;
+      const cx = ctx.cx + (node.dx || 0) * ctx.unit;
+      const cy = ctx.cy + (node.dy || 0) * ctx.unit;
+      const node2 = paint(ctx, node.fill, (c) => {
+        const a = { x: cx - w / 2, y: cy - h / 2, width: w, height: h, fill: c };
+        if (node.rx != null) { a.rx = node.rx * ctx.unit; a.ry = (node.ry == null ? node.rx : node.ry) * ctx.unit; }
+        if (node.rotate) a.transform = `rotate(${node.rotate} ${cx} ${cy})`;
+        return ctx.el('rect', a);
+      });
+      if (node2) out.push(node2);
+    },
+
     // Quarter-circle wedge at a cell corner (0=TL,1=TR,2=BR,3=BL). The
     // path is identical to girard's drawArcSplit so output is
     // byte-for-byte comparable.
@@ -327,7 +345,73 @@
         return { op: 'group', size, children: [
           { op: 'repeat', count: n, radius: (shape.spread == null ? 0.3 : shape.spread), phase: -Math.PI / 2,
             child: { op: 'disc', r: (shape.petal == null ? 0.26 : shape.petal), fill: { cycle: true } } },
-          { op: 'disc', r: (shape.centerSize == null ? 0.13 : shape.centerSize), fill: 'center' },
+          { op: 'disc', r: (shape.centerSize == null ? 0.13 : shape.centerSize), fill: { center: shape.centerColor || '#ffffff' } },
+        ] };
+      }
+      case 'flower': {
+        // Scalloped disc: central circle + a ring of overlapping bump
+        // discs (union into a cog edge), optional centre square.
+        const n = Math.max(6, shape.petals | 0 || 16);
+        const children = [
+          { op: 'disc', r: 0.34, fill: { cycle: true } },
+          { op: 'repeat', count: n, radius: 0.34, phase: 0, child: { op: 'disc', r: 0.105, fill: { cycle: true } } },
+        ];
+        if (shape.center) {
+          const cs = shape.centerSize == null ? 0.14 : shape.centerSize;
+          children.push({ op: 'box', w: cs, h: cs, fill: { center: shape.centerColor || '#f2b933' } });
+        }
+        return { op: 'group', size, children };
+      }
+      case 'right-triangle':
+        // Right angle at top-left, hypotenuse top-right -> bottom-left.
+        return { op: 'path', size, fill: { cycle: true }, segs: [
+          ['M', -0.5, -0.5], ['L', 0.5, -0.5], ['L', -0.5, 0.5], ['Z'],
+        ] };
+      case 'spike': {
+        // Tapered trapezoid pointing down. aspect = height / top-width;
+        // taper = bottom width as a fraction of the top.
+        const aspect = shape.aspect == null ? 4 : shape.aspect;
+        const taper = shape.taper == null ? 0.3 : shape.taper;
+        const y0 = -aspect / 2, y1 = aspect / 2, bx = taper / 2;
+        return { op: 'path', size, fill: { cycle: true }, segs: [
+          ['M', -0.5, y0], ['L', 0.5, y0], ['L', bx, y1], ['L', -bx, y1], ['Z'],
+        ] };
+      }
+      case 'plus': {
+        const arm = shape.arm == null ? 0.34 : shape.arm;
+        return { op: 'group', size, children: [
+          { op: 'box', w: arm, h: 1, fill: { cycle: true } },
+          { op: 'box', w: 1, h: arm, fill: { cycle: true } },
+        ] };
+      }
+      case 'cross':
+        // Two crossing rounded capsules (a fat X).
+        return { op: 'group', size, children: [
+          { op: 'box', w: 1, h: 0.28, rx: 0.14, rotate: 45, fill: { cycle: true } },
+          { op: 'box', w: 1, h: 0.28, rx: 0.14, rotate: -45, fill: { cycle: true } },
+        ] };
+      case 'quadDots': {
+        const o = 0.24;   // (sq 0.36 + gap 0.12) / 2
+        const dot = (dx, dy) => ({ op: 'box', w: 0.36, h: 0.36, dx, dy, fill: { cycle: true } });
+        return { op: 'group', size, children: [dot(-o, -o), dot(-o, o), dot(o, -o), dot(o, o)] };
+      }
+      case 'barbell':
+        return { op: 'group', size, children: [
+          { op: 'box', w: 0.13, h: 1, fill: { cycle: true } },
+          { op: 'disc', r: 0.2, dy: -0.5, fill: { cycle: true } },
+          { op: 'disc', r: 0.2, dy:  0.5, fill: { cycle: true } },
+        ] };
+      case 'jacks': {
+        const off = shape.spread == null ? 0.3 : shape.spread;
+        const bw = shape.bar == null ? 0.09 : shape.bar;
+        const dot = shape.dot == null ? 0.17 : shape.dot;
+        return { op: 'group', size, children: [
+          { op: 'box', w: bw, h: off * 2, fill: { cycle: true } },
+          { op: 'box', w: off * 2, h: bw, fill: { cycle: true } },
+          { op: 'disc', r: dot, dy: -off, fill: { cycle: true } },
+          { op: 'disc', r: dot, dy:  off, fill: { cycle: true } },
+          { op: 'disc', r: dot, dx: -off, fill: { cycle: true } },
+          { op: 'disc', r: dot, dx:  off, fill: { cycle: true } },
         ] };
       }
       case 'onion': {
@@ -370,6 +454,13 @@
     blossom:    shapeToElement({ kind: 'blossom' }),
     onion:      shapeToElement({ kind: 'onion' }),
     lens:       shapeToElement({ kind: 'lens' }),
+    plus:       shapeToElement({ kind: 'plus' }),
+    cross:      shapeToElement({ kind: 'cross' }),
+    jacks:      shapeToElement({ kind: 'jacks' }),
+    barbell:    shapeToElement({ kind: 'barbell' }),
+    quadDots:   shapeToElement({ kind: 'quadDots' }),
+    spike:      shapeToElement({ kind: 'spike' }),
+    rightTriangle: shapeToElement({ kind: 'right-triangle' }),
     // The boolean op, shown standalone: a vesica as disc ∩ disc.
     vesica:     { op: 'boolean', size: 0.6,
       clip:  { op: 'disc', r: 0.5, dx: -0.32, fill: '#000' },

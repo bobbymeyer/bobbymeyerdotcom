@@ -3100,14 +3100,15 @@ function shapeNode(shape, cw, rh, fill, ctx) {
     if (doc) {
       const outline = !fill || fill === 'none' || fill === 'transparent';
       const drawFill = outline ? '#000000' : fill;   // placeholder, overridden below
-      const center = (ctx && ctx.center) || shape.centerColor || '#ffffff';
       const env = {
         el,
         rng: ctx && ctx.rng,
         color: (ref) => {
           if (ref == null) return null;
-          if (ref === 'center') return center;       // petal / blossom centre dot
           if (typeof ref === 'string') return ref;
+          // {center: defaultHex} — a palette role override (ctx.center)
+          // wins, else the shape's own default carried in the ref.
+          if ('center' in ref) return (ctx && ctx.center) || ref.center;
           return ref.cycle ? drawFill : null;
         },
       };
@@ -3140,107 +3141,6 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         g.appendChild(el('polygon', {
           points: `0,${(-h).toFixed(2)} ${w.toFixed(2)},0 0,${h.toFixed(2)} ${(-w).toFixed(2)},0`,
           fill: c,
-        }));
-      }
-      return g;
-    }
-    case 'right-triangle': {
-      // Right-isoceles triangle, right angle at top-left, hypotenuse
-      // from top-right down to bottom-left. All instances share this
-      // orientation (the "one way" look); rotate via vary if wanted.
-      const r = dim / 2;
-      return el('polygon', {
-        points: `${-r},${-r} ${r},${-r} ${-r},${r}`,
-        fill,
-        ...sAttrs,
-      });
-    }
-    case 'spike': {
-      // Tapered trapezoid pointing down — wide at top, narrow at
-      // bottom. Like a rain streak. size sets the top width
-      // (× cell); aspect is height as a multiple of that width;
-      // taper is the bottom width as a fraction of the top.
-      const topW = dim;
-      const h = topW * (shape.aspect ?? 4);
-      const botW = topW * (shape.taper ?? 0.3);
-      const tx = topW / 2, bx = botW / 2;
-      const y0 = -h / 2, y1 = h / 2;
-      return el('polygon', {
-        points: `${-tx},${y0} ${tx},${y0} ${bx},${y1} ${-bx},${y1}`,
-        fill,
-        ...sAttrs,
-      });
-    }
-    case 'jacks': {
-      // Four small dots joined by a thin cross (a clover / "jacks" pip).
-      const g = el('g', {});
-      const r = dim * (shape.dot ?? 0.17);
-      const off = dim * (shape.spread ?? 0.3);
-      const bw = dim * (shape.bar ?? 0.09);
-      // Connecting cross through the centre, reaching the dots.
-      g.appendChild(el('rect', { x: -bw / 2, y: -off, width: bw, height: off * 2, fill }));
-      g.appendChild(el('rect', { x: -off, y: -bw / 2, width: off * 2, height: bw, fill }));
-      for (const [dx, dy] of [[0, -off], [0, off], [-off, 0], [off, 0]]) {
-        g.appendChild(el('circle', { cx: dx, cy: dy, r, fill, ...sAttrs }));
-      }
-      return g;
-    }
-    case 'barbell': {
-      // A bar with a round knob at each end (vertical by default).
-      const g = el('g', {});
-      const len = dim, bw = dim * 0.13, kr = dim * 0.2;
-      g.appendChild(el('rect', { x: -bw / 2, y: -len / 2, width: bw, height: len, fill, ...sAttrs }));
-      g.appendChild(el('circle', { cx: 0, cy: -len / 2, r: kr, fill, ...sAttrs }));
-      g.appendChild(el('circle', { cx: 0, cy: len / 2, r: kr, fill, ...sAttrs }));
-      return g;
-    }
-    case 'plus': {
-      // A plus sign: vertical and horizontal bars with square ends.
-      const g = el('g', {});
-      const L = dim, w = dim * (shape.arm ?? 0.34);
-      g.appendChild(el('rect', { x: -w / 2, y: -L / 2, width: w, height: L, fill, ...sAttrs }));
-      g.appendChild(el('rect', { x: -L / 2, y: -w / 2, width: L, height: w, fill, ...sAttrs }));
-      return g;
-    }
-    case 'cross': {
-      // Fat rounded X (two crossing capsules).
-      const g = el('g', {});
-      const L = dim, w = dim * 0.28;
-      for (const a of [45, -45]) {
-        g.appendChild(el('rect', {
-          x: -L / 2, y: -w / 2, width: L, height: w, rx: w / 2, ry: w / 2,
-          fill, transform: `rotate(${a})`, ...sAttrs,
-        }));
-      }
-      return g;
-    }
-    case 'quadDots': {
-      // 2×2 grid of little squares.
-      const g = el('g', {});
-      const sq = dim * 0.36, gap = dim * 0.12, o = (sq + gap) / 2;
-      for (const px of [-o, o]) for (const py of [-o, o]) {
-        g.appendChild(el('rect', { x: px - sq / 2, y: py - sq / 2, width: sq, height: sq, fill, ...sAttrs }));
-      }
-      return g;
-    }
-    case 'flower': {
-      // Scalloped disc: a central circle ringed by overlapping bump
-      // circles (same fill) that union into a daisy / cog edge, with an
-      // optional small square at the centre (a different colour).
-      const g = el('g', {});
-      const n = Math.max(6, shape.petals | 0 || 16);
-      const R = dim * 0.34;
-      const pr = dim * 0.105;
-      g.appendChild(el('circle', { r: R, fill, ...sAttrs }));
-      for (let i = 0; i < n; i++) {
-        const a = (2 * Math.PI * i) / n;
-        g.appendChild(el('circle', { cx: Math.cos(a) * R, cy: Math.sin(a) * R, r: pr, fill }));
-      }
-      if (shape.center) {
-        const cs = dim * (shape.centerSize ?? 0.14);
-        g.appendChild(el('rect', {
-          x: -cs / 2, y: -cs / 2, width: cs, height: cs,
-          fill: (ctx && ctx.center) || shape.centerColor || '#f2b933',
         }));
       }
       return g;
