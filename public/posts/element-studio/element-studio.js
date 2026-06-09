@@ -301,18 +301,30 @@
     return s;
   }
 
-  // Insert a node into the selected container (or root), select it.
+  // Place a node inside any container: list containers append (paints on
+  // top); single-slot arrangements (Ring, Concentric) fill the slot when
+  // empty, otherwise wrap the occupant in a Group alongside the new node;
+  // Clip fills child first, then the mask.
+  function insertInto(target, node) {
+    const slots = slotsOf(target);
+    if (!slots.length) return false;
+    if (slots.some((s) => s.list)) { target.children.push(node); return true; }
+    if (!target.child) target.child = node;
+    else if (target.op === 'boolean' && !target.clip) target.clip = node;
+    else target.child = { op: 'group', children: [target.child, node] };
+    return true;
+  }
+
+  // Insert a node relative to the selection: into the selected container,
+  // else beside the selection in its parent, else wrap a leaf root.
   function addNode(node) {
     const sel = selected();
-    let target, slot;
-    if (isContainer(sel) && slotsOf(sel).some((x) => x.list)) { target = sel; }
-    else { const p = parentOf(selPath); target = (p && p.parent && slotsOf(p.parent).some((x) => x.list)) ? p.parent : doc; }
-    if (!Array.isArray(target.children)) { slotsOf(target); }
-    if (!Array.isArray(target.children)) { // root isn't a list container — wrap it
-      doc = { op: 'group', size: doc.size, children: [doc] };
-      target = doc;
+    let placed = isContainer(sel) && insertInto(sel, node);
+    if (!placed) {
+      const p = parentOf(selPath);
+      placed = !!(p && p.parent && insertInto(p.parent, node));
     }
-    target.children.push(node);
+    if (!placed) doc = { op: 'group', size: doc.size, children: [doc, node] };
     selPath = nodePath(doc, node) || [];
     pushHistory();
     refreshAll();
@@ -329,7 +341,6 @@
   }
   function layerRow(node, path, depth) {
     const sel = node === selected();
-    const listy = slotsOf(node).some((s) => s.list);
     const wrap = h('div', { class: 'es-layer' });
     const row = h('div', { class: 'es-layer-row' + (sel ? ' es-layer-sel' : ''), style: `padding-left:${depth * 12 + 6}px` });
     // Double-click the name to rename the layer in place. The name rides
@@ -366,8 +377,9 @@
       });
       row.addEventListener('dragend', () => { dragSrcPath = null; row.classList.remove('es-dragging'); });
     }
-    // Drop onto a list container's row → move to the end of its children.
-    if (listy) {
+    // Drop onto any container's row → move inside it (list containers
+    // append; single-slot arrangements fill / wrap via insertInto).
+    if (isContainer(node)) {
       row.addEventListener('dragover', (e) => { if (canDrop(path)) { e.preventDefault(); row.classList.add('es-row-drop'); } });
       row.addEventListener('dragleave', () => row.classList.remove('es-row-drop'));
       row.addEventListener('drop', (e) => { e.preventDefault(); row.classList.remove('es-row-drop'); const src = dragSrcPath; dragSrcPath = null; if (src) moveNode(src, path, (node.children || []).length); });
@@ -388,8 +400,20 @@
           wrap.appendChild(dropLine(path, i, depth + 1));
         }
       } else if (node[s.key]) wrap.appendChild(layerRow(node[s.key], path.concat([{ k: s.key }]), depth + 1));
+      else wrap.appendChild(emptySlotRow(path, s.key, depth + 1));
     }
     return wrap;
+  }
+  // A vacant single slot (Ring/Concentric child, Clip parts): visible,
+  // selectable (so the Add menu targets the container) and a drop target.
+  function emptySlotRow(containerPath, key, depth) {
+    const d = h('div', { class: 'es-slot-empty', style: `padding-left:${depth * 12 + 6}px`,
+      onclick: () => selectPath(containerPath) },
+      key === 'clip' ? 'empty mask — add a shape' : 'empty — add a shape');
+    d.addEventListener('dragover', (e) => { if (canDrop(containerPath)) { e.preventDefault(); d.classList.add('es-row-drop'); } });
+    d.addEventListener('dragleave', () => d.classList.remove('es-row-drop'));
+    d.addEventListener('drop', (e) => { e.preventDefault(); d.classList.remove('es-row-drop'); const src = dragSrcPath; dragSrcPath = null; if (src) moveNode(src, containerPath, 0); });
+    return d;
   }
   // A thin insertion target between sibling rows of a list container.
   function dropLine(containerPath, index, depth) {
@@ -404,7 +428,7 @@
   function canDrop(destPath) {
     if (!dragSrcPath) return false;
     const src = getByPath(dragSrcPath), dest = getByPath(destPath);
-    if (!src || !dest || !slotsOf(dest).some((s) => s.list)) return false;
+    if (!src || !dest || !slotsOf(dest).length) return false;
     return dest !== src && !isDescendant(src, dest);
   }
   function isDescendant(anc, node) {
@@ -418,7 +442,7 @@
     const src = getByPath(srcPath), dest = getByPath(destPath);
     // Validate from the arguments directly — the drag globals are already
     // cleared by the time the drop handler calls in.
-    if (!src || !dest || !slotsOf(dest).some((s) => s.list)) return;
+    if (!src || !dest || !slotsOf(dest).length) return;
     if (dest === src || isDescendant(src, dest)) return;
     const pr = parentOf(srcPath); if (!pr) return;
     const sameArray = pr.parent === dest && pr.slot.k === 'children';
@@ -426,11 +450,17 @@
     // Detach from the old parent…
     if (pr.slot.i != null) (pr.parent[pr.slot.k] || []).splice(pr.slot.i, 1);
     else delete pr.parent[pr.slot.k];
-    // …then insert, accounting for the index shift within one array.
-    let idx = destIndex;
-    if (sameArray && oldIndex != null && oldIndex < destIndex) idx -= 1;
-    if (!Array.isArray(dest.children)) slotsOf(dest);
-    dest.children.splice(clamp(idx, 0, dest.children.length), 0, src);
+    // …then insert. List containers splice at the drop index (accounting
+    // for the shift within one array); single-slot arrangements go
+    // through insertInto (fill the slot, or wrap the occupant in a Group).
+    if (slotsOf(dest).some((s) => s.list)) {
+      let idx = destIndex;
+      if (sameArray && oldIndex != null && oldIndex < destIndex) idx -= 1;
+      if (!Array.isArray(dest.children)) slotsOf(dest);
+      dest.children.splice(clamp(idx, 0, dest.children.length), 0, src);
+    } else {
+      insertInto(dest, src);
+    }
     selPath = nodePath(doc, src) || [];
     pushHistory(); refreshAll();
   }
@@ -485,11 +515,84 @@
   // ---------------------------------------------------------------------
   // Properties
   // ---------------------------------------------------------------------
+  // --- shape/arrangement conversion ------------------------------------
+  const ALL_ITEMS = SHAPES.concat(CONTAINERS);
+  const findItem = (id) => ALL_ITEMS.find((x) => x.id === id);
+  const itemIdOf = (n) => (n.op === 'poly' ? ((n.depth != null && n.depth < 1) ? 'star' : 'poly') : n.op);
+  const hasField = (op, key) => (FIELDS[op] || []).some((f) => f.key === key);
+  const childrenOf = (n) => {
+    if (Array.isArray(n.children)) return n.children.slice();
+    const out = []; if (n.clip) out.push(n.clip); if (n.child) out.push(n.child);
+    return out;
+  };
+
+  // Convert the selected node to another shape/arrangement in place,
+  // preserving what carries across: name, fill, position, spin, root
+  // size, and — container to container — the contents.
+  function changeNodeTo(node, make) {
+    const keep = { fill: node.fill, name: node.name, dx: node.dx, dy: node.dy, rotate: node.rotate, size: node.size, kids: childrenOf(node) };
+    const fresh = make();
+    for (const k of Object.keys(node)) delete node[k];
+    Object.assign(node, fresh);
+    if (keep.name) node.name = keep.name;
+    if (keep.fill != null && hasField(node.op, 'fill')) node.fill = keep.fill;
+    if (keep.dx != null && MOVABLE.includes(node.op)) node.dx = keep.dx;
+    if (keep.dy != null && MOVABLE.includes(node.op)) node.dy = keep.dy;
+    if (keep.rotate != null && hasField(node.op, 'rotate')) node.rotate = keep.rotate;
+    if (keep.size != null && (node === doc || node.op === 'split' || node.op === 'nest')) node.size = keep.size;
+    if (keep.kids.length && isContainer(node)) {
+      if (slotsOf(node).some((s) => s.list)) node.children = keep.kids;
+      else if (node.op === 'boolean' && keep.kids.length >= 2) { node.clip = keep.kids[0]; node.child = keep.kids[1]; }
+      else node.child = keep.kids.length === 1 ? keep.kids[0] : { op: 'group', children: keep.kids };
+    }
+    pushHistory(); refreshAll();
+  }
+
+  // Wrap the selection in an arrangement — the one-step "ring of stars":
+  // the node becomes the wrapper's content (default contents discarded;
+  // Clip keeps its default mask).
+  function wrapSelected(make) {
+    const node = selected();
+    const wrapper = make();
+    if (wrapper.op === 'repeat' || wrapper.op === 'nest' || wrapper.op === 'boolean') wrapper.child = node;
+    else wrapper.children = [node];
+    if (!selPath.length) {
+      if (node.size != null) { wrapper.size = node.size; delete node.size; }
+      doc = wrapper;
+    } else {
+      const pr = parentOf(selPath);
+      if (pr.slot.i != null) pr.parent[pr.slot.k][pr.slot.i] = wrapper;
+      else pr.parent[pr.slot.k] = wrapper;
+    }
+    selPath = nodePath(doc, wrapper) || [];
+    pushHistory(); refreshAll();
+  }
+
+  function changeToField(node) {
+    const cur = itemIdOf(node);
+    const sel = h('select', { class: 'es-select', onchange: (e) => { const it = findItem(e.target.value); if (it && e.target.value !== cur) changeNodeTo(node, it.make); } });
+    const grp = (label, items) => {
+      const g = h('optgroup', { label });
+      for (const it of items) { const o = h('option', { value: it.id }, it.name); if (it.id === cur) o.setAttribute('selected', ''); g.appendChild(o); }
+      sel.appendChild(g);
+    };
+    grp('shapes', SHAPES); grp('arrangements', CONTAINERS);
+    return h('label', { class: 'es-field' }, h('span', { class: 'es-field-label' }, 'Change to'), sel);
+  }
+  function wrapInField() {
+    const sel = h('select', { class: 'es-select', onchange: (e) => { const it = findItem(e.target.value); e.target.value = ''; if (it) wrapSelected(it.make); } });
+    sel.appendChild(h('option', { value: '' }, 'choose…'));
+    for (const it of CONTAINERS) sel.appendChild(h('option', { value: it.id }, it.name));
+    return h('label', { class: 'es-field' }, h('span', { class: 'es-field-label' }, 'Wrap in'), sel);
+  }
+
   function renderProps() {
     clear(elProps);
     const node = selected();
     if (!node) { elProps.appendChild(h('div', { class: 'es-muted' }, 'select a shape')); return; }
     elProps.appendChild(h('div', { class: 'es-props-head' }, node.name || opLabel(node)));
+    elProps.appendChild(changeToField(node));
+    elProps.appendChild(wrapInField());
 
     if (node === doc) elProps.appendChild(sliderField(node, S('size', 'Overall scale', 0.1, 1, 0.01, 0.6)));
     for (const f of FIELDS[node.op] || []) {
