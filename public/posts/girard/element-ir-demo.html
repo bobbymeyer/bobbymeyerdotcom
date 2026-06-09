@@ -90,29 +90,81 @@ function legacyArcSplit(x, y, w, h, cw, cg, corner) {
   return out;
 }
 
+// ---- legacy shape sub-family (verbatim shapeNode arms) ---------------
+function legacyTriangle(cx, cy, w, h) {
+  const r = Math.min(w, h) * 0.6 / 2;
+  return [el('polygon', { points: `${cx},${cy - r} ${cx + r * 0.866},${cy + r * 0.5} ${cx - r * 0.866},${cy + r * 0.5}`, fill: PAL[0] })];
+}
+function legacySquare(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6;
+  return [el('rect', { x: cx - dim / 2, y: cy - dim / 2, width: dim, height: dim, fill: PAL[0] })];
+}
+function legacyStar(cx, cy, w, h) {
+  const np = 5, depth = 0.5, R = Math.min(w, h) * 0.6 / 2, r = R * depth, v = [];
+  for (let i = 0; i < np * 2; i++) {
+    const a = (Math.PI * 2 * i) / (np * 2) - Math.PI / 2, rr = i % 2 === 0 ? R : r;
+    v.push(`${(cx + rr * Math.cos(a)).toFixed(2)},${(cy + rr * Math.sin(a)).toFixed(2)}`);
+  }
+  return [el('polygon', { points: v.join(' '), fill: PAL[0] })];
+}
+function legacyDiamond(cx, cy, w, h) {
+  const rings = 3, hw = w / 2, hh = h / 2, out = [];
+  for (let k = 0; k < rings; k++) {
+    const f = 1 - k / rings, wq = hw * f, hq = hh * f;
+    out.push(el('polygon', { points: `${cx},${cy - hq} ${cx + wq},${cy} ${cx},${cy + hq} ${cx - wq},${cy}`, fill: PAL[k % PAL.length] }));
+  }
+  return out;
+}
+function legacyQuatrefoil(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6, r = dim / 4, off = dim / 4, out = [];
+  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]])
+    out.push(el('circle', { cx: cx + sx * off, cy: cy + sy * off, r, fill: PAL[0] }));
+  out.push(el('circle', { cx, cy, r, fill: PAL[0] }));
+  return out;
+}
+
 // ---- compare ---------------------------------------------------------
-const round = (v) => {
-  const n = Number(v);
-  return Number.isFinite(n) && String(v).trim() !== '' ? Math.round(n * 1000) / 1000 : v;
-};
+// Normalise numeric tokens inside attribute values so geometry is
+// compared, not formatting ("50" === "50.00"; points/d lists round).
+const normNums = (v) => String(v).replace(/-?\d*\.?\d+(?:e-?\d+)?/g,
+  (m) => String(Math.round(Number(m) * 1000) / 1000));
 const canon = (n) => {
   const keys = n.getAttributeNames().sort();
-  return n.tagName + '|' + keys.map((k) => `${k}=${round(n.getAttribute(k))}`).join(';');
+  return n.tagName + '|' + keys.map((k) => `${k}=${normNums(n.getAttribute(k))}`).join(';');
 };
 const same = (A, B) => A.length === B.length && A.every((n, i) => canon(n) === canon(B[i]));
 
 const IR = window.GirardElementIR;
 const REGION = { x: 0, y: 0, w: 100, h: 100 };
+const C = 50;
+const S = IR.SHAPES;
 const cases = [
-  { name: 'flower — motif family', ops: 'disc + repeat:radial',
-    legacy: legacyFlower(50, 50, 100, 100, PAL[0]),
+  { name: 'flower — motif family', ops: 'disc + repeat:radial', compare: 'byte',
+    legacy: legacyFlower(C, C, 100, 100, PAL[0]),
     ir: IR.render(IR.DEMOS.flower, REGION, env), doc: IR.DEMOS.flower },
-  { name: 'stripes / brick — split family', ops: 'split:y + rect/band',
+  { name: 'stripes / brick — split family', ops: 'split:y + rect/band', compare: 'byte',
     legacy: legacyStripes(0, 0, 100, 100),
     ir: IR.render(IR.DEMOS.stripes, REGION, env), doc: IR.DEMOS.stripes },
-  { name: 'arc-split — divide family', ops: 'rect + wedge',
+  { name: 'arc-split — divide family', ops: 'rect + wedge', compare: 'byte',
     legacy: legacyArcSplit(0, 0, 100, 100, NAMED.wedge, NAMED.ground, 1),
     ir: IR.render(IR.DEMOS.arcSplit, REGION, env), doc: IR.DEMOS.arcSplit },
+
+  { name: 'triangle — shape sub-family', ops: 'poly:3', compare: 'byte',
+    legacy: legacyTriangle(C, C, 100, 100), ir: IR.render(S.triangle, REGION, env), doc: S.triangle },
+  { name: 'star', ops: 'poly:5 depth', compare: 'byte',
+    legacy: legacyStar(C, C, 100, 100), ir: IR.render(S.star, REGION, env), doc: S.star },
+  { name: 'diamond', ops: 'nest + poly:4', compare: 'byte',
+    legacy: legacyDiamond(C, C, 100, 100), ir: IR.render(S.diamond, REGION, env), doc: S.diamond },
+  { name: 'quatrefoil', ops: 'group of discs', compare: 'byte',
+    legacy: legacyQuatrefoil(C, C, 100, 100), ir: IR.render(S.quatrefoil, REGION, env), doc: S.quatrefoil },
+  { name: 'square', ops: 'poly:4 rot45 (polygon vs rect)', compare: 'render',
+    legacy: legacySquare(C, C, 100, 100), ir: IR.render(S.square, REGION, env), doc: S.square },
+  { name: 'pentagon', ops: 'poly:5 — new shape, free', compare: 'render',
+    legacy: [], ir: IR.render(S.pentagon, REGION, env), doc: S.pentagon },
+  { name: 'hexagon', ops: 'poly:6 — new shape, free', compare: 'render',
+    legacy: [], ir: IR.render(S.hexagon, REGION, env), doc: S.hexagon },
+  { name: 'lens', ops: 'boolean: disc ∩ disc', compare: 'render',
+    legacy: [], ir: IR.render(S.lens, REGION, env), doc: S.lens },
 ];
 
 const stage = (nodes) => {
@@ -134,19 +186,25 @@ for (const c of cases) {
   // clone node lists for display vs comparison (a node can't live twice)
   const legacyA = c.legacy, legacyB = c.legacy.map((n) => n.cloneNode(true));
   const irA = c.ir, irB = c.ir.map((n) => n.cloneNode(true));
-  const ok = same(legacyB, irB);
+  const byteOk = c.compare === 'byte' && same(legacyB, irB);
 
   const row = document.createElement('div'); row.className = 'row';
   const left = document.createElement('div'); left.style.flex = '1';
   const h2 = document.createElement('h2'); h2.textContent = c.name; left.appendChild(h2);
-  const v = document.createElement('div'); v.className = 'verdict ' + (ok ? 'pass' : 'fail');
-  v.textContent = (ok ? '✓ identical' : '✗ differs') + ` — ops: ${c.ops}`;
+  const v = document.createElement('div');
+  if (c.compare === 'byte') {
+    v.className = 'verdict ' + (byteOk ? 'pass' : 'fail');
+    v.textContent = (byteOk ? '✓ identical' : '✗ differs') + ` — ops: ${c.ops}`;
+  } else {
+    v.className = 'verdict';
+    v.textContent = `◑ visual A/B — ops: ${c.ops}`;
+  }
   left.appendChild(v);
   const pre = document.createElement('pre'); pre.textContent = JSON.stringify(c.doc, null, 1);
   left.appendChild(pre);
 
   const pair = document.createElement('div'); pair.className = 'pair';
-  pair.appendChild(panel(legacyA, 'legacy girard'));
+  pair.appendChild(panel(legacyA, legacyA.length ? 'legacy girard' : '(no legacy — new shape)'));
   pair.appendChild(panel(irA, 'element-ir'));
 
   row.appendChild(left); row.appendChild(pair);

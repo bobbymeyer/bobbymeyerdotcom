@@ -16,8 +16,12 @@ await import('./element-ir.js');
 const IR = globalThis.GirardElementIR;
 const here = dirname(fileURLToPath(import.meta.url));
 
-// Node factory + colour resolver injected into the interpreter.
-const el = (tag, attrs) => ({ tag, attrs });
+// Node factory + colour resolver injected into the interpreter. Nodes
+// support appendChild so container ops (mirror / boolean) can nest.
+const el = (tag, attrs) => ({
+  tag, attrs: attrs || {}, children: [],
+  appendChild(n) { this.children.push(n); return n; },
+});
 const PAL = ['#d24a45', '#2c7fb8', '#f2b933', '#3f7a8c', '#7d9a40', '#8a5fb0'];
 const NAMED = { ground: '#e7e2d6', wedge: '#d24a45' };
 const color = (ref, ctx) => {
@@ -52,6 +56,44 @@ function legacyStripes(x, y, w, h) {
   return out;
 }
 
+function legacyTriangle(cx, cy, w, h) {
+  const r = Math.min(w, h) * 0.6 / 2;
+  return [el('polygon', { points: `${cx},${cy - r} ${cx + r * 0.866},${cy + r * 0.5} ${cx - r * 0.866},${cy + r * 0.5}`, fill: PAL[0] })];
+}
+function legacySquare(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6;
+  return [el('rect', { x: cx - dim / 2, y: cy - dim / 2, width: dim, height: dim, fill: PAL[0] })];
+}
+function legacyStar(cx, cy, w, h) {
+  const np = 5, depth = 0.5, R = Math.min(w, h) * 0.6 / 2, r = R * depth, out = [];
+  const v = [];
+  for (let i = 0; i < np * 2; i++) {
+    const a = (Math.PI * 2 * i) / (np * 2) - Math.PI / 2;
+    const rr = i % 2 === 0 ? R : r;
+    v.push(`${(cx + rr * Math.cos(a)).toFixed(2)},${(cy + rr * Math.sin(a)).toFixed(2)}`);
+  }
+  out.push(el('polygon', { points: v.join(' '), fill: PAL[0] }));
+  return out;
+}
+function legacyDiamond(cx, cy, w, h) {
+  const rings = 3, hw = w / 2, hh = h / 2, out = [];
+  for (let k = 0; k < rings; k++) {
+    const f = 1 - k / rings, wq = hw * f, hq = hh * f;
+    out.push(el('polygon', {
+      points: `${(cx).toFixed(2)},${(cy - hq).toFixed(2)} ${(cx + wq).toFixed(2)},${(cy).toFixed(2)} ${(cx).toFixed(2)},${(cy + hq).toFixed(2)} ${(cx - wq).toFixed(2)},${(cy).toFixed(2)}`,
+      fill: PAL[k % PAL.length],
+    }));
+  }
+  return out;
+}
+function legacyQuatrefoil(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6, r = dim / 4, off = dim / 4, out = [];
+  for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]])
+    out.push(el('circle', { cx: cx + sx * off, cy: cy + sy * off, r, fill: PAL[0] }));
+  out.push(el('circle', { cx, cy, r, fill: PAL[0] }));
+  return out;
+}
+
 function legacyArcSplit(x, y, w, h, colorWedge, colorGround, corner) {
   const out = [];
   if (!(colorGround == null || colorGround === 'transparent' || colorGround === 'none'))
@@ -71,44 +113,60 @@ function legacyArcSplit(x, y, w, h, colorWedge, colorGround, corner) {
 
 // ---- comparison ------------------------------------------------------
 
-const round = (v) => {
-  if (typeof v === 'number') return Math.round(v * 1000) / 1000;
-  const n = Number(v);
-  return Number.isFinite(n) && String(v).trim() !== '' ? Math.round(n * 1000) / 1000 : v;
-};
+// Normalise every numeric token inside an attribute value, so geometry
+// is compared rather than formatting ("50" === "50.00", and coordinate
+// lists in points/d round consistently).
+const normNums = (v) => String(v).replace(/-?\d*\.?\d+(?:e-?\d+)?/g,
+  (m) => String(Math.round(Number(m) * 1000) / 1000));
 const canon = (node) => {
   const a = node.attrs || {};
   const keys = Object.keys(a).sort();
-  return node.tag + '|' + keys.map((k) => `${k}=${round(a[k])}`).join(';');
+  return node.tag + '|' + keys.map((k) => `${k}=${normNums(a[k])}`).join(';');
 };
 const same = (A, B) => A.length === B.length && A.every((n, i) => canon(n) === canon(B[i]));
 
 const REGION = { x: 0, y: 0, w: 100, h: 100 };
+const C = 50;   // cell centre for the shape motifs
+
+// compare:'byte'   -> IR output must equal the legacy draw node-for-node
+// compare:'render' -> primitive differs (rect vs poly, clip vs path) so
+//                     we only assert it produces geometry; the proof SVG
+//                     carries the visual A/B.
 const cases = [
-  {
-    name: 'flower  (motif: disc + repeat:radial)',
-    legacy: legacyFlower(50, 50, 100, 100, PAL[0]),
-    ir: IR.render(IR.DEMOS.flower, REGION, env),
-  },
-  {
-    name: 'stripes (split: split:y + rect/band)',
-    legacy: legacyStripes(0, 0, 100, 100),
-    ir: IR.render(IR.DEMOS.stripes, REGION, env),
-  },
-  {
-    name: 'arc-split (divide: rect + wedge)',
-    legacy: legacyArcSplit(0, 0, 100, 100, NAMED.wedge, NAMED.ground, 1),
-    ir: IR.render(IR.DEMOS.arcSplit, REGION, env),
-  },
+  { name: 'flower      (motif: disc + repeat:radial)', compare: 'byte',
+    legacy: legacyFlower(C, C, 100, 100, PAL[0]), ir: IR.render(IR.DEMOS.flower, REGION, env) },
+  { name: 'stripes     (split: split:y + rect/band)', compare: 'byte',
+    legacy: legacyStripes(0, 0, 100, 100), ir: IR.render(IR.DEMOS.stripes, REGION, env) },
+  { name: 'arc-split   (divide: rect + wedge)', compare: 'byte',
+    legacy: legacyArcSplit(0, 0, 100, 100, NAMED.wedge, NAMED.ground, 1), ir: IR.render(IR.DEMOS.arcSplit, REGION, env) },
+
+  // ---- shape sub-family (shapeNode arms re-authored on poly/disc/...) ----
+  { name: 'triangle    (poly:3)', compare: 'byte',
+    legacy: legacyTriangle(C, C, 100, 100), ir: IR.render(IR.SHAPES.triangle, REGION, env) },
+  { name: 'star        (poly:5 depth)', compare: 'byte',
+    legacy: legacyStar(C, C, 100, 100), ir: IR.render(IR.SHAPES.star, REGION, env) },
+  { name: 'diamond     (nest poly:4)', compare: 'byte',
+    legacy: legacyDiamond(C, C, 100, 100), ir: IR.render(IR.SHAPES.diamond, REGION, env) },
+  { name: 'quatrefoil  (group of discs)', compare: 'byte',
+    legacy: legacyQuatrefoil(C, C, 100, 100), ir: IR.render(IR.SHAPES.quatrefoil, REGION, env) },
+  { name: 'square      (poly:4 rot45 -> polygon vs rect)', compare: 'render',
+    legacy: legacySquare(C, C, 100, 100), ir: IR.render(IR.SHAPES.square, REGION, env) },
+  { name: 'pentagon    (poly:5 — new)', compare: 'render',
+    legacy: [], ir: IR.render(IR.SHAPES.pentagon, REGION, env) },
+  { name: 'hexagon     (poly:6 — new)', compare: 'render',
+    legacy: [], ir: IR.render(IR.SHAPES.hexagon, REGION, env) },
+  { name: 'lens        (boolean: disc ∩ disc)', compare: 'render',
+    legacy: [], ir: IR.render(IR.SHAPES.lens, REGION, env) },
 ];
 
 let allPass = true;
 console.log('\nelement-ir spike — IR vs legacy girard draw\n');
 for (const c of cases) {
-  const ok = same(c.legacy, c.ir);
+  const ok = c.compare === 'byte' ? same(c.legacy, c.ir) : c.ir.length > 0;
   allPass = allPass && ok;
-  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${c.name}   (${c.ir.length} nodes)`);
-  if (!ok) {
+  const tag = c.compare === 'byte' ? (ok ? 'PASS' : 'FAIL') : (ok ? 'DRAW' : 'EMPTY');
+  console.log(`  ${tag}  ${c.name}   (${c.ir.length} nodes)`);
+  if (c.compare === 'byte' && !ok) {
     console.log('    legacy:', c.legacy.map(canon).join('\n            '));
     console.log('    ir:    ', c.ir.map(canon).join('\n            '));
   }
@@ -118,6 +176,7 @@ for (const c of cases) {
 
 const toMarkup = (nodes) => nodes.map((n) => {
   const a = Object.entries(n.attrs).map(([k, v]) => `${k}="${v}"`).join(' ');
+  if (n.children && n.children.length) return `<${n.tag} ${a}>${toMarkup(n.children)}</${n.tag}>`;
   return `<${n.tag} ${a}/>`;
 }).join('');
 const cell = (nodes, tx, ty, label) =>
@@ -129,8 +188,10 @@ const cell = (nodes, tx, ty, label) =>
 let body = '';
 let ty = 20;
 for (const c of cases) {
-  body += `<text x="20" y="${ty - 6}" font-family="sans-serif" font-size="11" fill="#111">${c.name} — ${same(c.legacy, c.ir) ? 'PASS' : 'FAIL'}</text>`;
-  body += cell(c.legacy, 20, ty, 'legacy girard');
+  const verdict = c.compare === 'byte' ? (same(c.legacy, c.ir) ? 'identical' : 'DIFFERS')
+                : (c.ir.length ? 'visual A/B' : 'EMPTY');
+  body += `<text x="20" y="${ty - 6}" font-family="sans-serif" font-size="11" fill="#111">${c.name.trim()} — ${verdict}</text>`;
+  body += cell(c.legacy, 20, ty, c.legacy.length ? 'legacy girard' : '(no legacy)');
   body += cell(c.ir, 170, ty, 'element-ir');
   ty += 160;
 }

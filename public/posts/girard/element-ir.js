@@ -29,6 +29,8 @@
 (function (root) {
   'use strict';
 
+  let _clipId = 0;   // unique ids for boolean()'s clipPaths
+
   // Build the evaluation context for a region. `size` (0..1) shrinks the
   // motif reference dimension the way shapeNode's `shape.size` does;
   // region ops ignore `unit` and use the rect. `base` carries the
@@ -90,10 +92,12 @@
       const R = (node.r == null ? 0.5 : node.r) * ctx.unit;
       const rot = ((node.rotate || 0) * Math.PI) / 180 - Math.PI / 2;
       const n = depth < 1 ? sides * 2 : sides;
+      const jitter = node.jitter || 0;        // star vertex wobble
       const pts = [];
       for (let i = 0; i < n; i++) {
         const a = rot + (Math.PI * 2 * i) / n;
-        const rr = (depth < 1 && i % 2) ? R * depth : R;
+        let rr = (depth < 1 && i % 2) ? R * depth : R;
+        if (jitter > 0 && ctx.rng) rr += (ctx.rng() * 2 - 1) * jitter * R;
         pts.push(`${(ctx.cx + Math.cos(a) * rr).toFixed(2)},${(ctx.cy + Math.sin(a) * rr).toFixed(2)}`);
       }
       const node2 = paint(ctx, node.fill, (c) =>
@@ -167,6 +171,53 @@
         render(node.child, cctx, out);
       }
     },
+
+    // Concentric copies of a child at shrinking unit, the ring index
+    // riding in ctx as band/idx for palette cycling. Reproduces the
+    // nested-rhombi 'diamond' (and any onion/target motif).
+    nest(node, ctx, out) {
+      const count = Math.max(1, node.count | 0 || 1);
+      for (let k = 0; k < count; k++) {
+        const f = 1 - k / count;            // outer -> inner
+        const cctx = Object.assign({}, ctx, { unit: ctx.unit * f, band: k, idx: k });
+        render(node.child, cctx, out);
+      }
+    },
+
+    // Reflect children through the region centre. axis 'x' mirrors
+    // left<->right, 'y' top<->bottom, 'xy' is a point reflection. The
+    // originals are kept; reflected copies are re-rendered into a
+    // transformed group (no node cloning, so it stays renderer-agnostic).
+    mirror(node, ctx, out) {
+      const kids = node.children || (node.child ? [node.child] : []);
+      for (const c of kids) render(c, ctx, out);
+      const sign = node.axis === 'y' ? [1, -1] : node.axis === 'xy' ? [-1, -1] : [-1, 1];
+      const g = ctx.el('g', {
+        transform: `translate(${ctx.cx} ${ctx.cy}) scale(${sign[0]} ${sign[1]}) translate(${-ctx.cx} ${-ctx.cy})`,
+      });
+      const refl = [];
+      for (const c of kids) render(c, ctx, refl);
+      for (const node2 of refl) g.appendChild(node2);
+      out.push(g);
+    },
+
+    // Intersect: paint `child` only where it overlaps `clip`. A
+    // vesica / lens is just two discs intersected. Emits an SVG clipPath
+    // (resolved by id), so the host must keep the emitted node in the
+    // tree alongside the clipped group.
+    boolean(node, ctx, out) {
+      const id = 'ir-clip-' + (++_clipId);
+      const clipNodes = [];
+      render(node.clip, ctx, clipNodes);
+      const cp = ctx.el('clipPath', { id });
+      for (const node2 of clipNodes) cp.appendChild(node2);
+      out.push(cp);
+      const childNodes = [];
+      render(node.child, ctx, childNodes);
+      const g = ctx.el('g', { 'clip-path': `url(#${id})` });
+      for (const node2 of childNodes) g.appendChild(node2);
+      out.push(g);
+    },
   };
 
   function render(node, ctx, out) {
@@ -214,7 +265,33 @@
     },
   };
 
-  const api = { render: renderDoc, DEMOS, OPS: Object.keys(OPS) };
+  // shapeNode's per-shape switch, re-authored in the grammar. This is
+  // the bulk of the reduction: ~25 bespoke arms collapse onto poly /
+  // disc / nest / boolean / group. `size` matches shapeNode's cell
+  // fraction so output lines up with the legacy shapes (0.6 for the
+  // centred motifs; diamond fills the cell like its 1.0 default).
+  const SHAPES = {
+    triangle:   { op: 'poly', size: 0.6, sides: 3, r: 0.5, fill: { cycle: true } },
+    square:     { op: 'poly', size: 0.6, sides: 4, rotate: 45, r: 0.5, fill: { cycle: true } },
+    pentagon:   { op: 'poly', size: 0.6, sides: 5, r: 0.5, fill: { cycle: true } },
+    hexagon:    { op: 'poly', size: 0.6, sides: 6, rotate: 30, r: 0.5, fill: { cycle: true } },
+    star:       { op: 'poly', size: 0.6, sides: 5, depth: 0.5, r: 0.5, fill: { cycle: true } },
+    diamond:    { op: 'nest', size: 1, count: 3, child: { op: 'poly', sides: 4, r: 0.5, fill: { band: true } } },
+    quatrefoil: { op: 'group', size: 0.6, children: [
+      { op: 'disc', r: 0.25, dx: -0.25, dy: -0.25, fill: { cycle: true } },
+      { op: 'disc', r: 0.25, dx:  0.25, dy: -0.25, fill: { cycle: true } },
+      { op: 'disc', r: 0.25, dx: -0.25, dy:  0.25, fill: { cycle: true } },
+      { op: 'disc', r: 0.25, dx:  0.25, dy:  0.25, fill: { cycle: true } },
+      { op: 'disc', r: 0.25, fill: { cycle: true } },
+    ] },
+    // Vesica: the visible overlap of two discs offset along x.
+    lens:       { op: 'boolean', size: 0.6,
+      clip:  { op: 'disc', r: 0.5, dx: -0.32, fill: '#000' },
+      child: { op: 'disc', r: 0.5, dx:  0.32, fill: { cycle: true } },
+    },
+  };
+
+  const api = { render: renderDoc, DEMOS, SHAPES, OPS: Object.keys(OPS) };
   root.GirardElementIR = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
