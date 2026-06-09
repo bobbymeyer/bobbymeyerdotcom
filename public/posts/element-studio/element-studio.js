@@ -369,7 +369,10 @@
   }
   function moveNode(srcPath, destPath, destIndex) {
     const src = getByPath(srcPath), dest = getByPath(destPath);
-    if (!src || !dest || !canDrop(destPath)) return;
+    // Validate from the arguments directly — the drag globals are already
+    // cleared by the time the drop handler calls in.
+    if (!src || !dest || !slotsOf(dest).some((s) => s.list)) return;
+    if (dest === src || isDescendant(src, dest)) return;
     const pr = parentOf(srcPath); if (!pr) return;
     const sameArray = pr.parent === dest && pr.slot.k === 'children';
     const oldIndex = pr.slot.i;
