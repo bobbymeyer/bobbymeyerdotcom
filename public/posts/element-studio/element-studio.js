@@ -376,12 +376,17 @@
 
     for (const s of slotsOf(node)) {
       if (s.list) {
+        // Panel shows stacking order — topmost row = painted last (the
+        // end of the children array), like every other layers panel. The
+        // document keeps SVG paint order; only the display is reversed,
+        // so drop lines translate their visual position back to an array
+        // insertion index (line below row i = insert at i).
         const arr = node[s.key] || [];
-        wrap.appendChild(dropLine(path, 0, depth + 1));
-        arr.forEach((c, i) => {
-          wrap.appendChild(layerRow(c, path.concat([{ k: s.key, i }]), depth + 1));
-          wrap.appendChild(dropLine(path, i + 1, depth + 1));
-        });
+        wrap.appendChild(dropLine(path, arr.length, depth + 1));
+        for (let i = arr.length - 1; i >= 0; i--) {
+          wrap.appendChild(layerRow(arr[i], path.concat([{ k: s.key, i }]), depth + 1));
+          wrap.appendChild(dropLine(path, i, depth + 1));
+        }
       } else if (node[s.key]) wrap.appendChild(layerRow(node[s.key], path.concat([{ k: s.key }]), depth + 1));
     }
     return wrap;
