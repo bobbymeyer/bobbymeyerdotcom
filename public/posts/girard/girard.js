@@ -7743,6 +7743,60 @@ function buildConfigForm(rootHost, layer, onChange, opts = {}) {
     if ((layer.fill.strokeWidth ?? 0) > 0) {
       addSlotColorCtrl('stroke color', 'stroke', '#ffffff');
     }
+  } else if (layer.fill.kind === 'element') {
+    // Shape-grammar fill authored in element studio (/posts/element-studio).
+    // The IR document lives in layer.fill.element; here we expose the
+    // colourway mode plus an import path — from a .json file or from the
+    // studio's browser library — so an authored motif drops straight in.
+    const cmode = addCtrl('colour', 'select', layer.fill.mode || 'palette-cycle', { options: ['palette-cycle', 'random', 'cell'] });
+    cmode.addEventListener('change', () => { layer.fill.mode = cmode.value; onChange(); });
+
+    // The studio saves authored elements to this localStorage key.
+    let lib = [];
+    try { lib = JSON.parse(localStorage.getItem('element-studio:library')) || []; } catch { lib = []; }
+    if (lib.length) {
+      const libSel = addCtrl('from library', 'select', '—', { options: ['—', ...lib.map(x => x.name)] });
+      libSel.addEventListener('change', () => {
+        const item = lib.find(x => x.name === libSel.value);
+        if (item && item.doc) { layer.fill.element = JSON.parse(JSON.stringify(item.doc)); onChange(); }
+        libSel.value = '—';
+      });
+    }
+
+    const row = document.createElement('div');
+    row.className = 'ctrl-row ctrl-span-2';
+    const importBtn = document.createElement('button');
+    importBtn.className = 'ctrl-inline-btn btn-ghost';
+    importBtn.textContent = 'import element json…';
+    importBtn.addEventListener('click', () => {
+      const picker = document.createElement('input');
+      picker.type = 'file';
+      picker.accept = '.json,application/json';
+      picker.addEventListener('change', () => {
+        const f = picker.files && picker.files[0];
+        if (!f) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const d = JSON.parse(reader.result);
+            if (!d || typeof d !== 'object' || !d.op) throw new Error('not an element-ir document');
+            layer.fill.element = d;
+            onChange();
+          } catch (e) { alert('Could not import element: ' + e.message); }
+        };
+        reader.readAsText(f);
+      });
+      picker.click();
+    });
+    row.appendChild(importBtn);
+    const studioLink = document.createElement('a');
+    studioLink.href = '/posts/element-studio';
+    studioLink.target = '_blank';
+    studioLink.rel = 'noopener';
+    studioLink.className = 'ctrl-inline-btn btn-ghost';
+    studioLink.textContent = 'open element studio →';
+    row.appendChild(studioLink);
+    host.appendChild(row);
   }
 
   // --- Vary (per-cell randomization) ---
