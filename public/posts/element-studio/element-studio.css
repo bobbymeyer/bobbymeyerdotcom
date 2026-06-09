@@ -80,6 +80,13 @@
 .es-sw-cycle { background-image: linear-gradient(135deg, var(--accent) 50%, #999 50%); }
 .es-sw-none { border-style: dashed; background: transparent !important; }
 
+/* drag-to-reorder */
+.es-layer-row[draggable="true"] { cursor: grab; }
+.es-dragging { opacity: 0.45; }
+.es-row-drop { outline: 1px dashed var(--accent); outline-offset: -1px; }
+.es-drop { height: 6px; margin: -1px 0; border-radius: 2px; }
+.es-drop-on { background: var(--accent); height: 4px; margin: 0; }
+
 /* --- stage --- */
 .es-stagebar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .es-stage-wrap { border: 1px solid var(--line); background: #fff; }

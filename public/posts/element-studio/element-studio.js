@@ -298,23 +298,91 @@
   // ---------------------------------------------------------------------
   // Layers panel (the demoted op-tree)
   // ---------------------------------------------------------------------
+  let dragSrcPath = null;        // path of the layer being dragged
+
   function renderLayers() {
     clear(elLayers);
     elLayers.appendChild(layerRow(doc, [], 0));
   }
   function layerRow(node, path, depth) {
     const sel = node === selected();
+    const listy = slotsOf(node).some((s) => s.list);
     const wrap = h('div', { class: 'es-layer' });
     const row = h('div', { class: 'es-layer-row' + (sel ? ' es-layer-sel' : ''), style: `padding-left:${depth * 12 + 6}px` });
     row.appendChild(h('button', { class: 'es-layer-label', onclick: () => selectPath(path) },
       swatch(node), h('span', {}, opLabel(node))));
     if (path.length) row.appendChild(h('button', { class: 'es-x', title: 'delete', onclick: (e) => { e.stopPropagation(); deletePath(path); } }, '×'));
+
+    // Drag the layer (non-root) to reorder it among its siblings or into
+    // another container.
+    if (path.length) {
+      row.draggable = true;
+      row.addEventListener('dragstart', (e) => {
+        dragSrcPath = path; e.dataTransfer.effectAllowed = 'move';
+        try { e.dataTransfer.setData('text/plain', 'layer'); } catch {}
+        row.classList.add('es-dragging');
+      });
+      row.addEventListener('dragend', () => { dragSrcPath = null; row.classList.remove('es-dragging'); });
+    }
+    // Drop onto a list container's row → move to the end of its children.
+    if (listy) {
+      row.addEventListener('dragover', (e) => { if (canDrop(path)) { e.preventDefault(); row.classList.add('es-row-drop'); } });
+      row.addEventListener('dragleave', () => row.classList.remove('es-row-drop'));
+      row.addEventListener('drop', (e) => { e.preventDefault(); row.classList.remove('es-row-drop'); const src = dragSrcPath; dragSrcPath = null; if (src) moveNode(src, path, (node.children || []).length); });
+    }
     wrap.appendChild(row);
+
     for (const s of slotsOf(node)) {
-      if (s.list) (node[s.key] || []).forEach((c, i) => wrap.appendChild(layerRow(c, path.concat([{ k: s.key, i }]), depth + 1)));
-      else if (node[s.key]) wrap.appendChild(layerRow(node[s.key], path.concat([{ k: s.key }]), depth + 1));
+      if (s.list) {
+        const arr = node[s.key] || [];
+        wrap.appendChild(dropLine(path, 0, depth + 1));
+        arr.forEach((c, i) => {
+          wrap.appendChild(layerRow(c, path.concat([{ k: s.key, i }]), depth + 1));
+          wrap.appendChild(dropLine(path, i + 1, depth + 1));
+        });
+      } else if (node[s.key]) wrap.appendChild(layerRow(node[s.key], path.concat([{ k: s.key }]), depth + 1));
     }
     return wrap;
+  }
+  // A thin insertion target between sibling rows of a list container.
+  function dropLine(containerPath, index, depth) {
+    const d = h('div', { class: 'es-drop', style: `margin-left:${depth * 12 + 6}px` });
+    d.addEventListener('dragover', (e) => { if (canDrop(containerPath)) { e.preventDefault(); d.classList.add('es-drop-on'); } });
+    d.addEventListener('dragleave', () => d.classList.remove('es-drop-on'));
+    d.addEventListener('drop', (e) => { e.preventDefault(); d.classList.remove('es-drop-on'); const src = dragSrcPath; dragSrcPath = null; if (src) moveNode(src, containerPath, index); });
+    return d;
+  }
+  // Can the in-flight layer drop into the container at destPath? Reject
+  // dropping a node into itself or its own subtree (would orphan it).
+  function canDrop(destPath) {
+    if (!dragSrcPath) return false;
+    const src = getByPath(dragSrcPath), dest = getByPath(destPath);
+    if (!src || !dest || !slotsOf(dest).some((s) => s.list)) return false;
+    return dest !== src && !isDescendant(src, dest);
+  }
+  function isDescendant(anc, node) {
+    for (const s of slotsOf(anc)) {
+      if (s.list) { for (const c of (anc[s.key] || [])) if (c === node || isDescendant(c, node)) return true; }
+      else { const c = anc[s.key]; if (c && (c === node || isDescendant(c, node))) return true; }
+    }
+    return false;
+  }
+  function moveNode(srcPath, destPath, destIndex) {
+    const src = getByPath(srcPath), dest = getByPath(destPath);
+    if (!src || !dest || !canDrop(destPath)) return;
+    const pr = parentOf(srcPath); if (!pr) return;
+    const sameArray = pr.parent === dest && pr.slot.k === 'children';
+    const oldIndex = pr.slot.i;
+    // Detach from the old parent…
+    if (pr.slot.i != null) (pr.parent[pr.slot.k] || []).splice(pr.slot.i, 1);
+    else delete pr.parent[pr.slot.k];
+    // …then insert, accounting for the index shift within one array.
+    let idx = destIndex;
+    if (sameArray && oldIndex != null && oldIndex < destIndex) idx -= 1;
+    if (!Array.isArray(dest.children)) slotsOf(dest);
+    dest.children.splice(clamp(idx, 0, dest.children.length), 0, src);
+    selPath = nodePath(doc, src) || [];
+    pushHistory(); refreshAll();
   }
   function swatch(node) {
     const ref = node.fill; let bg = 'transparent', cls = 'es-sw';
