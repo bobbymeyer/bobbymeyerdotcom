@@ -123,14 +123,32 @@ function legacyQuatrefoil(cx, cy, w, h) {
   return out;
 }
 
+function legacyBlossom(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6, n = 5, ringR = dim * 0.3, petalR = dim * 0.26, out = [];
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (Math.PI * 2 * i) / n;
+    out.push(el('circle', { cx: cx + Math.cos(a) * ringR, cy: cy + Math.sin(a) * ringR, r: petalR, fill: PAL[0] }));
+  }
+  out.push(el('circle', { cx, cy, r: dim * 0.13, fill: '#ffffff' }));
+  return out;
+}
+function legacyOnion(cx, cy, w, h) {
+  const hy = Math.min(w, h) * 0.6 / 2, hx = hy, cyy = hy * 0.62;
+  return [el('path', { d: `M ${cx},${cy - hy} C ${cx + hx},${cy - cyy} ${cx + hx},${cy + cyy} ${cx},${cy + hy} C ${cx - hx},${cy + cyy} ${cx - hx},${cy - cyy} ${cx},${cy - hy} Z`, fill: PAL[0] })];
+}
+function legacyLens(cx, cy, w, h) {
+  const hy = Math.min(w, h) * 0.6 / 2, hx = hy * 0.5;
+  return [el('path', { d: `M ${cx},${cy - hy} Q ${cx + hx},${cy} ${cx},${cy + hy} Q ${cx - hx},${cy} ${cx},${cy - hy} Z`, fill: PAL[0] })];
+}
+
 // ---- compare ---------------------------------------------------------
 // Normalise numeric tokens inside attribute values so geometry is
 // compared, not formatting ("50" === "50.00"; points/d lists round).
 const normNums = (v) => String(v).replace(/-?\d*\.?\d+(?:e-?\d+)?/g,
   (m) => String(Math.round(Number(m) * 1000) / 1000));
 const canon = (n) => {
-  const keys = n.getAttributeNames().sort();
-  return n.tagName + '|' + keys.map((k) => `${k}=${normNums(n.getAttribute(k))}`).join(';');
+  const keys = Array.from(new Set(['cx', 'cy', 'x', 'y', ...n.getAttributeNames()])).sort();
+  return n.tagName + '|' + keys.map((k) => `${k}=${n.hasAttribute(k) ? normNums(n.getAttribute(k)) : 0}`).join(';');
 };
 const same = (A, B) => A.length === B.length && A.every((n, i) => canon(n) === canon(B[i]));
 
@@ -157,14 +175,20 @@ const cases = [
     legacy: legacyDiamond(C, C, 100, 100), ir: IR.render(S.diamond, REGION, env), doc: S.diamond },
   { name: 'quatrefoil', ops: 'group of discs', compare: 'byte',
     legacy: legacyQuatrefoil(C, C, 100, 100), ir: IR.render(S.quatrefoil, REGION, env), doc: S.quatrefoil },
+  { name: 'blossom', ops: 'repeat:radial + centre', compare: 'byte',
+    legacy: legacyBlossom(C, C, 100, 100), ir: IR.render(S.blossom, REGION, env), doc: S.blossom },
   { name: 'square', ops: 'poly:4 rot45 (polygon vs rect)', compare: 'render',
     legacy: legacySquare(C, C, 100, 100), ir: IR.render(S.square, REGION, env), doc: S.square },
+  { name: 'onion', ops: 'path: cubic curve', compare: 'render',
+    legacy: legacyOnion(C, C, 100, 100), ir: IR.render(S.onion, REGION, env), doc: S.onion },
+  { name: 'lens', ops: 'path: quadratic vesica', compare: 'render',
+    legacy: legacyLens(C, C, 100, 100), ir: IR.render(S.lens, REGION, env), doc: S.lens },
   { name: 'pentagon', ops: 'poly:5 — new shape, free', compare: 'render',
     legacy: [], ir: IR.render(S.pentagon, REGION, env), doc: S.pentagon },
   { name: 'hexagon', ops: 'poly:6 — new shape, free', compare: 'render',
     legacy: [], ir: IR.render(S.hexagon, REGION, env), doc: S.hexagon },
-  { name: 'lens', ops: 'boolean: disc ∩ disc', compare: 'render',
-    legacy: [], ir: IR.render(S.lens, REGION, env), doc: S.lens },
+  { name: 'vesica', ops: 'boolean: disc ∩ disc', compare: 'render',
+    legacy: [], ir: IR.render(S.vesica, REGION, env), doc: S.vesica },
 ];
 
 const stage = (nodes) => {

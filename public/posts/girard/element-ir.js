@@ -105,6 +105,24 @@
       if (node2) out.push(node2);
     },
 
+    // Parametric closed/open path. `segs` is a list of SVG commands with
+    // coordinates given as unit-fractions relative to the centre
+    // (e.g. ['M',0,-0.5], ['Q',hx,0, 0,0.5], ['Z']); the op maps them to
+    // absolute coords. This is the curve primitive behind the petal /
+    // vesica / onion family (lens, onion, leaf-margin, etc.).
+    path(node, ctx, out) {
+      let d = '';
+      for (const s of node.segs || []) {
+        if (s[0] === 'Z') { d += 'Z'; continue; }
+        const pts = [];
+        for (let i = 1; i < s.length; i += 2)
+          pts.push(`${(ctx.cx + s[i] * ctx.unit).toFixed(3)},${(ctx.cy + s[i + 1] * ctx.unit).toFixed(3)}`);
+        d += s[0] + pts.join(' ') + ' ';
+      }
+      const node2 = paint(ctx, node.fill, (c) => ctx.el('path', { d: d.trim(), fill: c }));
+      if (node2) out.push(node2);
+    },
+
     // Quarter-circle wedge at a cell corner (0=TL,1=TR,2=BR,3=BL). The
     // path is identical to girard's drawArcSplit so output is
     // byte-for-byte comparable.
@@ -265,36 +283,12 @@
     },
   };
 
-  // shapeNode's per-shape switch, re-authored in the grammar. This is
-  // the bulk of the reduction: ~25 bespoke arms collapse onto poly /
-  // disc / nest / boolean / group. `size` matches shapeNode's cell
-  // fraction so output lines up with the legacy shapes (0.6 for the
-  // centred motifs; diamond fills the cell like its 1.0 default).
-  const SHAPES = {
-    triangle:   { op: 'poly', size: 0.6, sides: 3, r: 0.5, fill: { cycle: true } },
-    square:     { op: 'poly', size: 0.6, sides: 4, rotate: 45, r: Math.SQRT1_2, fill: { cycle: true } },
-    pentagon:   { op: 'poly', size: 0.6, sides: 5, r: 0.5, fill: { cycle: true } },
-    hexagon:    { op: 'poly', size: 0.6, sides: 6, rotate: 30, r: 0.5, fill: { cycle: true } },
-    star:       { op: 'poly', size: 0.6, sides: 5, depth: 0.5, r: 0.5, fill: { cycle: true } },
-    diamond:    { op: 'nest', size: 1, count: 3, child: { op: 'poly', sides: 4, r: 0.5, fill: { band: true } } },
-    quatrefoil: { op: 'group', size: 0.6, children: [
-      { op: 'disc', r: 0.25, dx: -0.25, dy: -0.25, fill: { cycle: true } },
-      { op: 'disc', r: 0.25, dx:  0.25, dy: -0.25, fill: { cycle: true } },
-      { op: 'disc', r: 0.25, dx: -0.25, dy:  0.25, fill: { cycle: true } },
-      { op: 'disc', r: 0.25, dx:  0.25, dy:  0.25, fill: { cycle: true } },
-      { op: 'disc', r: 0.25, fill: { cycle: true } },
-    ] },
-    // Vesica: the visible overlap of two discs offset along x.
-    lens:       { op: 'boolean', size: 0.6,
-      clip:  { op: 'disc', r: 0.5, dx: -0.32, fill: '#000' },
-      child: { op: 'disc', r: 0.5, dx:  0.32, fill: { cycle: true } },
-    },
-  };
-
   // Build an IR document from a live shapeNode `shape` spec, honouring
-  // its size / params. Returns null for shapes not yet ported (the
-  // caller then falls back to its legacy arm). The single resolved cell
-  // colour flows in via the {cycle} ref; stroke is applied by the caller
+  // its size / params. This is the bulk of the reduction: bespoke shape
+  // arms collapse onto poly / disc / nest / path / group. Returns null
+  // for shapes not yet ported (the caller then falls back to its legacy
+  // arm). The resolved cell colour flows in via {cycle}; the petal
+  // centre via the named 'center' ref; stroke is applied by the caller
   // on a wrapping group, so these docs stay fill-only.
   function shapeToElement(shape) {
     if (!shape) return null;
@@ -326,10 +320,62 @@
         if (cs > 0) children.push({ op: 'disc', r: 0.25 * cs, fill: { cycle: true } });
         return { op: 'group', size, children };
       }
+      case 'blossom': {
+        // Ring of round petals + a centre dot. Petals start at the top
+        // (phase -90°) like appendPetalRing.
+        const n = Math.max(4, shape.petals | 0 || 5);
+        return { op: 'group', size, children: [
+          { op: 'repeat', count: n, radius: (shape.spread == null ? 0.3 : shape.spread), phase: -Math.PI / 2,
+            child: { op: 'disc', r: (shape.petal == null ? 0.26 : shape.petal), fill: { cycle: true } } },
+          { op: 'disc', r: (shape.centerSize == null ? 0.13 : shape.centerSize), fill: 'center' },
+        ] };
+      }
+      case 'onion': {
+        // Fat pointed oval: sharp points top/bottom, bulging cubic sides.
+        const hx = 0.5 * (shape.ratio == null ? 1.0 : shape.ratio);
+        const cy = 0.5 * (shape.bulge == null ? 0.62 : shape.bulge);
+        return { op: 'path', size, fill: { cycle: true }, segs: [
+          ['M', 0, -0.5],
+          ['C', hx, -cy, hx, cy, 0, 0.5],
+          ['C', -hx, cy, -hx, -cy, 0, -0.5],
+          ['Z'],
+        ] };
+      }
+      case 'lens': {
+        // Vesica / pepita: two quadratic curves between sharp points.
+        const hx = 0.5 * (shape.ratio == null ? 0.5 : shape.ratio);
+        return { op: 'path', size, fill: { cycle: true }, segs: [
+          ['M', 0, -0.5],
+          ['Q', hx, 0, 0, 0.5],
+          ['Q', -hx, 0, 0, -0.5],
+          ['Z'],
+        ] };
+      }
       default:
         return null;
     }
   }
+
+  // Catalog used by the demo / proof. Derived from shapeToElement for
+  // ported kinds (so the two never drift), plus a couple of n-gons that
+  // come for free and a boolean-op example.
+  const SHAPES = {
+    triangle:   shapeToElement({ kind: 'triangle' }),
+    square:     shapeToElement({ kind: 'square' }),
+    pentagon:   { op: 'poly', size: 0.6, sides: 5, r: 0.5, fill: { cycle: true } },
+    hexagon:    { op: 'poly', size: 0.6, sides: 6, rotate: 30, r: 0.5, fill: { cycle: true } },
+    star:       shapeToElement({ kind: 'star' }),
+    diamond:    { op: 'nest', size: 1, count: 3, child: { op: 'poly', sides: 4, r: 0.5, fill: { band: true } } },
+    quatrefoil: shapeToElement({ kind: 'quatrefoil' }),
+    blossom:    shapeToElement({ kind: 'blossom' }),
+    onion:      shapeToElement({ kind: 'onion' }),
+    lens:       shapeToElement({ kind: 'lens' }),
+    // The boolean op, shown standalone: a vesica as disc ∩ disc.
+    vesica:     { op: 'boolean', size: 0.6,
+      clip:  { op: 'disc', r: 0.5, dx: -0.32, fill: '#000' },
+      child: { op: 'disc', r: 0.5, dx:  0.32, fill: { cycle: true } },
+    },
+  };
 
   const api = { render: renderDoc, shapeToElement, DEMOS, SHAPES, OPS: Object.keys(OPS) };
   root.GirardElementIR = api;

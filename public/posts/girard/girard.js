@@ -3100,10 +3100,16 @@ function shapeNode(shape, cw, rh, fill, ctx) {
     if (doc) {
       const outline = !fill || fill === 'none' || fill === 'transparent';
       const drawFill = outline ? '#000000' : fill;   // placeholder, overridden below
+      const center = (ctx && ctx.center) || shape.centerColor || '#ffffff';
       const env = {
         el,
         rng: ctx && ctx.rng,
-        color: (ref) => (ref == null ? null : typeof ref === 'string' ? ref : ref.cycle ? drawFill : null),
+        color: (ref) => {
+          if (ref == null) return null;
+          if (ref === 'center') return center;       // petal / blossom centre dot
+          if (typeof ref === 'string') return ref;
+          return ref.cycle ? drawFill : null;
+        },
       };
       const region = { x: -cw / 2, y: -rh / 2, w: cw, h: rh };
       const g = el('g', sAttrs);
@@ -3164,19 +3170,6 @@ function shapeNode(shape, cw, rh, fill, ctx) {
         fill,
         ...sAttrs,
       });
-    }
-    case 'blossom': {
-      // A simple flower: n round petals in a ring with a centre dot.
-      const g = el('g', {});
-      const n = Math.max(4, shape.petals | 0 || 5);
-      appendPetalRing(g, {
-        count: n,
-        ringR: dim * (shape.spread ?? 0.3),
-        petalR: dim * (shape.petal ?? 0.26),
-        fill,
-      });
-      g.appendChild(el('circle', { cx: 0, cy: 0, r: dim * (shape.centerSize ?? 0.13), fill: (ctx && ctx.center) || shape.centerColor || '#ffffff' }));
-      return g;
     }
     case 'jacks': {
       // Four small dots joined by a thin cross (a clover / "jacks" pip).
@@ -3252,18 +3245,6 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       }
       return g;
     }
-    case 'onion': {
-      // Fat pointed oval ("feather"): sharp points top and bottom with a
-      // bulging round body (cubic curves), much wider than the lens.
-      const hy = dim / 2;
-      const hx = hy * (shape.ratio ?? 1.0);
-      const cy = hy * (shape.bulge ?? 0.62);
-      return el('path', {
-        d: `M 0,${-hy} C ${hx},${-cy} ${hx},${cy} 0,${hy} C ${-hx},${cy} ${-hx},${-cy} 0,${-hy} Z`,
-        fill,
-        ...sAttrs,
-      });
-    }
     case 'leaf': {
       // Outlined pointed oval (a pepita with no fill) plus a vein down
       // the centre that extends past the bottom into a stem. Drawn in
@@ -3284,17 +3265,6 @@ function shapeNode(shape, cw, rh, fill, ctx) {
       }));
       g.appendChild(el('line', { x1: 0, y1: (-hy).toFixed(2), x2: 0, y2: (hy + stemLen).toFixed(2), ...stroke }));
       return g;
-    }
-    case 'lens': {
-      // Vesica / pointed oval ("pepita"). Two quadratic curves bulging
-      // out from sharp points top and bottom. ratio = width / height.
-      const hy = dim / 2;
-      const hx = hy * (shape.ratio ?? 0.5);
-      return el('path', {
-        d: `M 0,${-hy} Q ${hx},0 0,${hy} Q ${-hx},0 0,${-hy} Z`,
-        fill,
-        ...sAttrs,
-      });
     }
     case 'text': {
       // shape.text can be a string or array. Arrays cycle per cell

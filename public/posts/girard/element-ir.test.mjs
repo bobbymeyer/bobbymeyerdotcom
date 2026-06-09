@@ -23,7 +23,7 @@ const el = (tag, attrs) => ({
   appendChild(n) { this.children.push(n); return n; },
 });
 const PAL = ['#d24a45', '#2c7fb8', '#f2b933', '#3f7a8c', '#7d9a40', '#8a5fb0'];
-const NAMED = { ground: '#e7e2d6', wedge: '#d24a45' };
+const NAMED = { ground: '#e7e2d6', wedge: '#d24a45', center: '#ffffff' };
 const color = (ref, ctx) => {
   if (ref == null) return null;
   if (typeof ref === 'string') return NAMED[ref] != null ? NAMED[ref] : ref;
@@ -94,6 +94,24 @@ function legacyQuatrefoil(cx, cy, w, h) {
   return out;
 }
 
+function legacyBlossom(cx, cy, w, h) {
+  const dim = Math.min(w, h) * 0.6, n = 5, ringR = dim * 0.3, petalR = dim * 0.26, out = [];
+  for (let i = 0; i < n; i++) {
+    const a = -Math.PI / 2 + (Math.PI * 2 * i) / n;
+    out.push(el('circle', { cx: cx + Math.cos(a) * ringR, cy: cy + Math.sin(a) * ringR, r: petalR, fill: PAL[0] }));
+  }
+  out.push(el('circle', { cx, cy, r: dim * 0.13, fill: '#ffffff' }));
+  return out;
+}
+function legacyOnion(cx, cy, w, h) {
+  const hy = Math.min(w, h) * 0.6 / 2, hx = hy, cyy = hy * 0.62;
+  return [el('path', { d: `M ${cx},${cy - hy} C ${cx + hx},${cy - cyy} ${cx + hx},${cy + cyy} ${cx},${cy + hy} C ${cx - hx},${cy + cyy} ${cx - hx},${cy - cyy} ${cx},${cy - hy} Z`, fill: PAL[0] })];
+}
+function legacyLens(cx, cy, w, h) {
+  const hy = Math.min(w, h) * 0.6 / 2, hx = hy * 0.5;
+  return [el('path', { d: `M ${cx},${cy - hy} Q ${cx + hx},${cy} ${cx},${cy + hy} Q ${cx - hx},${cy} ${cx},${cy - hy} Z`, fill: PAL[0] })];
+}
+
 function legacyArcSplit(x, y, w, h, colorWedge, colorGround, corner) {
   const out = [];
   if (!(colorGround == null || colorGround === 'transparent' || colorGround === 'none'))
@@ -120,8 +138,10 @@ const normNums = (v) => String(v).replace(/-?\d*\.?\d+(?:e-?\d+)?/g,
   (m) => String(Math.round(Number(m) * 1000) / 1000));
 const canon = (node) => {
   const a = node.attrs || {};
-  const keys = Object.keys(a).sort();
-  return node.tag + '|' + keys.map((k) => `${k}=${normNums(a[k])}`).join(';');
+  // cx/cy/x/y default to 0 on both sides, so an absent attr (legacy) and
+  // an explicit 0 (IR) compare equal.
+  const keys = Array.from(new Set(['cx', 'cy', 'x', 'y', ...Object.keys(a)])).sort();
+  return node.tag + '|' + keys.map((k) => `${k}=${k in a ? normNums(a[k]) : 0}`).join(';');
 };
 const same = (A, B) => A.length === B.length && A.every((n, i) => canon(n) === canon(B[i]));
 
@@ -149,14 +169,20 @@ const cases = [
     legacy: legacyDiamond(C, C, 100, 100), ir: IR.render(IR.SHAPES.diamond, REGION, env) },
   { name: 'quatrefoil  (group of discs)', compare: 'byte',
     legacy: legacyQuatrefoil(C, C, 100, 100), ir: IR.render(IR.SHAPES.quatrefoil, REGION, env) },
+  { name: 'blossom     (repeat:radial + centre)', compare: 'byte',
+    legacy: legacyBlossom(C, C, 100, 100), ir: IR.render(IR.SHAPES.blossom, REGION, env) },
   { name: 'square      (poly:4 rot45 -> polygon vs rect)', compare: 'render',
     legacy: legacySquare(C, C, 100, 100), ir: IR.render(IR.SHAPES.square, REGION, env) },
+  { name: 'onion       (path: cubic curve)', compare: 'render',
+    legacy: legacyOnion(C, C, 100, 100), ir: IR.render(IR.SHAPES.onion, REGION, env) },
+  { name: 'lens        (path: quadratic vesica)', compare: 'render',
+    legacy: legacyLens(C, C, 100, 100), ir: IR.render(IR.SHAPES.lens, REGION, env) },
   { name: 'pentagon    (poly:5 — new)', compare: 'render',
     legacy: [], ir: IR.render(IR.SHAPES.pentagon, REGION, env) },
   { name: 'hexagon     (poly:6 — new)', compare: 'render',
     legacy: [], ir: IR.render(IR.SHAPES.hexagon, REGION, env) },
-  { name: 'lens        (boolean: disc ∩ disc)', compare: 'render',
-    legacy: [], ir: IR.render(IR.SHAPES.lens, REGION, env) },
+  { name: 'vesica      (boolean: disc ∩ disc)', compare: 'render',
+    legacy: [], ir: IR.render(IR.SHAPES.vesica, REGION, env) },
 ];
 
 let allPass = true;
