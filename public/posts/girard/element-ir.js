@@ -206,6 +206,7 @@
       const count = Math.max(1, node.count | 0 || 1);
       const R = (node.radius == null ? 0.34 : node.radius) * ctx.unit;
       const phase = node.phase || 0;
+      const twist = node.twist || 0;          // degrees added per copy → swirl
       for (let i = 0; i < count; i++) {
         const a = phase + (Math.PI * 2 * i) / count;
         const cctx = Object.assign({}, ctx, {
@@ -213,7 +214,16 @@
           cy: ctx.cy + Math.sin(a) * R,
           idx: i,
         });
-        render(node.child, cctx, out);
+        if (twist) {
+          // Spin each successive copy about its own centre.
+          const sub = [];
+          render(node.child, cctx, sub);
+          const g = ctx.el('g', { transform: `rotate(${twist * i} ${cctx.cx} ${cctx.cy})` });
+          for (const n of sub) g.appendChild(n);
+          out.push(g);
+        } else {
+          render(node.child, cctx, out);
+        }
       }
     },
 
@@ -223,13 +233,23 @@
     // reproduces the nested-rhombi 'diamond' (and any onion/target).
     nest(node, ctx, out) {
       const count = Math.max(1, node.count | 0 || 1);
+      const twist = node.twist || 0;          // degrees added per ring → spiral
       for (let k = 0; k < count; k++) {
         const f = 1 - k / count;            // outer -> inner
         const w = ctx.w * f, h = ctx.h * f;
         const cctx = ctxFor({ x: ctx.cx - w / 2, y: ctx.cy - h / 2, w, h }, node.size, ctx);
         cctx.band = k;
         cctx.idx = k;
-        render(node.child, cctx, out);
+        if (twist) {
+          // Rotate each successive ring about the shared centre.
+          const sub = [];
+          render(node.child, cctx, sub);
+          const g = ctx.el('g', { transform: `rotate(${twist * k} ${ctx.cx} ${ctx.cy})` });
+          for (const n of sub) g.appendChild(n);
+          out.push(g);
+        } else {
+          render(node.child, cctx, out);
+        }
       }
     },
 
