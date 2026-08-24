@@ -1,73 +1,17 @@
 ---
-import { getCollection } from 'astro:content';
 import Base from '@/layouts/Base.astro';
-
-const posts = (await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft)).sort(
-  (a, b) => b.data.date.valueOf() - a.data.date.valueOf(),
-);
 ---
 
 <Base title="Bobby Meyer">
-  <main class="mx-auto max-w-6xl px-4 py-8">
-    <div
-      class="grid grid-flow-dense grid-cols-[repeat(auto-fill,minmax(96px,1fr))] gap-4"
-    >
-      <!-- Badge: top-right, 3x2 cells -->
-      <div
-        class="relative overflow-hidden [grid-column:span_4/-1] [grid-row:1/span_3] bg-yellow-400 font-sans font-bold text-2xl md:text-4xl tracking-tight leading-none p-3 whitespace-nowrap"
-      >
-        <img
-          src="/bobby.png"
-          alt=""
-          class="absolute bottom-0 right-0 h-3/4 w-auto pointer-events-none"
-          style="filter: grayscale(1); mix-blend-mode: multiply; opacity: 0.75;"
-        />
-        <img src="/BM-LogoType-SM.png" alt="" class="absolute top-3 left-3 h-1/ w-auto" />
-        <span class="absolute top-1/2 left-3 -translate-y-1/2 text-black">bobbymeyer</span>
-      </div>
-
-      <!-- One tile per post, sized from frontmatter (defaults 2x2). -->
-      {posts.map((post) => {
-        const slug = post.id.replace(/\.md$/, '');
-        const w = post.data.width ?? 2;
-        const h = post.data.height ?? 2;
-        const thumb = post.data.thumbnail
-          ? `/posts/${slug}/${post.data.thumbnail}`
-          : null;
-        // Per-slug deterministic gradient for thumbnail-less tiles.
-        let hash = 0;
-        for (const ch of slug) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
-        const hue = Math.abs(hash) % 360;
-        const gradient = `linear-gradient(135deg, hsl(${hue},70%,55%), hsl(${(hue + 40) % 360},65%,45%))`;
-        const styleParts = [
-          `grid-column: span ${w} / span ${w}`,
-          `grid-row: span ${h} / span ${h}`,
-          `aspect-ratio: ${w} / ${h}`,
-        ];
-        if (thumb) {
-          styleParts.push(`background-image: url('${thumb}')`);
-          styleParts.push('background-size: cover');
-          styleParts.push('background-position: center');
-        } else {
-          styleParts.push(`background-image: ${gradient}`);
-        }
-        const tileClass = 'relative overflow-hidden flex flex-col justify-between p-3 text-white hover:opacity-90 transition-opacity';
-        return (
-          <a
-            href={`/posts/${slug}/`}
-            style={styleParts.join('; ') + ';'}
-            class={tileClass}
-          >
-            <span
-              class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/60 pointer-events-none"
-            ></span>
-            <span class="relative font-bold text-base leading-tight text-white">
-              {post.data.title}
-            </span>
-          </a>
-        );
-      })}
-
+  <main class="home-grid">
+    <div class="home-container">
+      <hr>
+      <h1>Bobby Meyer</h1>
+      <hr>
+      <h3>Computer Plumber</h3>
+      <hr>
+      <p>bobby <i>at</i> bobbymeyer <i>dot</i> com
+      <hr>
     </div>
   </main>
 </Base>

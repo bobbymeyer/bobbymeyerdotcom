@@ -1,3 +1,81 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url("https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,200;0,400;0,600;0,800;1,200;1,400;1,600;1,800&display=swap");
+
+:root {
+  --font-size-base: 14px;
+  --font-size-ratio: 1.4;
+  --spacing-unit: 1rem;
+
+  --font-size-h6: var(--font-size-base);
+  --font-size-h5: calc(var(--font-size-h6) * var(--font-size-ratio));
+  --font-size-h4: calc(var(--font-size-h5) * var(--font-size-ratio));
+  --font-size-h3: calc(var(--font-size-h4) * var(--font-size-ratio));
+  --font-size-h2: calc(var(--font-size-h3) * var(--font-size-ratio));
+  --font-size-h1: calc(var(--font-size-h2) * var(--font-size-ratio));
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+}
+
+html {
+  font-size: var(--font-size-base);
+}
+
+body {
+  background: hsl(0 0% 66%);
+  color: #000;
+  font-family: Archivo, sans-serif;
+  font-size: var(--font-size-base);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: Archivo, sans-serif;
+  font-weight: 600;
+  margin: 0;
+  letter-spacing: -0.025em;
+}
+
+h1 { font-size: var(--font-size-h1); }
+h2 { font-size: var(--font-size-h2); }
+h3 { font-size: var(--font-size-h3); }
+h4 { font-size: var(--font-size-h4); }
+h5 { font-size: var(--font-size-h5); }
+h6 { font-size: var(--font-size-h6); }
+
+p {
+  font-family: Archivo, sans-serif;
+  font-weight: 400;
+  margin: 0;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid #000;
+  margin: var(--spacing-unit) 0;
+}
+
+em { font-style: italic; }
+.black { font-weight: 800; letter-spacing: 0.01em; }
+.light { font-weight: 200; letter-spacing: 0.01em; }
+
+.home-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  max-width: 1200px;
+  min-height: 100vh;
+  margin: 0 auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.home-container {
+  display: flex;
+  flex-direction: column;
+  width: fit-content;
+  padding: var(--spacing-unit) calc(var(--spacing-unit) * 2);
+  background: #CCC;
+  border-radius: 0.25rem;
+  box-shadow: 0.5rem 0.5rem 0 0 rgba(0, 0, 0, 1);
+}
