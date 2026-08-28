@@ -1,13 +1,15 @@
 ---
 import { getCollection, render } from 'astro:content';
 import Base from '@/layouts/Base.astro';
+import { formatPostDate } from '@/utils/format-post-date';
+import '@/styles/post.css';
 
-const slugOf = (id: string) => id.replace(/\.md$/, '');
+const slugOf = (id: string) => id.replace(/\.mdx?$/, '');
 
 export async function getStaticPaths() {
   const posts = await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft);
   return posts.map((post) => ({
-    params: { slug: post.id.replace(/\.md$/, '') },
+    params: { slug: post.id.replace(/\.mdx?$/, '') },
     props: { post },
   }));
 }
@@ -16,42 +18,36 @@ type Post = Awaited<ReturnType<typeof getCollection<'posts'>>>[number];
 const { post } = Astro.props as { post: Post };
 const { Content } = await render(post);
 const slug = slugOf(post.id);
-
-const cssHref = post.data.custom_css
-  ? `/posts/${slug}/${post.data.custom_css}.css`
-  : null;
-const jsSrc = post.data.custom_js
-  ? `/posts/${slug}/${post.data.custom_js}.js`
-  : null;
 ---
 
-<Base title={post.data.title}>
-  <Fragment slot="head">
-    {cssHref && <link rel="stylesheet" href={cssHref} />}
-    {post.data.p5js && (
-      <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.5.0/p5.min.js"></script>
-    )}
-    {post.data.p5js && (
-      <script is:inline src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.7.0/addons/p5.sound.min.js"></script>
-    )}
-  </Fragment>
-
-  <main>
-    <p>
-      <a href="/">← back</a>
-    </p>
-    {!post.data.hide_header && (
-      <header>
-        <h1>
-          {post.data.title}{post.data.version && <sup>v{post.data.version}</sup>}
-        </h1>
-        {post.data.summary && <p>{post.data.summary}</p>}
-      </header>
-    )}
-    <article>
-      <Content />
-    </article>
+<Base title={post.data.title} description={post.data.summary} image={post.data.splash} ogType="article">
+  <main class="post" style={`--post-color: ${post.data.bg_color}`}>
+    <div class="post-layout">
+      <aside class="post-aside">
+        <div class="splash" transition:name={`splash-${slug}`}>
+          {post.data.splash && <img src={post.data.splash} alt="" />}
+        </div>
+      </aside>
+      <div class="post-main">
+        {!post.data.hide_header && (
+          <header>
+            <h1 transition:name={`title-${slug}`}>
+              {post.data.title}{post.data.version && <sup>v{post.data.version}</sup>}
+            </h1>
+            <p class="post-date">{formatPostDate(post.data.date)}</p>
+            <p class="post-summary" transition:name={`summary-${slug}`}>{post.data.summary}</p>
+          </header>
+        )}
+        <article class="post-article">
+          <Content />
+        </article>
+      </div>
+    </div>
   </main>
-
-  {jsSrc && <script is:inline src={jsSrc}></script>}
 </Base>
+
+<script>
+  import { initPostLayout } from '@/scripts/post-layout';
+  document.addEventListener('astro:page-load', initPostLayout);
+  initPostLayout();
+</script>

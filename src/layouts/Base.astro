@@ -1,11 +1,29 @@
 ---
+import { ClientRouter } from 'astro:transitions';
+import { normalizePath } from '@/utils/normalize-path';
 import '../styles/global.css';
 
 interface Props {
   title?: string;
+  description?: string;
+  image?: string;
+  ogType?: 'website' | 'article';
 }
 
-const { title = 'bobbymeyer.com' } = Astro.props;
+const {
+  title = 'bobbymeyer.com',
+  description,
+  image,
+  ogType = 'website',
+} = Astro.props;
+
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const ogImage = image ? new URL(image, Astro.site) : undefined;
+
+const path = normalizePath(Astro.url.pathname);
+const isHome = path === '/';
+const isAbout = path === '/about';
+const isContact = path === '/contact' || path.startsWith('/contact/');
 ---
 
 <!doctype html>
@@ -13,12 +31,96 @@ const { title = 'bobbymeyer.com' } = Astro.props;
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
+    <link rel="canonical" href={canonicalURL} />
+    {description && <meta name="description" content={description} />}
+    <meta property="og:type" content={ogType} />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:title" content={title} />
+    {description && <meta property="og:description" content={description} />}
+    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+    <meta name="twitter:title" content={title} />
+    {description && <meta name="twitter:description" content={description} />}
+    {ogImage && <meta name="twitter:image" content={ogImage} />}
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,200;0,400;0,600;0,800;1,200;1,400;1,600;1,800&display=swap"
+    />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link
+      rel="alternate"
+      type="application/rss+xml"
+      title="Bobby Meyer"
+      href="/rss.xml"
+    />
     <title>{title}</title>
+    <ClientRouter />
     <slot name="head" />
   </head>
   <body>
+    <header class="site-header">
+      <a class="site-lockup" href="/" data-accent-target={isHome ? '' : undefined}>
+        <span class="site-accent-slot" aria-hidden={!isHome}>
+          {isHome && (
+            <span
+              class="site-accent site-accent--home"
+              aria-hidden="true"
+              transition:name="site-accent"
+              transition:animate="fade"
+            >●</span>
+          )}
+        </span>
+        <span class="site-name">bobby meyer</span>
+      </a>
+      <nav class="site-header-nav" aria-label="Site">
+        <a
+          href="/about"
+          aria-current={isAbout ? 'page' : undefined}
+          data-accent-target={isAbout ? '' : undefined}
+        >
+          <span class="site-accent-slot" aria-hidden={!isAbout}>
+            {isAbout && (
+              <span
+                class="site-accent site-accent--about"
+                aria-hidden="true"
+                transition:name="site-accent"
+                transition:animate="fade"
+              >●</span>
+            )}
+          </span>
+          <span class="site-nav-label">about</span>
+        </a>
+        <a
+          href="/contact"
+          aria-current={isContact ? 'page' : undefined}
+          data-accent-target={isContact ? '' : undefined}
+        >
+          <span class="site-accent-slot" aria-hidden={!isContact}>
+            {isContact && (
+              <span
+                class="site-accent site-accent--contact"
+                aria-hidden="true"
+                transition:name="site-accent"
+                transition:animate="fade"
+              >●</span>
+            )}
+          </span>
+          <span class="site-nav-label">contact</span>
+        </a>
+      </nav>
+    </header>
     <slot />
+    <footer class="site-footer" transition:persist="site-footer">
+      <nav class="site-footer-nav" aria-label="Feed">
+        <a href="/rss.xml">RSS</a>
+      </nav>
+    </footer>
     <slot name="end" />
   </body>
 </html>
+
+<script>
+  import '@/scripts/site-accent';
+</script>

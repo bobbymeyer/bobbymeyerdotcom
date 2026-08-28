@@ -1,0 +1,20 @@
+---
+import Base from '@/layouts/Base.astro';
+import '@/styles/post.css';
+
+const description = 'Message received.';
+---
+
+<Base title="Message sent" description={description}>
+  <main class="post">
+    <div class="post-main">
+      <header>
+        <h1>Sent</h1>
+        <p class="post-summary">Thanks — your note is on its way. I will reply by email.</p>
+      </header>
+      <article class="post-article">
+        <p><a href="/">Back to the index</a></p>
+      </article>
+    </div>
+  </main>
+</Base>

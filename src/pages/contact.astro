@@ -1,0 +1,66 @@
+---
+import Base from '@/layouts/Base.astro';
+import '@/styles/post.css';
+import '@/styles/page.css';
+
+const description = 'Get in touch with Bobby Meyer.';
+---
+
+<Base title="Contact — Bobby Meyer" description={description}>
+  <main class="post">
+    <div class="post-main">
+      <header>
+        <h1>contact</h1>
+        <p class="post-summary">
+          Send a note — questions, links, collaboration, or anything else worth
+          an email back.
+        </p>
+      </header>
+      <article class="post-article">
+        <!-- Keep fields in sync with public/forms.html for Netlify registration -->
+        <form
+          class="contact-form"
+          name="contact"
+          method="POST"
+          action="/contact/success/"
+          data-netlify="true"
+          data-netlify-honeypot="bot-field"
+        >
+          <input type="hidden" name="form-name" value="contact" />
+          <p class="contact-form-error" hidden role="alert">
+            Something went wrong. Try again in a moment.
+          </p>
+          <p class="visually-hidden">
+            <label>
+              Do not fill this out
+              <input name="bot-field" tabindex="-1" autocomplete="off" />
+            </label>
+          </p>
+
+          <label>
+            Name
+            <input type="text" name="name" autocomplete="name" required />
+          </label>
+
+          <label>
+            Email
+            <input type="email" name="email" autocomplete="email" required />
+          </label>
+
+          <label>
+            Message
+            <textarea name="message" rows="6" required></textarea>
+          </label>
+
+          <button type="submit">Send</button>
+        </form>
+      </article>
+    </div>
+  </main>
+</Base>
+
+<script>
+  import { initContactForm } from '@/scripts/contact-form';
+  document.addEventListener('astro:page-load', initContactForm);
+  initContactForm();
+</script>

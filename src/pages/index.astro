@@ -1,17 +1,43 @@
 ---
+import { getCollection } from 'astro:content';
 import Base from '@/layouts/Base.astro';
+import '@/styles/home.css';
+
+const slugOf = (id: string) => id.replace(/\.mdx?$/, '');
+const posts = (await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft))
+  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .map((post) => ({
+    href: `/posts/${slugOf(post.id)}`,
+    slug: slugOf(post.id),
+    title: post.data.title,
+    version: post.data.version,
+    summary: post.data.summary,
+    bg: post.data.bg_color,
+    splash: post.data.splash,
+  }));
 ---
 
-<Base title="Bobby Meyer">
-  <main class="home-grid">
-    <div class="home-container">
-      <hr>
-      <h1>Bobby Meyer</h1>
-      <hr>
-      <h3>Computer Plumber</h3>
-      <hr>
-      <p>bobby <i>at</i> bobbymeyer <i>dot</i> com
-      <hr>
+<Base title="Bobby Meyer" description="Writing and notes by Bobby Meyer.">
+  <main class="home">
+    <h1 class="visually-hidden">Bobby Meyer</h1>
+    <div class="home-index">
+      {posts.map((post) => (
+        <a class="home-item" href={post.href}>
+          <div
+            class="splash"
+            style={`--post-color: ${post.bg}`}
+            transition:name={`splash-${post.slug}`}
+          >
+            {post.splash && <img src={post.splash} alt="" />}
+          </div>
+          <div class="home-item-copy">
+            <h2 transition:name={`title-${post.slug}`}>
+              {post.title}{post.version && <sup>v{post.version}</sup>}
+            </h2>
+            <p transition:name={`summary-${post.slug}`}>{post.summary}</p>
+          </div>
+        </a>
+      ))}
     </div>
   </main>
 </Base>

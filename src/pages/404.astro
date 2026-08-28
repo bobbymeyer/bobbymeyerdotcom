@@ -1,0 +1,20 @@
+---
+import Base from '@/layouts/Base.astro';
+import '@/styles/post.css';
+
+const description = 'Page not found.';
+---
+
+<Base title="Not found" description={description}>
+  <main class="post">
+    <div class="post-main">
+      <header>
+        <h1>404</h1>
+        <p class="post-summary">Nothing here.</p>
+      </header>
+      <article class="post-article">
+        <p><a href="/">Back to the index</a></p>
+      </article>
+    </div>
+  </main>
+</Base>
