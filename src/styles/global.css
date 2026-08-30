@@ -343,8 +343,10 @@ sup {
 .btn {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   min-height: 44px;
+  /* The label is left-aligned like everything else. The button hugs it, and
+     even padding on both sides is what makes it sit where it does — nothing
+     here centers text. */
   padding: calc(var(--page-gap) / 2) var(--page-gutter);
   border: 0;
   border-radius: 0;
@@ -353,7 +355,6 @@ sup {
   font: inherit;
   font-weight: 600;
   line-height: var(--line-height);
-  text-align: center;
   text-decoration: none;
   cursor: pointer;
   transition: background-color 0.25s ease;
