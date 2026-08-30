@@ -1,22 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="A grid of color swatches">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="A grid of twelve fiberglass shell colors">
   <rect width="1600" height="900" fill="#ffffff"/>
   <g>
-    <rect x="0" y="0" width="312" height="292" fill="#C89A4A"/>
-    <rect x="322" y="0" width="312" height="292" fill="#7B3B22"/>
-    <rect x="644" y="0" width="312" height="292" fill="#55603E"/>
-    <rect x="966" y="0" width="312" height="292" fill="#DC2A22"/>
-    <rect x="1288" y="0" width="312" height="292" fill="#D6291F"/>
+    <!-- BK Black, BY Brilliant Yellow, CB Cobalt Blue, CG Cadmium Green -->
+    <rect x="0"    y="0"   width="391" height="292" fill="#1A1A1A"/>
+    <rect x="403"  y="0"   width="391" height="292" fill="#D6C130"/>
+    <rect x="806"  y="0"   width="391" height="292" fill="#1E90D2"/>
+    <rect x="1209" y="0"   width="391" height="292" fill="#1FC361"/>
 
-    <rect x="0" y="304" width="312" height="292" fill="#171717"/>
-    <rect x="322" y="304" width="312" height="292" fill="#6E6E69"/>
-    <rect x="644" y="304" width="312" height="292" fill="#66F0F5"/>
-    <rect x="966" y="304" width="312" height="292" fill="#E93AF2"/>
-    <rect x="1288" y="304" width="312" height="292" fill="#FAF35E"/>
+    <!-- CN Crimson, DT Dark Tone, EG Elephant Hide Grey, GR Greige -->
+    <rect x="0"    y="304" width="391" height="292" fill="#E8352A"/>
+    <rect x="403"  y="304" width="391" height="292" fill="#382A20"/>
+    <rect x="806"  y="304" width="391" height="292" fill="#474139"/>
+    <rect x="1209" y="304" width="391" height="292" fill="#D9CFC0"/>
 
-    <rect x="0" y="608" width="312" height="292" fill="#000000"/>
-    <rect x="322" y="608" width="312" height="292" fill="#CBD8FB"/>
-    <rect x="644" y="608" width="312" height="292" fill="#2F4680"/>
-    <rect x="966" y="608" width="312" height="292" fill="#141414"/>
-    <rect x="1288" y="608" width="312" height="292" fill="#E30613"/>
+    <!-- GY Grey Light, KG Kelly Green, KH Khaki, LB Light Blue -->
+    <rect x="0"    y="608" width="391" height="292" fill="#C9CBCA"/>
+    <rect x="403"  y="608" width="391" height="292" fill="#6E7A31"/>
+    <rect x="806"  y="608" width="391" height="292" fill="#453623"/>
+    <rect x="1209" y="608" width="391" height="292" fill="#C2E3E1"/>
   </g>
 </svg>

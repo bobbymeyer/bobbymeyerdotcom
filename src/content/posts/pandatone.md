@@ -1,5 +1,5 @@
 ---
-title: "pandatone"
+title: "🐼 Pandatone"
 date: 2026-08-30 10:00:00 -0800
 summary: a library that only holds colors
 bg_color: "#E03A2B"
