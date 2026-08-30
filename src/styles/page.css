@@ -41,35 +41,6 @@
   border-bottom-width: 2px;
 }
 
-.contact-form button {
+.contact-form .btn {
   align-self: start;
-  padding: 0;
-  border: 0;
-  border-bottom: 4px solid transparent;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.4s ease;
-}
-
-@media (hover: hover) {
-  .contact-form button:hover {
-    border-bottom-color: #000;
-  }
-}
-
-.contact-form button:focus {
-  outline: none;
-}
-
-.contact-form button:focus-visible {
-  border-bottom-color: #000;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .contact-form button {
-    transition: none;
-  }
 }

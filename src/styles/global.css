@@ -337,3 +337,48 @@ sup {
     animation-duration: 0.001ms !important;
   }
 }
+/* An action is a button, wherever it appears: a link that navigates keeps its
+   underline, a link that *does* something gets a fill. Solid black, white
+   label, vermillion on hover. */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: calc(var(--page-gap) / 2) var(--page-gutter);
+  border: 0;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  line-height: var(--line-height);
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.25s ease;
+}
+
+@media (hover: hover) {
+  .btn:hover {
+    background: var(--color-vermillion);
+  }
+}
+
+.btn:focus {
+  outline: none;
+}
+
+/* Keyboard focus reads as the hover state plus a keyline, so the fill never
+   carries the signal on its own. */
+.btn:focus-visible {
+  background: var(--color-vermillion);
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn {
+    transition: none;
+  }
+}
