@@ -1,5 +1,7 @@
 ---
+import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
+import portrait from '@/assets/portrait.jpg';
 import '@/styles/post.css';
 import '@/styles/about.css';
 
@@ -11,12 +13,12 @@ const description = 'About Bobby Meyer.';
     <div class="post-layout">
       <aside class="post-aside">
         <figure class="about-portrait">
-          <img
-            src="/about/portrait.jpg"
+          <Image
+            src={portrait}
             alt="Black-and-white portrait of Bobby Meyer in a palm-print shirt, looking off to one side."
-            width="800"
-            height="1200"
-            decoding="async"
+            widths={[600, 900, 1200]}
+            sizes="(min-width: 1600px) 609px, (min-width: 1200px) 47vw, (min-width: 640px) 50vw, 100vw"
+            loading="eager"
           />
         </figure>
       </aside>
