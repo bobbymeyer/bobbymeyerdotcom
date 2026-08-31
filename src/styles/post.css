@@ -166,6 +166,14 @@
   overflow: hidden;
 }
 
+/* Live specimen: same-origin iframe that sizes its own frame to its content. */
+.post-article .specimen-frame {
+  display: block;
+  width: 100%;
+  border: 1px solid #000;
+  background: #fff;
+}
+
 .post-article figure,
 .post-article img {
   max-width: 100%;
