@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="Six grey value columns crossed by a red band">
+  <rect width="1600" height="900" fill="#ffffff"/>
+  <g>
+    <!-- The value ladder: six steps, light to dark -->
+    <rect x="50"   y="100" width="240" height="700" fill="#f2f2f2"/>
+    <rect x="302"  y="100" width="240" height="700" fill="#e4e4e4"/>
+    <rect x="554"  y="100" width="240" height="700" fill="#cfcfcf"/>
+    <rect x="806"  y="100" width="240" height="700" fill="#a6a6a6"/>
+    <rect x="1058" y="100" width="240" height="700" fill="#6e6e6e"/>
+    <rect x="1310" y="100" width="240" height="700" fill="#222222"/>
+  </g>
+  <!-- The accent: one property, crossing everything -->
+  <rect x="0" y="612" width="1600" height="96" fill="#E30613"/>
+</svg>

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>its-swiss — specimen</title>
+<style>
+  :root {
+    --baseline: 24px;
+    --value-chroma: 0.006;
+    --value-hue: 95;
+    --v98: oklch(0.98 var(--value-chroma) var(--value-hue));
+    --v94: oklch(0.94 var(--value-chroma) var(--value-hue));
+    --v89: oklch(0.89 var(--value-chroma) var(--value-hue));
+    --v72: oklch(0.72 var(--value-chroma) var(--value-hue));
+    --v54: oklch(0.54 var(--value-chroma) var(--value-hue));
+    --v18: oklch(0.18 var(--value-chroma) var(--value-hue));
+    --paper: var(--v98);
+    --ink: var(--v18);
+    --quiet: var(--v54);
+    --hairline: var(--v89);
+    --accent: #E30613;
+    --measure: 34rem;
+  }
+  html.no-accent { --accent: var(--ink); }
+
+  * { box-sizing: border-box; margin: 0; }
+
+  body {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 16px;
+    line-height: var(--baseline);
+    background: var(--paper);
+    color: var(--ink);
+    padding: calc(var(--baseline) * 2) calc(var(--baseline) * 1);
+  }
+
+  main { max-width: 44rem; margin: 0 auto; }
+
+  /* baseline overlay */
+  html.show-baseline body {
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0,
+      transparent calc(var(--baseline) - 1px),
+      color-mix(in oklch, var(--accent) 25%, transparent) calc(var(--baseline) - 1px),
+      color-mix(in oklch, var(--accent) 25%, transparent) var(--baseline)
+    );
+  }
+
+  header { border-bottom: 4px solid var(--accent); padding-bottom: calc(var(--baseline) - 4px); }
+  h1 { font-size: 40px; line-height: calc(var(--baseline) * 2); font-weight: 700; letter-spacing: -0.01em; }
+  header p { color: var(--quiet); }
+
+  section { margin-top: calc(var(--baseline) * 2); }
+  h2 {
+    font-size: 16px; line-height: var(--baseline); font-weight: 700;
+    border-bottom: 1px solid var(--hairline);
+    margin-bottom: var(--baseline);
+  }
+  p { max-width: var(--measure); }
+  p + p { margin-top: var(--baseline); }
+  .note { color: var(--quiet); }
+
+  a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* controls */
+  .controls { display: flex; gap: 12px; flex-wrap: wrap; margin-top: var(--baseline); }
+  button {
+    font: inherit; cursor: pointer; border-radius: 0;
+    padding: 0 16px; height: calc(var(--baseline) * 1.5);
+    text-decoration: none;
+  }
+  .fill { background: var(--accent); color: var(--paper); border: none; }
+  .keyline { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
+
+  /* value scale */
+  .scale { display: flex; height: calc(var(--baseline) * 3); }
+  .scale div { flex: 1; display: flex; align-items: flex-end; padding: 4px 6px; font-size: 12px; line-height: 16px; }
+  .s98 { background: var(--v98); box-shadow: inset 0 0 0 1px var(--hairline); }
+  .s94 { background: var(--v94); }
+  .s89 { background: var(--v89); }
+  .s72 { background: var(--v72); }
+  .s54 { background: var(--v54); color: var(--paper); }
+  .s18 { background: var(--v18); color: var(--paper); }
+
+  /* type */
+  .display { font-size: 40px; line-height: calc(var(--baseline) * 2); font-weight: 700; letter-spacing: -0.01em; }
+  .heading { font-size: 24px; line-height: var(--baseline); font-weight: 700; margin-top: var(--baseline); }
+  .body-sample { margin-top: var(--baseline); }
+  .caption { font-size: 12px; line-height: 16px; color: var(--quiet); margin-top: var(--baseline); }
+
+  /* measure + rules */
+  .ruled { border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); padding: calc(var(--baseline) - 1px) 0; }
+  .current { font-weight: 700; color: var(--accent); }
+
+  footer { margin-top: calc(var(--baseline) * 2); border-top: 1px solid var(--hairline); padding-top: calc(var(--baseline) - 1px); color: var(--quiet); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>its-swiss</h1>
+    <p>Specimen, version 0.1.0</p>
+  </header>
+
+  <div class="controls">
+    <button class="keyline" id="accent-toggle">Unset the accent</button>
+    <button class="keyline" id="baseline-toggle">Show the baseline</button>
+  </div>
+  <p class="note" style="margin-top: var(--baseline)">If the page still reads with the accent unset, the values are doing the work.</p>
+
+  <section>
+    <h2>Value</h2>
+    <div class="scale">
+      <div class="s98">98</div>
+      <div class="s94">94</div>
+      <div class="s89">89</div>
+      <div class="s72">72</div>
+      <div class="s54">54</div>
+      <div class="s18">18</div>
+    </div>
+    <p class="note" style="margin-top: var(--baseline)">Six OKLCH lightness steps, uneven on purpose: dense at the top for hairlines that are barely there, sparse in the middle. Two properties — chroma and hue — turn the whole ladder together.</p>
+  </section>
+
+  <section>
+    <h2>Accent</h2>
+    <p>One custom property. It marks the <span class="current">current</span> filter, colors a <a href="#">link</a>, and fills one button. Weight and the underline carry the same information, so nothing depends on it.</p>
+    <div class="controls">
+      <button class="fill">Save changes</button>
+      <button class="keyline">Cancel</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Type</h2>
+    <p class="display">Grid systems</p>
+    <p class="heading">Order out of the plain grotesque</p>
+    <p class="body-sample">Body text sits on the baseline at sixteen over twenty-four, flush left, ragged right. Every line box on the page is a whole number of baselines, so blocks that start together stay in step down the column.</p>
+    <p class="caption">Caption, twelve over sixteen, in quiet ink.</p>
+  </section>
+
+  <section>
+    <h2>Measure and rules</h2>
+    <p class="ruled">Prose stops at the measure — thirty-four rems here — whatever the page width. Hairlines above and below take the lightest step that still reads, and their pixel is subtracted from the padding so the baseline holds.</p>
+  </section>
+
+  <footer>
+    <p>855 lines of CSS in six files, inside one cascade layer. An app rule wins by being unlayered.</p>
+  </footer>
+</main>
+<script>
+  const root = document.documentElement;
+  document.getElementById('accent-toggle').addEventListener('click', (e) => {
+    root.classList.toggle('no-accent');
+    e.target.textContent = root.classList.contains('no-accent') ? 'Restore the accent' : 'Unset the accent';
+  });
+  document.getElementById('baseline-toggle').addEventListener('click', (e) => {
+    root.classList.toggle('show-baseline');
+    e.target.textContent = root.classList.contains('show-baseline') ? 'Hide the baseline' : 'Show the baseline';
+  });
+
+  // Embedded in the post as a same-origin iframe: size the frame to the content
+  // so the specimen never scrolls inside its own box.
+  const main = document.querySelector('main');
+  const fitFrame = () => {
+    const frame = window.frameElement;
+    if (!frame) return;
+    // Measured from the content, not the document: scrollHeight can only grow
+    // to the frame's own height, so it would never let the frame shrink.
+    const pad = getComputedStyle(document.body);
+    const height = main.getBoundingClientRect().height
+      + parseFloat(pad.paddingTop) + parseFloat(pad.paddingBottom);
+    frame.style.height = `${Math.ceil(height)}px`;
+  };
+  if (window.frameElement) {
+    new ResizeObserver(fitFrame).observe(main);
+    window.addEventListener('load', fitFrame);
+    fitFrame();
+  }
+</script>
+</body>
+</html>
