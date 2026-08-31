@@ -1,0 +1,18 @@
+/* Below 1200px: portrait above the text. At 1200px: portrait in cols 3–4. */
+.about-portrait {
+  margin: var(--page-gap) 0 0;
+}
+
+.about-portrait img {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 70svh;
+}
+
+@media (min-width: 1200px) {
+  .about-portrait {
+    margin-top: var(--page-gutter);
+  }
+}
