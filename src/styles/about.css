@@ -1,0 +1,26 @@
+/* Below 1200px: portrait above the text. At 1200px: portrait fills cols 3–4. */
+.about-portrait {
+  margin: var(--page-gap) 0 0;
+}
+
+.about-portrait img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Stacked, the portrait sits between the header and the copy, so cap it —
+   at full width it would push the heading off the first screen. */
+@media (max-width: 1199px) {
+  .about-portrait img {
+    width: auto;
+    max-width: 100%;
+    max-height: 70svh;
+  }
+}
+
+@media (min-width: 1200px) {
+  .about-portrait {
+    margin-top: var(--page-gutter);
+  }
+}

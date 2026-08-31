@@ -1,25 +1,41 @@
 ---
+import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
+import portrait from '@/assets/portrait.jpg';
 import '@/styles/post.css';
+import '@/styles/about.css';
 
 const description = 'About Bobby Meyer.';
 ---
 
 <Base title="About — Bobby Meyer" description={description}>
   <main class="post">
-    <div class="post-main">
-      <header>
-        <h1>about</h1>
-      </header>
-      <article class="post-article">
-        <p>
-          I’m Bobby Meyer. I make computers build stuff, talk to each other,
-          and look good while doing it.
-        </p>
-        <p>
-          I’m based in Ojai, CA — <a href="/contact">say hello</a>.
-        </p>
-      </article>
+    <div class="post-layout">
+      <aside class="post-aside">
+        <figure class="about-portrait">
+          <Image
+            src={portrait}
+            alt="Black-and-white portrait of Bobby Meyer in a palm-print shirt, looking off to one side."
+            widths={[600, 900, 1200]}
+            sizes="(min-width: 1600px) 609px, (min-width: 1200px) 47vw, (min-width: 640px) 50vw, 100vw"
+            loading="eager"
+          />
+        </figure>
+      </aside>
+      <div class="post-main">
+        <header>
+          <h1>about</h1>
+        </header>
+        <article class="post-article">
+          <p>
+            I’m Bobby Meyer. I make computers build stuff, talk to each other,
+            and look good while doing it.
+          </p>
+          <p>
+            I’m based in Ojai, CA — <a href="/contact">say hello</a>.
+          </p>
+        </article>
+      </div>
     </div>
   </main>
 </Base>
