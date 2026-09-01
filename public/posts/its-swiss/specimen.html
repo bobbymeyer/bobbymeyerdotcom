@@ -6,7 +6,8 @@
 <title>its-swiss — specimen</title>
 <style>
   :root {
-    --baseline: 24px;
+    --baseline: 8px;
+    --line: calc(var(--baseline) * 3);
     --value-chroma: 0.006;
     --value-hue: 95;
     --v98: oklch(0.98 var(--value-chroma) var(--value-hue));
@@ -29,54 +30,63 @@
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-size: 16px;
-    line-height: var(--baseline);
+    line-height: var(--line);
     background: var(--paper);
     color: var(--ink);
-    padding: calc(var(--baseline) * 2) calc(var(--baseline) * 1);
+    padding: calc(var(--line) * 2) var(--line);
   }
 
   main { max-width: 44rem; margin: 0 auto; }
 
   /* baseline overlay */
   html.show-baseline body {
-    background-image: repeating-linear-gradient(
-      to bottom,
-      transparent 0,
-      transparent calc(var(--baseline) - 1px),
-      color-mix(in oklch, var(--accent) 25%, transparent) calc(var(--baseline) - 1px),
-      color-mix(in oklch, var(--accent) 25%, transparent) var(--baseline)
-    );
+    background-image:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent calc(var(--line) - 1px),
+        color-mix(in oklch, var(--accent) 28%, transparent) calc(var(--line) - 1px),
+        color-mix(in oklch, var(--accent) 28%, transparent) var(--line)
+      ),
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0,
+        transparent calc(var(--baseline) - 1px),
+        color-mix(in oklch, var(--accent) 10%, transparent) calc(var(--baseline) - 1px),
+        color-mix(in oklch, var(--accent) 10%, transparent) var(--baseline)
+      );
   }
 
-  header { border-bottom: 4px solid var(--accent); padding-bottom: calc(var(--baseline) - 4px); }
-  h1 { font-size: 40px; line-height: calc(var(--baseline) * 2); font-weight: 700; letter-spacing: -0.01em; }
+  header { border-bottom: 4px solid var(--accent); padding-bottom: calc(var(--line) - 4px); }
+  h1 { font-size: 40px; line-height: calc(var(--line) * 2); font-weight: 700; letter-spacing: -0.01em; }
   header p { color: var(--quiet); }
 
-  section { margin-top: calc(var(--baseline) * 2); }
+  section { margin-top: calc(var(--line) * 2); }
   h2 {
-    font-size: 16px; line-height: var(--baseline); font-weight: 700;
+    font-size: 16px; line-height: var(--line); font-weight: 700;
     border-bottom: 1px solid var(--hairline);
-    margin-bottom: var(--baseline);
+    padding-bottom: calc(var(--baseline) - 1px);
+    margin-bottom: calc(var(--baseline) * 2);
   }
   p { max-width: var(--measure); }
-  p + p { margin-top: var(--baseline); }
+  p + p { margin-top: var(--line); }
   .note { color: var(--quiet); }
 
   a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 
   /* controls */
-  .controls { display: flex; gap: 12px; flex-wrap: wrap; margin-top: var(--baseline); }
+  .controls { display: flex; gap: var(--baseline); flex-wrap: wrap; margin-top: var(--line); }
   button {
-    font: inherit; cursor: pointer; border-radius: 0;
-    padding: 0 16px; height: calc(var(--baseline) * 1.5);
+    font: inherit; line-height: var(--line); cursor: pointer; border-radius: 0;
+    padding: calc(var(--baseline) - 1px) 16px;
     text-decoration: none;
   }
-  .fill { background: var(--accent); color: var(--paper); border: none; }
+  .fill { background: var(--accent); color: var(--paper); border: 1px solid var(--accent); }
   .keyline { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
 
   /* value scale */
-  .scale { display: flex; height: calc(var(--baseline) * 3); }
-  .scale div { flex: 1; display: flex; align-items: flex-end; padding: 4px 6px; font-size: 12px; line-height: 16px; }
+  .scale { display: flex; height: calc(var(--line) * 3); }
+  .scale div { flex: 1; display: flex; align-items: flex-end; padding: 4px 6px; font-size: 12px; line-height: calc(var(--baseline) * 2); }
   .s98 { background: var(--v98); box-shadow: inset 0 0 0 1px var(--hairline); }
   .s94 { background: var(--v94); }
   .s89 { background: var(--v89); }
@@ -85,30 +95,30 @@
   .s18 { background: var(--v18); color: var(--paper); }
 
   /* type */
-  .display { font-size: 40px; line-height: calc(var(--baseline) * 2); font-weight: 700; letter-spacing: -0.01em; }
-  .heading { font-size: 24px; line-height: var(--baseline); font-weight: 700; margin-top: var(--baseline); }
-  .body-sample { margin-top: var(--baseline); }
-  .caption { font-size: 12px; line-height: 16px; color: var(--quiet); margin-top: var(--baseline); }
+  .display { font-size: 40px; line-height: calc(var(--line) * 2); font-weight: 700; letter-spacing: -0.01em; }
+  .heading { font-size: 24px; line-height: var(--line); font-weight: 700; margin-top: var(--line); }
+  .body-sample { margin-top: var(--line); }
+  .caption { font-size: 12px; line-height: calc(var(--baseline) * 2); color: var(--quiet); margin-top: var(--line); }
 
   /* measure + rules */
-  .ruled { border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); padding: calc(var(--baseline) - 1px) 0; }
+  .ruled { border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); padding: calc(var(--line) - 1px) 0; }
   .current { font-weight: 700; color: var(--accent); }
 
-  footer { margin-top: calc(var(--baseline) * 2); border-top: 1px solid var(--hairline); padding-top: calc(var(--baseline) - 1px); color: var(--quiet); }
+  footer { margin-top: calc(var(--line) * 2); border-top: 1px solid var(--hairline); padding-top: calc(var(--line) - 1px); color: var(--quiet); }
 </style>
 </head>
 <body>
 <main>
   <header>
     <h1>its-swiss</h1>
-    <p>Specimen, version 0.1.0</p>
+    <p>Specimen, version 0.2.0</p>
   </header>
 
   <div class="controls">
     <button class="keyline" id="accent-toggle">Unset the accent</button>
     <button class="keyline" id="baseline-toggle">Show the baseline</button>
   </div>
-  <p class="note" style="margin-top: var(--baseline)">If the page still reads with the accent unset, the values are doing the work.</p>
+  <p class="note" style="margin-top: var(--line)">If the page still reads with the accent unset, the values are doing the work.</p>
 
   <section>
     <h2>Value</h2>
@@ -120,7 +130,7 @@
       <div class="s54">54</div>
       <div class="s18">18</div>
     </div>
-    <p class="note" style="margin-top: var(--baseline)">Six OKLCH lightness steps, uneven on purpose: dense at the top for hairlines that are barely there, sparse in the middle. Two properties — chroma and hue — turn the whole ladder together.</p>
+    <p class="note" style="margin-top: var(--line)">Six OKLCH lightness steps, uneven on purpose: dense at the top for hairlines that are barely there, sparse in the middle. Two properties — chroma and hue — turn the whole ladder together.</p>
   </section>
 
   <section>
@@ -146,7 +156,7 @@
   </section>
 
   <footer>
-    <p>855 lines of CSS in six files, inside one cascade layer. An app rule wins by being unlayered.</p>
+    <p>871 lines of CSS in six files, inside one cascade layer. An app rule wins by being unlayered.</p>
   </footer>
 </main>
 <script>

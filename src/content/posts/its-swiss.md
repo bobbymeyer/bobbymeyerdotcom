@@ -4,7 +4,7 @@ date: 2026-08-31 10:00:00 -0800
 summary: sensible Swiss defaults, in one gem
 bg_color: "#E03A2B"
 splash: "/posts/its-swiss/splash.svg"
-version: "0.1"
+version: "0.2"
 ---
 
 I enjoy and am inspired by mid-century Swiss design — the style and the thought
@@ -21,6 +21,6 @@ Below, a specimen of the elements involved.
   <figcaption>The specimen, live. Unset the accent, or turn on the baseline grid.</figcaption>
 </figure>
 
-its-swiss is a rubygem: 855 lines of CSS in six files, everything inside
-`@layer` so any app rule wins without effort. 79 tests.
+its-swiss is a rubygem: 871 lines of CSS in six files, everything inside
+`@layer` so any app rule wins without effort. 85 tests.
 [Pandatone](/posts/pandatone) runs on it; Stripeclub is next.
