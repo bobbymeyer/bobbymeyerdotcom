@@ -27,13 +27,11 @@ doing one thing over a clean interface. Nothing in Pandatone renders an image
 or lays out a page. It holds colors and answers questions about them, and the
 next tool along asks.
 
-And the Swiss International Typographic Style: Swiss-inspired CSS,
-near-monochrome, so the swatches are the only color on screen. Archivo, one
-variable subset shipped with the app rather than pulled from a CDN. Every
-signal that matters carries weight as well as an accent, so nothing rests on
-color alone — which feels like the least a color tool owes you.
-
-<div class="marginalia">
+And the Swiss International Typographic Style: near-monochrome, so the
+swatches are the only color on screen. Archivo, one variable subset shipped
+with the app rather than pulled from a CDN. Every signal that matters carries
+weight as well as an accent, so nothing rests on color alone — which feels
+like the least a color tool owes you.
 
 ## The API
 
@@ -70,8 +68,6 @@ color going out in the space it was authored in; `.css` for a stylesheet,
 custom properties on `:root` in the palette's order. There's no export of the
 whole library — a palette is the unit with a name and an order, which is what
 both formats are for.
-
-</div>
 
 ## Colors & Palettes
 
