@@ -22,10 +22,31 @@
     --hairline: var(--v89);
     --accent: #E30613;
     --measure: 34rem;
+
+    /* What a trimmed block adds above its cap to reach the next baseline.
+       Zero until the browser can trim, so every padding below is written once
+       and is right either way. */
+    --cap-correction: 0px;
   }
   html.no-accent { --accent: var(--ink); }
 
   * { box-sizing: border-box; margin: 0; }
+
+  /* Boxes in step are not yet a baseline grid: where a line's baseline falls
+     inside its line box depends on the font's ascent and the leading either
+     side of it, so a caption and a paragraph can both be in step and still be
+     out of register with each other. Trimming makes the block's over edge the
+     cap of its first line and its under edge the baseline of its last, and
+     the correction rounds the cap up to the next baseline — measured by the
+     browser, so the font's metrics stay the font's business. */
+  @supports (text-box: trim-both cap alphabetic) and (padding-top: round(up, 1cap, 8px)) {
+    :root { --cap-correction: calc(round(up, 1cap, var(--baseline)) - 1cap); }
+
+    h1, h2, p { text-box: trim-both cap alphabetic; }
+
+    /* A button's box is the target, not the type in it. */
+    button { text-box: normal; }
+  }
 
   body {
     font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -58,17 +79,17 @@
   }
 
   header { border-bottom: 4px solid var(--accent); padding-bottom: calc(var(--line) - 4px); }
-  h1 { font-size: 40px; line-height: calc(var(--line) * 2); font-weight: 700; letter-spacing: -0.01em; }
+  h1 { font-size: 40px; line-height: calc(var(--line) * 2); font-weight: 700; letter-spacing: -0.01em; padding-block-start: var(--cap-correction); }
   header p { color: var(--quiet); }
 
   section { margin-top: calc(var(--line) * 2); }
   h2 {
     font-size: 16px; line-height: var(--line); font-weight: 700;
     border-bottom: 1px solid var(--hairline);
-    padding-bottom: calc(var(--baseline) - 1px);
+    padding-block: var(--cap-correction) calc(var(--baseline) - 1px);
     margin-bottom: calc(var(--baseline) * 2);
   }
-  p { max-width: var(--measure); }
+  p { max-width: var(--measure); padding-block-start: var(--cap-correction); }
   p + p { margin-top: var(--line); }
   .note { color: var(--quiet); }
 
@@ -101,7 +122,10 @@
   .caption { font-size: 12px; line-height: calc(var(--baseline) * 2); color: var(--quiet); margin-top: var(--line); }
 
   /* measure + rules */
-  .ruled { border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); padding: calc(var(--line) - 1px) 0; }
+  .ruled {
+    border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
+    padding: calc(var(--line) - 1px + var(--cap-correction)) 0 calc(var(--line) - 1px);
+  }
   .current { font-weight: 700; color: var(--accent); }
 
   footer { margin-top: calc(var(--line) * 2); border-top: 1px solid var(--hairline); padding-top: calc(var(--line) - 1px); color: var(--quiet); }
@@ -156,7 +180,7 @@
   </section>
 
   <footer>
-    <p>871 lines of CSS in six files, inside one cascade layer. An app rule wins by being unlayered.</p>
+    <p>928 lines of CSS in six files, inside one cascade layer. An app rule wins by being unlayered.</p>
   </footer>
 </main>
 <script>

@@ -21,6 +21,6 @@ Below, a specimen of the elements involved.
   <figcaption>The specimen, live. Unset the accent, or turn on the baseline grid.</figcaption>
 </figure>
 
-its-swiss is a rubygem: 871 lines of CSS in six files, everything inside
-`@layer` so any app rule wins without effort. 85 tests.
+its-swiss is a rubygem: 928 lines of CSS in six files, everything inside
+`@layer` so any app rule wins without effort. 87 tests.
 [Pandatone](/posts/pandatone) runs on it; Stripeclub is next.
