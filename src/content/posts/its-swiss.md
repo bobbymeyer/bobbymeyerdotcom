@@ -22,5 +22,5 @@ Below, a specimen of the elements involved.
 </figure>
 
 its-swiss is a rubygem: 928 lines of CSS in six files, everything inside
-`@layer` so any app rule wins without effort. 87 tests.
+`@layer` so any app rule wins without effort. 89 tests.
 [Pandatone](/posts/pandatone) runs on it; Stripeclub is next.
