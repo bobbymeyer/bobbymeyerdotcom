@@ -4,7 +4,7 @@ date: 2026-08-31 10:00:00 -0800
 summary: sensible Swiss defaults, in one gem
 bg_color: "#E03A2B"
 splash: "/posts/its-swiss/splash.svg"
-version: "0.2"
+version: "0.3"
 ---
 
 I enjoy and am inspired by mid-century Swiss design — the style and the thought
