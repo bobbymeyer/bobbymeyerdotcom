@@ -1,7 +1,7 @@
 ---
 title: "🐼 Pandatone"
 date: 2026-08-30 10:00:00 -0800
-summary: a library that only holds colors
+summary: A unix inspired color tool
 bg_color: "#E03A2B"
 splash: "/posts/pandatone/splash.svg"
 ---
@@ -27,37 +27,13 @@ doing one thing over a clean interface. Nothing in Pandatone renders an image
 or lays out a page. It holds colors and answers questions about them, and the
 next tool along asks.
 
-And the Swiss International Typographic Style: hand-written CSS,
+And the Swiss International Typographic Style: Swiss-inspired CSS,
 near-monochrome, so the swatches are the only color on screen. Archivo, one
 variable subset shipped with the app rather than pulled from a CDN. Every
 signal that matters carries weight as well as an accent, so nothing rests on
 color alone — which feels like the least a color tool owes you.
 
-## Colors are first-class
-
-The one structural decision everything else follows from: a color is not a
-child of a palette. One brand blue used in ten palettes is **one** row joined
-to ten palettes. That is what makes the reverse lookup possible — paste a hex
-and get back every palette holding it.
-
-Which forces a rule I like more the longer I use it: **a color is its value.**
-No two colors may render the same hex. Otherwise the reverse lookup would be
-an arbitrary choice between two rows that look identical. A palette, likewise,
-is its set of colors, so no two palettes may hold exactly the same swatches.
-Duplicates get refused at the write, not cleaned up later.
-
-Near-duplicates are a question rather than a rule. Inside a redmean distance
-of 32 — `#FFFFFF` against `#FAFAF8` scores 17 — you get both swatches side by
-side and a "create anyway" button.
-
 <div class="marginalia">
-
-Every color stores both spaces. `source_space` records which one was
-authored; the other is redrawn on every write, so the two can't drift. RGB
-round-trips through CMYK losslessly, but many CMYK mixes collapse onto one
-RGB triple — which is why the source space is recorded rather than inferred.
-
-</div>
 
 ## The API
 
@@ -95,22 +71,32 @@ custom properties on `:root` in the palette's order. There's no export of the
 whole library — a palette is the unit with a name and an order, which is what
 both formats are for.
 
-## Sorting a wheel that has no beginning
+</div>
 
-Both indexes sort by name, added, modified, color, dark or light. The last
-three are about what something *looks* like, which turned out to be the most
-interesting small problem in the app.
+## Colors & Palettes
 
-Dark and light use Rec. 601 luma. Not perceptual, but it puts yellow above
-blue where a plain mid-point calls them equal. **Color** runs black, then
-ROYGBIV, then white, with near-neutrals falling off the spectrum to whichever
-end of the black-to-white axis they sit on. A wheel has no beginning, so the
-cut has to go somewhere — I put it between magenta and red, because cutting at
-red puts `#E30613`, at hue 356.5, after the violets.
+Pandatone stores two things.
 
-A palette answers all three differently. Dark and light average its swatches,
-since a palette is dark as a whole. Color reads the swatch it leads with,
-since hue can't be averaged: the mean of red and violet is green.
+**Colors** are first-class, not children of a palette. One brand blue used in
+ten palettes is **one** row joined to ten palettes. That is what makes the
+reverse lookup possible — paste a hex and get back every palette holding it.
+
+Which forces a rule I like more the longer I use it: **a color is its value.**
+No two colors may render the same hex. Otherwise the reverse lookup would be
+an arbitrary choice between two rows that look identical. Near-duplicates are
+a question rather than a rule: inside a redmean distance of 32 — `#FFFFFF`
+against `#FAFAF8` scores 17 — you get both swatches side by side and a "create
+anyway" button.
+
+Every color stores both spaces. `source_space` records which one was
+authored; the other is redrawn on every write, so the two can't drift. RGB
+round-trips through CMYK losslessly, but many CMYK mixes collapse onto one
+RGB triple — which is why the source space is recorded rather than inferred.
+
+**Palettes** are collections of colors, held in an order. A palette is its set
+of colors, so no two palettes may hold exactly the same swatches — the order
+is not part of the identity. Duplicates get refused at the write, not cleaned
+up later.
 
 ## What I haven't built
 
