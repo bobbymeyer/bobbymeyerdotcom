@@ -146,7 +146,20 @@ export function initPostLayout() {
   }
 }
 
+// An embedded specimen knows its own height and says so, because a height
+// written on the iframe is only right at the one width it was measured at,
+// and the frame is cross-origin so nothing here can measure it.
+function sizeEmbeddedSpecimens(event: MessageEvent) {
+  const data = event.data as { specimen?: string; height?: number } | null;
+  if (!data || data.specimen !== 'its-swiss' || typeof data.height !== 'number') return;
+
+  for (const frame of document.querySelectorAll<HTMLIFrameElement>('iframe.specimen-frame')) {
+    if (frame.contentWindow === event.source) frame.style.height = `${data.height}px`;
+  }
+}
+
 if (typeof window !== 'undefined') {
   window.matchMedia(POST_SPLIT_MQ).addEventListener('change', () => initPostLayout());
   document.fonts?.ready.then(() => initPostLayout());
+  window.addEventListener('message', sizeEmbeddedSpecimens);
 }
