@@ -166,12 +166,34 @@
   overflow: hidden;
 }
 
-/* Live specimen: same-origin iframe that sizes its own frame to its content. */
+/* The specimen, published by the gem itself and pinned to a version. It is
+   cross-origin: it cannot size its own frame, and the frame cannot read it, so
+   the height is stated here. The page it names never changes — that is what
+   pinning is for — so the numbers are measured once, against the column the
+   frame actually gets rather than the viewport, and they are the height at
+   which nothing is cut off, with a hundred pixels over the tallest reflow in
+   each band. Prose reflows as the column narrows, which is why the narrow end
+   is so much taller — and why the tallest column in the widest band is not the
+   widest one: at 1200px the article is two fields of four, and 565px is where
+   this page reflows longest, at 6600. 6912 at 362, 7656 at 292. */
 .post-article .specimen-frame {
   display: block;
   width: 100%;
+  height: 7800px;
   border: 1px solid #000;
   background: #fff;
+}
+
+@media (min-width: 390px) {
+  .post-article .specimen-frame {
+    height: 7000px;
+  }
+}
+
+@media (min-width: 640px) {
+  .post-article .specimen-frame {
+    height: 6700px;
+  }
 }
 
 .post-article figure,
