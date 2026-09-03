@@ -4,7 +4,7 @@ date: 2026-08-31 10:00:00 -0800
 summary: sensible Swiss defaults, in one gem
 bg_color: "#E03A2B"
 splash: "/posts/its-swiss/splash.svg"
-version: "0.6"
+version: "0.6.0"
 ---
 
 I enjoy and am inspired by mid-century Swiss design — the style and the thought
@@ -19,7 +19,7 @@ the value scale and the grid primitives, rendered by the library itself and
 published from its own repository.
 
 <figure class="specimen">
-  <iframe class="specimen-frame" src="https://bobbymeyer.github.io/its-swiss/0.6.0.html" title="its-swiss specimen" height="6900" loading="lazy" scrolling="no"></iframe>
+  <iframe class="specimen-frame" src="https://bobbymeyer.github.io/its-swiss/0.6.0.html" title="its-swiss specimen" height="7800" loading="lazy" scrolling="no"></iframe>
   <figcaption>The specimen, live. Unset the accent, or turn on the baseline grid.</figcaption>
 </figure>
 
