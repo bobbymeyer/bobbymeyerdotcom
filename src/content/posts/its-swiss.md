@@ -4,7 +4,7 @@ date: 2026-08-31 10:00:00 -0800
 summary: sensible Swiss defaults, in one gem
 bg_color: "#E03A2B"
 splash: "/posts/its-swiss/splash.svg"
-version: "0.6.0"
+version: "0.6.1"
 ---
 
 I enjoy and am inspired by mid-century Swiss design — the style and the thought
@@ -19,12 +19,12 @@ the value scale and the grid primitives, rendered by the library itself and
 published from its own repository.
 
 <figure class="specimen">
-  <iframe class="specimen-frame" src="https://bobbymeyer.github.io/its-swiss/0.6.0.html" title="its-swiss specimen" height="7800" loading="lazy" scrolling="no"></iframe>
+  <iframe class="specimen-frame" src="https://bobbymeyer.github.io/its-swiss/0.6.1.html" title="its-swiss specimen" height="6600" loading="lazy" scrolling="no"></iframe>
   <figcaption>The specimen, live. Unset the accent, or turn on the baseline grid.</figcaption>
 </figure>
 
-its-swiss is a rubygem: 1,018 lines of CSS in six files, everything inside
-`@layer` so any app rule wins without effort. 98 tests, thirteen of them in a
+its-swiss is a rubygem: 1,030 lines of CSS in six files, everything inside
+`@layer` so any app rule wins without effort. 105 tests, nineteen of them in a
 real browser — a rule on the wrong selector reads correctly in the CSS and
 does nothing on a page.
 [Pandatone](/posts/pandatone) runs on it; Stripeclub is next.
