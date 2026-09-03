@@ -19,7 +19,7 @@ the value scale and the grid primitives, rendered by the library itself and
 published from its own repository.
 
 <figure class="specimen">
-  <iframe class="specimen-frame" src="https://bobbymeyer.github.io/its-swiss/0.6.1.html" title="its-swiss specimen" height="6600" loading="lazy" scrolling="no"></iframe>
+  <iframe class="specimen-frame" src="https://bobbymeyer.github.io/its-swiss/0.6.1.html" title="its-swiss specimen" height="7800" loading="lazy" scrolling="no"></iframe>
   <figcaption>The specimen, live. Unset the accent, or turn on the baseline grid.</figcaption>
 </figure>
 
