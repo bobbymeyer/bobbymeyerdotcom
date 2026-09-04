@@ -34,7 +34,10 @@ const slug = slugOf(post.id);
             <h1 transition:name={`title-${slug}`}>
               {post.data.title}{post.data.version && <sup>v{post.data.version}</sup>}
             </h1>
-            <p class="post-date">{formatPostDate(post.data.date)}</p>
+            <p class="post-date">
+              {formatPostDate(post.data.date)}
+              {post.data.updated && <span class="post-updated">updated {formatPostDate(post.data.updated)}</span>}
+            </p>
             <p class="post-summary" transition:name={`summary-${slug}`}>{post.data.summary}</p>
           </header>
         )}

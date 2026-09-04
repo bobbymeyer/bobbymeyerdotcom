@@ -97,6 +97,13 @@
   letter-spacing: 0.04em;
 }
 
+/* A revision date follows the published one on the same line, set apart by
+   a space rather than punctuation: two dates read as two dates. */
+.post header .post-updated {
+  margin-left: 1em;
+  opacity: 0.7;
+}
+
 .post header .post-summary {
   margin-top: var(--page-gap);
 }

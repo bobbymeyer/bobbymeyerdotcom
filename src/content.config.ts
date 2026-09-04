@@ -11,6 +11,10 @@ const posts = defineCollection({
   schema: z.object({
     title: z.string(),
     date: z.coerce.date(),
+    // Set when a post is revised after publishing. The index and the feed
+    // order on it, so the revision brings the post back to the top; the
+    // byline shows both dates.
+    updated: z.coerce.date().optional(),
     summary: z.string(),
     draft: z.boolean().default(false),
     version: z.string().optional(),

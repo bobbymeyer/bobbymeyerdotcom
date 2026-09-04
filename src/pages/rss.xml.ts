@@ -1,12 +1,13 @@
 import rss from '@astrojs/rss';
 import { getCollection } from 'astro:content';
 import type { APIContext } from 'astro';
+import { byLastTouched } from '@/utils/post-order';
 
 const slugOf = (id: string) => id.replace(/\.mdx?$/, '');
 
 export async function GET(context: APIContext) {
   const posts = (await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft))
-    .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
+    .sort(byLastTouched);
 
   return rss({
     title: 'Bobby Meyer',

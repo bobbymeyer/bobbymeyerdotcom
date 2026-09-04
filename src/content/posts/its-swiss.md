@@ -1,6 +1,7 @@
 ---
 title: "🇨🇭 its-swiss"
 date: 2026-08-31 10:00:00 -0800
+updated: 2026-09-04 10:00:00 -0800
 summary: sensible Swiss defaults, in one gem
 bg_color: "#E03A2B"
 splash: "/posts/its-swiss/splash.svg"

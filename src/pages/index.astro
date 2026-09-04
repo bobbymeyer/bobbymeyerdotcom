@@ -1,11 +1,12 @@
 ---
 import { getCollection } from 'astro:content';
 import Base from '@/layouts/Base.astro';
+import { byLastTouched } from '@/utils/post-order';
 import '@/styles/home.css';
 
 const slugOf = (id: string) => id.replace(/\.mdx?$/, '');
 const posts = (await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft))
-  .sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf())
+  .sort(byLastTouched)
   .map((post) => ({
     href: `/posts/${slugOf(post.id)}`,
     slug: slugOf(post.id),
