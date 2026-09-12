@@ -114,3 +114,10 @@ const sketchCss = sketch ? `/posts/${project.slug}/${sketch}.css` : null;
   document.addEventListener('astro:page-load', initBusStops);
   initBusStops();
 </script>
+
+<script>
+  // No-op without an #albers-container.
+  import { initAlbers } from '@/scripts/albers';
+  document.addEventListener('astro:page-load', initAlbers);
+  initAlbers();
+</script>
