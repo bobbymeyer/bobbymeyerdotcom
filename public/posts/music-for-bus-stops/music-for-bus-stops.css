@@ -1,0 +1,56 @@
+/* Music for Bus Stops — the album-art widget. Every rule is scoped under
+   #song-container so its generic class names (.title, .name, .block) can't
+   reach anything else on the page. */
+
+#song-container {
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 1 / 1;
+  margin: 2rem auto;
+  position: relative;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+#song-container .p5Canvas {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+#song-container .title-box {
+  z-index: 2;
+  position: absolute;
+  width: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+#song-container .title {
+  margin: 0;
+  padding: 0;
+  font-weight: 500;
+  letter-spacing: -0.05em;
+  font-size: 48px;
+  margin-bottom: -0.4em;
+}
+
+#song-container .title span {
+  font-size: 24px;
+}
+
+#song-container .subtitle {
+  font-weight: 300;
+  font-size: 20px;
+  letter-spacing: -0.05em;
+  display: flex;
+  align-items: end;
+  margin-bottom: -0.2em;
+}
+
+#song-container .name {
+  font-size: 12px;
+}

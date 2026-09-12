@@ -19,6 +19,12 @@ const posts = defineCollection({
   schema: z.object({
     /** Keeps an unfinished note off the site. The project still shows. */
     draft: z.boolean().default(false),
+    /**
+     * An interactive sketch to run inside this note. The project page loads
+     * `src/scripts/<sketch>` and its stylesheet from
+     * `public/posts/<slug>/`; the note's body supplies the markup it drives.
+     */
+    sketch: z.string().optional(),
   }),
 });
 

@@ -49,6 +49,13 @@ export const PROJECTS: ProjectDef[] = [
     bg_color: POST_PALETTE.vermillion,
     splash: '/posts/pandatone/splash.svg',
   },
+  {
+    repo: 'bobbymeyer/music-for-bus-stops',
+    title: '🚏 Music for Bus Stops',
+    summary: 'Algorithmic ambience on the cheap',
+    bg_color: POST_PALETTE.teal,
+    splash: '/posts/music-for-bus-stops/map.png',
+  },
   // Public, and recently worked on, but never written up. They are declared
   // here so the list is one edit away from carrying them: drop the `draft`
   // line and the project is on the site, README and timeline and all.

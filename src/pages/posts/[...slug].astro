@@ -16,6 +16,12 @@ export async function getStaticPaths() {
 
 const { project } = Astro.props as { project: ProjectEntry };
 const Note = project.note ? (await render(project.note)).Content : null;
+
+// An interactive note declares a sketch; its stylesheet sits beside the
+// project's assets in public/, named for the sketch, loaded only on the page
+// that runs it.
+const sketch = project.note?.data.sketch;
+const sketchCss = sketch ? `/posts/${project.slug}/${sketch}.css` : null;
 ---
 
 <Base
@@ -24,8 +30,20 @@ const Note = project.note ? (await render(project.note)).Content : null;
   image={project.splash}
   ogType="article"
 >
+  {sketchCss && <link slot="head" rel="stylesheet" href={sketchCss} />}
   <main class="post project" style={`--post-color: ${project.bg}`}>
     <div class="post-layout project-layout">
+      <header class="project-header">
+        <h1 transition:name={`title-${project.slug}`}>
+          {project.title}{project.version && <sup>v{project.version}</sup>}
+        </h1>
+        <p class="post-date">
+          {formatPostDate(project.published)}
+          <span class="post-updated">updated {formatPostDate(project.updated)}</span>
+        </p>
+        <p class="post-summary" transition:name={`summary-${project.slug}`}>{project.summary}</p>
+      </header>
+
       <aside class="post-aside">
         <div class="splash" transition:name={`splash-${project.slug}`}>
           {project.splash && <img src={project.splash} alt="" />}
@@ -65,17 +83,6 @@ const Note = project.note ? (await render(project.note)).Content : null;
       </aside>
 
       <div class="post-main">
-        <header>
-          <h1 transition:name={`title-${project.slug}`}>
-            {project.title}{project.version && <sup>v{project.version}</sup>}
-          </h1>
-          <p class="post-date">
-            {formatPostDate(project.published)}
-            <span class="post-updated">updated {formatPostDate(project.updated)}</span>
-          </p>
-          <p class="post-summary" transition:name={`summary-${project.slug}`}>{project.summary}</p>
-        </header>
-
         {Note && (
           <article class="post-article project-note">
             <Note />
@@ -99,4 +106,11 @@ const Note = project.note ? (await render(project.note)).Content : null;
   import { initPostLayout } from '@/scripts/post-layout';
   document.addEventListener('astro:page-load', initPostLayout);
   initPostLayout();
+</script>
+
+<script>
+  // No-op on pages without a #song-container, so it's safe to ship everywhere.
+  import { initBusStops } from '@/scripts/bus-stops';
+  document.addEventListener('astro:page-load', initBusStops);
+  initBusStops();
 </script>

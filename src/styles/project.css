@@ -8,26 +8,56 @@
   row-gap: var(--page-gap);
 }
 
+/* The header names the project and runs the full width of the layout — the
+   first thing on the page, over one rule, with the three zones (or, stacked,
+   the splash) beneath it. */
+.project-header {
+  grid-column: 1 / -1;
+  padding-top: var(--page-gap);
+  padding-bottom: var(--page-gap);
+  border-bottom: 1px solid #000;
+}
+
 .project-timeline {
   grid-column: 1 / -1;
   min-width: 0;
 }
 
 @media (min-width: 1200px) {
+  .project-layout .project-header {
+    grid-column: 1 / -1;
+    grid-row: 1;
+    padding-top: var(--page-gutter);
+  }
+
   .project-layout .post-main {
     grid-column: 2 / 4;
-    grid-row: 1;
+    grid-row: 2;
   }
 
   .project-layout .post-aside {
     grid-column: 4 / -1;
-    grid-row: 1;
+    grid-row: 2;
+  }
+
+  /* The splash led the stack; under the header band it is one of three columns
+     that start on the same line, so it drops the top margin it carried. */
+  .project-layout .post-aside .splash {
+    margin-top: 0;
   }
 
   .project-layout .project-timeline {
     grid-column: 1 / 2;
-    grid-row: 1;
-    padding-top: var(--page-gutter);
+    grid-row: 2;
+    padding-top: 0;
+  }
+
+  /* The readme led the second row's middle column now, not the header — so its
+     leading top margin (which separated it from the header while stacked) is
+     dropped, and the three columns start on the same line. */
+  .project-layout .post-main > :first-child,
+  .project-layout .post-main > :first-child > :first-child {
+    margin-top: 0;
   }
 
   /* post.css widens a table across both fields of a two-field article. The
@@ -38,14 +68,15 @@
   }
 }
 
-/* Section labels — "Merged" over the rail, "Readme" over the readme. Each sits
-   under a rule, which is what says the thing below it came from somewhere
-   other than the page it is on. */
+/* Section labels — "Merged" over the rail, "Readme" over the readme. A rule
+   sits under each label, which is what says the thing below it came from
+   somewhere other than the page it is on. Rules hang under what they belong to,
+   never over what comes next. */
 .post-article .project-section,
 .project-timeline .project-section {
   margin: 0 0 var(--page-gap);
-  padding-top: calc(var(--page-gap) / 2);
-  border-top: 1px solid #000;
+  padding-bottom: calc(var(--page-gap) / 2);
+  border-bottom: 1px solid #000;
   font-size: var(--font-size-h6);
   font-weight: 600;
   line-height: var(--line-height);
@@ -55,17 +86,20 @@
   margin-top: var(--page-gutter);
 }
 
-/* Facts under the splash: what the repository knows about itself. */
+/* Facts under the splash: what the repository knows about itself. The rule that
+   sets them off hangs under the splash, not over the facts. */
 .project-facts {
   display: grid;
   grid-template-columns: auto 1fr;
   column-gap: var(--page-gap);
   row-gap: calc(var(--page-gap) / 2);
-  margin: var(--page-gap) 0 0;
-  padding-top: calc(var(--page-gap) / 2);
-  border-top: 1px solid #000;
+  margin: calc(var(--page-gap) / 2) 0 0;
   font-size: 0.857em;
   line-height: var(--line-height);
+}
+
+.project-layout .post-aside .splash {
+  border-bottom: 1px solid #000;
 }
 
 .project-facts dt {
