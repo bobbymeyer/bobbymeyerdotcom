@@ -23,3 +23,6 @@ dist/
 
 # macOS
 .DS_Store
+
+# Cached GitHub responses (see src/lib/github.ts)
+.cache/

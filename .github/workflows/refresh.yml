@@ -1,0 +1,36 @@
+# The site is static, and its content lives in other repositories. Nothing
+# about a push to `pandatone` reaches Netlify on its own, so a clock does it:
+# every three hours this asks Netlify for a fresh build, which re-reads GitHub
+# and re-sorts the index.
+#
+# Two things have to be set for it to work, both one-time:
+#
+#   1. Netlify → Site configuration → Build & deploy → Build hooks → Add.
+#      Copy the URL into this repository's Settings → Secrets and variables →
+#      Actions as NETLIFY_BUILD_HOOK.
+#   2. A GitHub token in Netlify's environment as GITHUB_TOKEN, so the build
+#      reads the API at 5,000 requests an hour instead of 60. It needs no
+#      scopes — every repository on the site is public.
+#
+# Run it by hand from the Actions tab any time a change should not wait.
+name: Refresh site
+
+on:
+  schedule:
+    - cron: '17 */3 * * *'
+  workflow_dispatch:
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask Netlify to rebuild
+        env:
+          BUILD_HOOK: ${{ secrets.NETLIFY_BUILD_HOOK }}
+        run: |
+          if [ -z "$BUILD_HOOK" ]; then
+            echo "NETLIFY_BUILD_HOOK is not set — see the comment at the top of this file." >&2
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 3 --retry-delay 5 \
+            -X POST -d '{}' "$BUILD_HOOK"

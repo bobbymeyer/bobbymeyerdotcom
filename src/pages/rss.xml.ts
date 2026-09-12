@@ -1,23 +1,22 @@
 import rss from '@astrojs/rss';
-import { getCollection } from 'astro:content';
 import type { APIContext } from 'astro';
-import { byLastTouched } from '@/utils/post-order';
-
-const slugOf = (id: string) => id.replace(/\.mdx?$/, '');
+import { projectEntries } from '@/lib/project-entries';
 
 export async function GET(context: APIContext) {
-  const posts = (await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft))
-    .sort(byLastTouched);
+  const projects = await projectEntries();
 
   return rss({
     title: 'Bobby Meyer',
-    description: 'Writing and notes by Bobby Meyer.',
+    description: 'Projects by Bobby Meyer, newest change first.',
     site: context.site!,
-    items: posts.map((post) => ({
-      title: post.data.title,
-      pubDate: post.data.date,
-      description: post.data.summary,
-      link: `/posts/${slugOf(post.id)}/`,
+    items: projects.map((project) => ({
+      title: project.version ? `${project.title} v${project.version}` : project.title,
+      // The feed is a feed of changes, so an item is dated by the last one.
+      // A project that moves comes back round rather than staying where it
+      // was first published.
+      pubDate: project.updated,
+      description: project.summary,
+      link: `${project.href}/`,
     })),
   });
 }
