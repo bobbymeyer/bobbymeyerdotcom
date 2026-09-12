@@ -1,0 +1,15 @@
+/* Albers' Squares — the sketch's stage. Scoped to #albers-container, a square
+   that holds the p5 canvas, left-aligned in the readme column like everything
+   else on the page. */
+
+#albers-container {
+  width: 100%;
+  max-width: 600px;
+  aspect-ratio: 1 / 1;
+  margin: 2rem 0;
+}
+
+#albers-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
