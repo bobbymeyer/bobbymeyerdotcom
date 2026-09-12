@@ -1,50 +1,103 @@
 ---
-import { getCollection, render } from 'astro:content';
+import { render } from 'astro:content';
 import Base from '@/layouts/Base.astro';
+import Timeline from '@/components/Timeline.astro';
+import { projectEntries, type ProjectEntry } from '@/lib/project-entries';
 import { formatPostDate } from '@/utils/format-post-date';
 import '@/styles/post.css';
-
-const slugOf = (id: string) => id.replace(/\.mdx?$/, '');
+import '@/styles/project.css';
 
 export async function getStaticPaths() {
-  const posts = await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft);
-  return posts.map((post) => ({
-    params: { slug: post.id.replace(/\.mdx?$/, '') },
-    props: { post },
+  return (await projectEntries()).map((project) => ({
+    params: { slug: project.slug },
+    props: { project },
   }));
 }
 
-type Post = Awaited<ReturnType<typeof getCollection<'posts'>>>[number];
-const { post } = Astro.props as { post: Post };
-const { Content } = await render(post);
-const slug = slugOf(post.id);
+const { project } = Astro.props as { project: ProjectEntry };
+const Note = project.note ? (await render(project.note)).Content : null;
+
+// An interactive note declares a sketch; its stylesheet sits beside the
+// project's assets in public/, named for the sketch, loaded only on the page
+// that runs it.
+const sketch = project.note?.data.sketch;
+const sketchCss = sketch ? `/posts/${project.slug}/${sketch}.css` : null;
 ---
 
-<Base title={post.data.title} description={post.data.summary} image={post.data.splash} ogType="article">
-  <main class="post" style={`--post-color: ${post.data.bg_color}`}>
-    <div class="post-layout">
+<Base
+  title={project.title}
+  description={project.summary}
+  image={project.splash}
+  ogType="article"
+>
+  {sketchCss && <link slot="head" rel="stylesheet" href={sketchCss} />}
+  <main class="post project" style={`--post-color: ${project.bg}`}>
+    <div class="post-layout project-layout">
+      <header class="project-header">
+        <h1 transition:name={`title-${project.slug}`}>
+          {project.title}{project.version && <sup>v{project.version}</sup>}
+        </h1>
+        <p class="post-date">
+          {formatPostDate(project.published)}
+          <span class="post-updated">updated {formatPostDate(project.updated)}</span>
+        </p>
+        <p class="post-summary" transition:name={`summary-${project.slug}`}>{project.summary}</p>
+      </header>
+
       <aside class="post-aside">
-        <div class="splash" transition:name={`splash-${slug}`}>
-          {post.data.splash && <img src={post.data.splash} alt="" />}
+        <div class="splash" transition:name={`splash-${project.slug}`}>
+          {project.splash && <img src={project.splash} alt="" />}
         </div>
+        <dl class="project-facts">
+          <dt>Source</dt>
+          <dd>
+            <a href={project.repo.url} rel="noopener">{project.repo.nameWithOwner}</a>
+          </dd>
+          {project.repo.homepage && (
+            <Fragment>
+              <dt>Live</dt>
+              <dd>
+                <a href={project.repo.homepage} rel="noopener">
+                  {project.repo.homepage.replace(/^https?:\/\//, '').replace(/\/$/, '')}
+                </a>
+              </dd>
+            </Fragment>
+          )}
+          {project.version && (
+            <Fragment>
+              <dt>Release</dt>
+              <dd>
+                {project.versionUrl
+                  ? <a href={project.versionUrl} rel="noopener">v{project.version}</a>
+                  : `v${project.version}`}
+              </dd>
+            </Fragment>
+          )}
+          {project.repo.language && (
+            <Fragment>
+              <dt>Written in</dt>
+              <dd>{project.repo.language}</dd>
+            </Fragment>
+          )}
+        </dl>
       </aside>
+
       <div class="post-main">
-        {!post.data.hide_header && (
-          <header>
-            <h1 transition:name={`title-${slug}`}>
-              {post.data.title}{post.data.version && <sup>v{post.data.version}</sup>}
-            </h1>
-            <p class="post-date">
-              {formatPostDate(post.data.date)}
-              {post.data.updated && <span class="post-updated">updated {formatPostDate(post.data.updated)}</span>}
-            </p>
-            <p class="post-summary" transition:name={`summary-${slug}`}>{post.data.summary}</p>
-          </header>
+        {Note && (
+          <article class="post-article project-note">
+            <Note />
+          </article>
         )}
-        <article class="post-article">
-          <Content />
-        </article>
+
+        {project.readmeHtml && (
+          <article class="post-article project-readme">
+            <h2 class="project-section">Readme</h2>
+            <Fragment set:html={project.readmeHtml} />
+          </article>
+        )}
       </div>
+
+      <Timeline entries={project.timeline} repoUrl={project.repo.url} />
     </div>
   </main>
 </Base>
@@ -53,4 +106,11 @@ const slug = slugOf(post.id);
   import { initPostLayout } from '@/scripts/post-layout';
   document.addEventListener('astro:page-load', initPostLayout);
   initPostLayout();
+</script>
+
+<script>
+  // No-op on pages without a #song-container, so it's safe to ship everywhere.
+  import { initBusStops } from '@/scripts/bus-stops';
+  document.addEventListener('astro:page-load', initBusStops);
+  initBusStops();
 </script>

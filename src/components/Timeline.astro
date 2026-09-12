@@ -1,0 +1,37 @@
+---
+import type { TimelineEntry } from '@/lib/project-entries';
+import { noteParagraphs } from '@/lib/github-text';
+import { formatPostDate } from '@/utils/format-post-date';
+
+interface Props {
+  entries: TimelineEntry[];
+  repoUrl: string;
+}
+
+const { entries, repoUrl } = Astro.props;
+---
+
+{entries.length > 0 && (
+  <nav class="project-timeline" aria-labelledby="timeline-heading">
+    <h2 class="project-section" id="timeline-heading">Merged</h2>
+    <ol class="timeline-list">
+      {entries.map((entry) => (
+        <li class="timeline-item">
+          <p class="timeline-meta">
+            <time datetime={entry.mergedAt.toISOString()}>{formatPostDate(entry.mergedAt)}</time>
+            <a class="timeline-number" href={entry.url} rel="noopener">#{entry.number}</a>
+          </p>
+          <h3 class="timeline-title">
+            <a href={entry.url} rel="noopener">{entry.title}</a>
+          </h3>
+          {noteParagraphs(entry.note).map((paragraph) => (
+            <p class="timeline-note">{paragraph}</p>
+          ))}
+        </li>
+      ))}
+    </ol>
+    <p class="timeline-all">
+      <a href={`${repoUrl}/pulls?q=is%3Apr+is%3Amerged`} rel="noopener">All on GitHub</a>
+    </p>
+  </nav>
+)}

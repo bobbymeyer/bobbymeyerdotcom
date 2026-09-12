@@ -1,9 +1,4 @@
 ---
-title: "🐼 Pandatone"
-date: 2026-08-30 10:00:00 -0800
-summary: A unix inspired color tool
-bg_color: "#E03A2B"
-splash: "/posts/pandatone/splash.svg"
 ---
 
 Pandatone is a color palette API. It serves colors and palettes

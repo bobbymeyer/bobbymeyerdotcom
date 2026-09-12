@@ -27,12 +27,10 @@ function bottomInLayout(el: Element, layout: Element) {
 }
 
 function occupiedSlots(layout: HTMLElement, aside: HTMLElement) {
-  const slots: { bottom: number }[] = [];
-  const splash = aside.querySelector('.splash');
-  if (splash) {
-    slots.push({ bottom: bottomInLayout(splash, layout) });
-  }
-  return slots;
+  // Anything already standing in the margin column. A note pinned beside its
+  // anchor has to clear all of it, not just the splash — a project page puts
+  // the repository's facts under the splash as well.
+  return [...aside.children].map((child) => ({ bottom: bottomInLayout(child, layout) }));
 }
 
 function anchorTarget(el: HTMLElement, article: HTMLElement): HTMLElement | null {

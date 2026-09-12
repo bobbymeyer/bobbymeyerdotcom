@@ -1,41 +1,43 @@
 ---
-import { getCollection } from 'astro:content';
 import Base from '@/layouts/Base.astro';
-import { byLastTouched } from '@/utils/post-order';
+import { projectEntries } from '@/lib/project-entries';
+import { formatPostDate } from '@/utils/format-post-date';
 import '@/styles/home.css';
 
-const slugOf = (id: string) => id.replace(/\.mdx?$/, '');
-const posts = (await getCollection('posts', ({ data }) => import.meta.env.DEV || !data.draft))
-  .sort(byLastTouched)
-  .map((post) => ({
-    href: `/posts/${slugOf(post.id)}`,
-    slug: slugOf(post.id),
-    title: post.data.title,
-    version: post.data.version,
-    summary: post.data.summary,
-    bg: post.data.bg_color,
-    splash: post.data.splash,
-  }));
+const projects = await projectEntries();
 ---
 
-<Base title="Bobby Meyer" description="Writing and notes by Bobby Meyer.">
+<Base title="Bobby Meyer" description="Projects by Bobby Meyer, newest change first.">
   <main class="home">
     <h1 class="visually-hidden">Bobby Meyer</h1>
     <div class="home-index">
-      {posts.map((post) => (
-        <a class="home-item" href={post.href}>
+      {projects.map((project) => (
+        <a class="home-item" href={project.href}>
           <div
             class="splash"
-            style={`--post-color: ${post.bg}`}
-            transition:name={`splash-${post.slug}`}
+            style={`--post-color: ${project.bg}`}
+            transition:name={`splash-${project.slug}`}
           >
-            {post.splash && <img src={post.splash} alt="" />}
+            {project.splash && <img src={project.splash} alt="" />}
           </div>
           <div class="home-item-copy">
-            <h2 transition:name={`title-${post.slug}`}>
-              {post.title}{post.version && <sup>v{post.version}</sup>}
+            <h2 transition:name={`title-${project.slug}`}>
+              {project.title}{project.version && <sup>v{project.version}</sup>}
             </h2>
-            <p transition:name={`summary-${post.slug}`}>{post.summary}</p>
+            <p transition:name={`summary-${project.slug}`}>{project.summary}</p>
+            <p class="home-item-meta">
+              <span class="home-item-date">
+                <span class="visually-hidden">Last change </span>
+                {formatPostDate(project.updated)}
+              </span>
+              {project.timeline.length > 0 && (
+                <span class="home-item-count">
+                  {project.timeline.length === 1
+                    ? '1 merged pull request'
+                    : `${project.timeline.length} merged pull requests`}
+                </span>
+              )}
+            </p>
           </div>
         </a>
       ))}

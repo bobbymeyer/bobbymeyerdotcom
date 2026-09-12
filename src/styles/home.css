@@ -61,3 +61,17 @@
     transition: none;
   }
 }
+
+/* Under the caption: when the project last changed, and how much of it is on
+   the timeline. The date is the thing the list is ordered by, so it is said. */
+.home-item-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--page-gap);
+  margin-top: calc(var(--page-gap) / 2);
+  font-size: 0.857em;
+  font-weight: 400;
+  line-height: var(--line-height);
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+}
