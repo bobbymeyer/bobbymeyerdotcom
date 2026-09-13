@@ -44,7 +44,35 @@ const NOTE_MAX = 320;
  * to avoid colliding with its own markup, and nothing here collides, so the
  * prefix comes off and in-page links land where the README says they will.
  */
-export function cleanReadmeHtml(html: string): string {
+/**
+ * Point a README's relative links at the repository they were written against.
+ *
+ * GitHub rewrites relative paths in *markdown* image and link syntax before it
+ * hands the HTML over, but leaves them alone inside raw `<img>` and `<a>` tags,
+ * which a README uses as soon as it wants to set a width. Relative is correct on
+ * github.com, where the page sits at the repository; on a project page here the
+ * browser resolves it against /posts/<slug> and gets nothing. Assets go to raw,
+ * links go to the blob view, and anything already absolute, rooted, or an anchor
+ * is left as it is.
+ */
+function absolutize(html: string, repo: string, branch: string): string {
+  const relative = (url: string) => !/^(?:[a-z][a-z0-9+.-]*:|\/\/|\/|#)/i.test(url);
+  const clean = (url: string) => url.replace(/^\.\//, '');
+
+  return html
+    .replace(/(<(?:img|source)\b[^>]*?\ssrc=")([^"]+)(")/gi, (m, head, url, tail) =>
+      relative(url)
+        ? `${head}https://raw.githubusercontent.com/${repo}/${branch}/${clean(url)}${tail}`
+        : m,
+    )
+    .replace(/(<a\b[^>]*?\shref=")([^"]+)(")/gi, (m, head, url, tail) =>
+      relative(url)
+        ? `${head}https://github.com/${repo}/blob/${branch}/${clean(url)}${tail}`
+        : m,
+    );
+}
+
+export function cleanReadmeHtml(html: string, repo?: { nameWithOwner: string; branch: string }): string {
   // GitHub hands back the README inside the containers its own page would set
   // it in — `<div id="readme"><article class="markdown-body">`. The id would
   // collide with anything else on the page called readme and the classes
@@ -67,6 +95,8 @@ export function cleanReadmeHtml(html: string): string {
 
   // The h1 the page already carries, and only if it is the first thing.
   out = out.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>/, '');
+
+  if (repo) out = absolutize(out, repo.nameWithOwner, repo.branch);
 
   return out.trim();
 }

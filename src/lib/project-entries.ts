@@ -168,7 +168,9 @@ async function load(
       topics: repo.topics ?? [],
       stars: repo.stargazers_count,
     },
-    readmeHtml: readme ? cleanReadmeHtml(readme) : null,
+    readmeHtml: readme
+      ? cleanReadmeHtml(readme, { nameWithOwner: repo.full_name, branch: repo.default_branch })
+      : null,
     timeline,
     note: notes.get(slug) ?? null,
   };
