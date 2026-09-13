@@ -63,6 +63,13 @@ export const PROJECTS: ProjectDef[] = [
     bg_color: POST_PALETTE.violet,
     splash: '/posts/albers-squares/splash.png',
   },
+  {
+    repo: 'bobbymeyer/halftoner',
+    title: '🖨️ halftoner',
+    summary: 'Halftones from the press up',
+    bg_color: POST_PALETTE.cobalt,
+    splash: '/posts/halftoner/splash.png',
+  },
   // Public, and recently worked on, but never written up. They are declared
   // here so the list is one edit away from carrying them: drop the `draft`
   // line and the project is on the site, README and timeline and all.
