@@ -64,6 +64,12 @@ export const PROJECTS: ProjectDef[] = [
     splash: '/posts/albers-squares/splash.png',
   },
   {
+    repo: 'bobbymeyer/treegen',
+    title: '🌳 treegen',
+    summary: 'A tool for growing trees on a grid',
+    bg_color: POST_PALETTE.green,
+  },
+  {
     repo: 'bobbymeyer/halftoner',
     title: '🖨️ halftoner',
     summary: 'Halftones from the press up',
