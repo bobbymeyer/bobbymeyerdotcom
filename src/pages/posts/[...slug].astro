@@ -121,3 +121,10 @@ const sketchCss = sketch ? `/posts/${project.slug}/${sketch}.css` : null;
   document.addEventListener('astro:page-load', initAlbers);
   initAlbers();
 </script>
+
+<script>
+  // No-op without a #treegen.
+  import { initTreegen } from '@/scripts/treegen';
+  document.addEventListener('astro:page-load', initTreegen);
+  initTreegen();
+</script>
