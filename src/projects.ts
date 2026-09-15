@@ -68,6 +68,7 @@ export const PROJECTS: ProjectDef[] = [
     title: '🌳 treegen',
     summary: 'A tool for growing trees on a grid',
     bg_color: POST_PALETTE.green,
+    splash: '/posts/treegen/splash.svg',
   },
   {
     repo: 'bobbymeyer/halftoner',
