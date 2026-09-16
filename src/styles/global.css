@@ -250,12 +250,29 @@ sup {
   width: var(--mark-box);
   height: var(--mark-box);
   isolation: isolate;
-  animation: mark-spin 120s linear infinite;
+  /* Two turns at once, on two different properties so neither clobbers the
+     other: the endless slow one on `transform`, and a single fast revolution
+     on `rotate` that runs with the bloom. They compose, so the fast turn
+     hands straight back to the slow one with nothing to reconcile. */
+  animation:
+    mark-spin 120s linear infinite,
+    mark-turn 2.6s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
 @keyframes mark-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* One revolution as the dots bloom and come back, on the bloom's own curve:
+   quick out, easing down as they settle. */
+@keyframes mark-turn {
+  from {
+    rotate: 0deg;
+  }
+  to {
+    rotate: 360deg;
   }
 }
 
