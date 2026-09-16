@@ -9,6 +9,17 @@
   --color-green: #3D9970;
   --color-blue: #2F6FED;
 
+  /* Process inks. The mark multiplies these three; the nav accents are the
+     same three unmixed, so the chrome is set in one ink set. */
+  --ink-cyan: #00aeef;
+  --ink-magenta: #ec008c;
+  --ink-yellow: #fff200;
+  /* The inks are used as they come, unmixed, accents included. Process yellow
+     on white measures 1.17:1, so the contact accent is faint by design — a
+     darkened draw of it was tried and turned olive, which is worse. Nothing
+     rests on the dot alone: aria-current carries the current page, and the
+     label carries it visually. Deliberate; leave it. */
+
   --font-size-h6: var(--font-size-base);
   --font-size-h5: calc(var(--font-size-h6) * var(--font-size-ratio));
   --font-size-h4: calc(var(--font-size-h5) * var(--font-size-ratio));
@@ -228,7 +239,7 @@ sup {
 /* Full spread puts the centres on an equilateral triangle whose side is the
    dot's radius: a circumradius of 1/sqrt(3) of that, 0.29 of the diameter. */
 .site-mark-dot--c {
-  background: #00aeef;
+  background: var(--ink-cyan);
   transform: translate(0, -5.8%);
   animation:
     mark-bloom-c 2.6s cubic-bezier(0.22, 0.61, 0.36, 1) both,
@@ -236,7 +247,7 @@ sup {
 }
 
 .site-mark-dot--m {
-  background: #ec008c;
+  background: var(--ink-magenta);
   transform: translate(5%, 2.9%);
   animation:
     mark-bloom-m 2.6s cubic-bezier(0.22, 0.61, 0.36, 1) 60ms both,
@@ -244,7 +255,7 @@ sup {
 }
 
 .site-mark-dot--y {
-  background: #fff200;
+  background: var(--ink-yellow);
   transform: translate(-5%, 2.9%);
   animation:
     mark-bloom-y 2.6s cubic-bezier(0.22, 0.61, 0.36, 1) 120ms both,
@@ -302,15 +313,15 @@ sup {
 }
 
 .site-accent--projects {
-  color: var(--color-vermillion);
+  color: var(--ink-cyan);
 }
 
 .site-accent--about {
-  color: var(--color-green);
+  color: var(--ink-magenta);
 }
 
 .site-accent--contact {
-  color: var(--color-blue);
+  color: var(--ink-yellow);
 }
 
 
