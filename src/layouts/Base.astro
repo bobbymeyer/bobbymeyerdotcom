@@ -61,25 +61,21 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
   </head>
   <body>
     <header class="site-header">
-      <a class="site-lockup" href="/">
+      <a class="site-lockup" href="/" data-accent-target={isHome ? '' : undefined}>
+        <span class="site-accent-slot" aria-hidden={!isHome}>
+          {isHome && (
+            <span
+              class="site-accent site-accent--home"
+              aria-hidden="true"
+              transition:name="site-accent"
+              transition:animate="fade"
+            >●</span>
+          )}
+        </span>
         <span class="site-name">bobby meyer</span>
       </a>
       <nav class="site-header-nav" aria-label="Site">
-        <a
-          href="/"
-          aria-current={isHome ? 'page' : undefined}
-          data-accent-target={isHome ? '' : undefined}
-        >
-          <span class="site-accent-slot" aria-hidden={!isHome}>
-            {isHome && (
-              <span
-                class="site-accent site-accent--projects"
-                aria-hidden="true"
-                transition:name="site-accent"
-                transition:animate="fade"
-              >●</span>
-            )}
-          </span>
+        <a href="/" aria-current={isHome ? 'page' : undefined}>
           <span class="site-nav-label">projects</span>
         </a>
         <a
