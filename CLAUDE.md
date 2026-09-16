@@ -16,3 +16,11 @@
   text. Legitimate exceptions: a single icon/glyph centred in a small
   fixed-size button or badge, numeric data in a cell where the column
   is right-aligned by convention. Default to left for everything else.
+
+- **Downcase titles.** Page titles, headings and project titles are
+  lowercase — `readme`, `merged`, `about`, `music for bus stops`. Proper
+  nouns keep their capital: a person (`Albers`), a place or people
+  (`Swiss`), a product or framework (`Rails`), a name (`Bobby Meyer`).
+  This is a rule for our own words. Text that comes from somewhere else —
+  a pull request title from GitHub, a repository description — is quoted
+  as written, not recased.
