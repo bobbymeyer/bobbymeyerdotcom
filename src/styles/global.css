@@ -176,7 +176,81 @@ sup {
   pointer-events: none;
 }
 
-.site-accent--home {
+/* The mark: process cyan, magenta and yellow, multiplied.
+ *
+ * Subtractive, so every overlap is darker than either dot: C x M is blue,
+ * C x Y green, M x Y red, and all three together black. RGB dots would not
+ * do this — red x green is already black, so there would be no secondaries
+ * to reveal. They start stacked, reading as one black dot, and spread into
+ * the Venn.
+ */
+.site-mark {
+  --mark-dot: 0.62em;
+  /* Centres sit on an equilateral triangle whose side is the dot's radius:
+     a circumradius of 1/sqrt(3) of that, which is 0.29 of the diameter. */
+  --mark-x: 25.1%;
+  --mark-y: 14.5%;
+  position: relative;
+  flex: none;
+  align-self: center;
+  display: inline-block;
+  width: calc(var(--mark-dot) * 1.58);
+  height: calc(var(--mark-dot) * 1.58);
+  margin-left: var(--page-gap);
+  /* Big enough that the three lobes and the black centre resolve; at the
+     accent's size it reads as one dark blob. */
+  font-size: var(--font-size-h3);
+  isolation: isolate;
+}
+
+.site-mark-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--mark-dot);
+  height: var(--mark-dot);
+  margin: calc(var(--mark-dot) / -2) 0 0 calc(var(--mark-dot) / -2);
+  border-radius: 50%;
+  mix-blend-mode: multiply;
+  animation: site-mark-spread 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.site-mark-dot--c {
+  background: #00aeef;
+  transform: translate(0, calc(var(--mark-y) * -2));
+  --mark-to: translate(0, calc(var(--mark-y) * -2));
+}
+
+.site-mark-dot--m {
+  background: #ec008c;
+  transform: translate(var(--mark-x), var(--mark-y));
+  --mark-to: translate(var(--mark-x), var(--mark-y));
+  animation-delay: 60ms;
+}
+
+.site-mark-dot--y {
+  background: #fff200;
+  transform: translate(calc(var(--mark-x) * -1), var(--mark-y));
+  --mark-to: translate(calc(var(--mark-x) * -1), var(--mark-y));
+  animation-delay: 120ms;
+}
+
+@keyframes site-mark-spread {
+  from {
+    transform: translate(0, 0);
+  }
+  to {
+    transform: var(--mark-to);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-mark-dot {
+    animation: none;
+  }
+}
+
+.site-accent--projects {
   color: var(--color-vermillion);
 }
 
