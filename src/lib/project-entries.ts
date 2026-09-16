@@ -52,6 +52,8 @@ export interface ProjectEntry {
     language: string | null;
     topics: string[];
     stars: number;
+    /** Archived on GitHub: the splash says so, and loses its colour. */
+    archived: boolean;
   };
   readmeHtml: string | null;
   timeline: TimelineEntry[];
@@ -167,6 +169,7 @@ async function load(
       language: repo.language,
       topics: repo.topics ?? [],
       stars: repo.stargazers_count,
+      archived: repo.archived,
     },
     readmeHtml: readme
       ? cleanReadmeHtml(readme, { nameWithOwner: repo.full_name, branch: repo.default_branch })

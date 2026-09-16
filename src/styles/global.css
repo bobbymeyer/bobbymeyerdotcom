@@ -117,6 +117,52 @@ sup {
   border: 0;
 }
 
+/* An archived project is dimmed and its title struck through, with the word
+ * under it. Hovering brings it back to full strength — the strike and the
+ * note stay, since they are the project's state rather than a hover hint.
+ *
+ * On the index the whole card dims; on a project page the splash does, since
+ * dimming a page of text would only make it hard to read.
+ */
+.home-item[data-archived],
+.post[data-archived] .splash {
+  opacity: 0.45;
+  transition: opacity 0.4s ease;
+}
+
+.home-item[data-archived]:hover,
+.post[data-archived] .splash:hover {
+  opacity: 1;
+}
+
+.home-item[data-archived] h2,
+.post[data-archived] .project-header h1 {
+  text-decoration: line-through;
+  text-decoration-thickness: 0.06em;
+}
+
+/* The version rides above the name and a line through its underside looks
+   like a mistake. A decoration does not propagate into an atomic inline box,
+   and there is no way to switch one off further down the tree, so making the
+   superscript one is what keeps the strike on the name alone. */
+.home-item[data-archived] h2 sup,
+.post[data-archived] .project-header h1 sup {
+  display: inline-block;
+}
+
+.archived-note {
+  margin: 0;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-item[data-archived],
+  .post[data-archived] .splash {
+    transition: none;
+  }
+}
+
 .splash {
   isolation: isolate;
   position: relative;

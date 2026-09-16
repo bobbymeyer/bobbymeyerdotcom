@@ -31,12 +31,17 @@ const sketchCss = sketch ? `/posts/${project.slug}/${sketch}.css` : null;
   ogType="article"
 >
   {sketchCss && <link slot="head" rel="stylesheet" href={sketchCss} />}
-  <main class="post project" style={`--post-color: ${project.bg}`}>
+  <main
+    class="post project"
+    style={`--post-color: ${project.bg}`}
+    data-archived={project.repo.archived ? '' : undefined}
+  >
     <div class="post-layout project-layout">
       <header class="project-header">
         <h1 transition:name={`title-${project.slug}`}>
           {project.title}{project.version && <sup>v{project.version}</sup>}
         </h1>
+        {project.repo.archived && <p class="archived-note">archived</p>}
         <p class="post-date">
           {formatPostDate(project.published)}
           <span class="post-updated">updated {formatPostDate(project.updated)}</span>

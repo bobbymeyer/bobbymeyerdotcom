@@ -12,7 +12,11 @@ const projects = await projectEntries();
     <h1 class="home-title">projects</h1>
     <div class="home-index">
       {projects.map((project) => (
-        <a class="home-item" href={project.href}>
+        <a
+          class="home-item"
+          href={project.href}
+          data-archived={project.repo.archived ? '' : undefined}
+        >
           <div
             class="splash"
             style={`--post-color: ${project.bg}`}
@@ -24,6 +28,7 @@ const projects = await projectEntries();
             <h2 transition:name={`title-${project.slug}`}>
               {project.title}{project.version && <sup>v{project.version}</sup>}
             </h2>
+            {project.repo.archived && <p class="archived-note">archived</p>}
             <p transition:name={`summary-${project.slug}`}>{project.summary}</p>
             <p class="home-item-meta">
               <span class="home-item-date">
