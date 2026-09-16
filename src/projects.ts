@@ -66,7 +66,7 @@ export const PROJECTS: ProjectDef[] = [
   {
     repo: 'bobbymeyer/treegen',
     title: '🌳 treegen',
-    summary: 'get in touch with nature, but dear god do not go outside!',
+    summary: 'get in touch with nature without touching any nature',
     bg_color: POST_PALETTE.green,
     splash: '/posts/treegen/splash.svg',
   },
