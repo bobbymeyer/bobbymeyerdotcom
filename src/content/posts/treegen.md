@@ -3,19 +3,6 @@ sketch: treegen
 draft: false
 ---
 
-Click anywhere on the stage to place a point. **The first point you place sets
-the horizon** — everything above it is canopy, everything below is root.
-
-**Only the points snap to the grid.** A branch is a straight line between two of
-them, at whatever angle and length that takes — it doesn't walk the lattice, so
-nothing staircases. Click somewhere distant and you get one long branch, not a
-chain of little steps.
-
-Points stay invisible until you put the cursor on one, so the tree isn't
-peppered with dots. Drag one and it takes everything downstream with it —
-you're moving a limb, and the branch above it simply stretches. **Right-click a
-point to cut it**, and everything past it goes too.
-
 <div id='treegen'>
   <div id='tg-head'>
     <h1>treegen<sup class='tg-version'>v0.01a</sup></h1>
@@ -67,57 +54,3 @@ point to cut it**, and everything past it goes too.
   <div id='tg-canvas'></div>
   <p id='tg-status' class='tg-status'></p>
 </div>
-
-### vegetation is never placed by hand
-
-There is no way to put a leaf somewhere. Foliage comes from rules evaluated
-against the graph — how deep a node is, whether it's a tip or an interior node,
-how thick the branch is, and a seeded coin flip. Those are properties of shape
-alone, so the same rules work identically whether you drew the tree or grew it.
-Leaves fill whole grid cells, so the canopy reads as a mass on the lattice
-rather than marks scattered near it. The **layers** control sets how many rings
-of cells around each branch can hold foliage.
-
-Colour runs in two stages. First every object takes a **grayscale tone** from
-its position in the graph, knowing nothing about colour. Then a separate step
-maps tone onto a swatch. That split is why switching palette never disturbs the
-design underneath — and why autumn needs no special machinery at all. Fall is
-the second stage re-run against a different swatch list: same objects, same
-tones, new colours.
-
-### the trunk is found, not drawn
-
-From the root, follow the dominant branch at every fork — the one carrying the
-highest Strahler order, which is what "main channel" means in a branching
-network. That path is the trunk. It grows nothing and no neighbouring foliage
-may cover it, so the main stem always reads as wood. The **trunk** control sets
-where the stem stops counting as trunk: order falls as you move outward and
-order 1 is a twig, so the number reads as *how thick a branch must still be to
-be stem*.
-
-### seasons, and growing
-
-Seasons run in the real order and only forward. Spring fades foliage in from the
-trunk outward; summer adds blossom and fruit; fall recolours; winter drops every
-leaf on a sine-wave path with the swing narrowing as it falls, fading out before
-it reaches the ground line. Each object keeps a stable identity across all four,
-which is what makes those transitions continuous rather than four unrelated
-pictures.
-
-Turn on **grow** and the tree puts on growth each spring — extending from its
-tips rather than regenerating, so everything from earlier years survives.
-Branches mature as they thicken: past a Strahler threshold a limb stops bearing
-foliage and sheds its fine twigs, which come away in winter along with the
-leaves. That is what opens the inside of an older crown. The canvas zooms out on
-its own as the tree outgrows its world.
-
-### seeds
-
-Everything stochastic is seeded and reproducible: the Voronoi sites, the
-l-system, vegetation placement, tone, palette substitution, growth, and every
-leaf's fall. Each draws from its own named stream, so rolling the seed changes
-the canopy without touching the tree you drew, and a leaf's fall never changes
-because you added a branch somewhere else.
-
-Save the JSON to keep a tree — that's the real document. SVG export is one-way:
-a snapshot of the current season, not something you can load back in.
