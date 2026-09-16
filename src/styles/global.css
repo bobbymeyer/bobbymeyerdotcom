@@ -181,25 +181,36 @@ sup {
  * Subtractive, so every overlap is darker than either dot: C x M is blue,
  * C x Y green, M x Y red, and all three together black. RGB dots would not
  * do this — red x green is already black, so there would be no secondaries
- * to reveal. They start stacked, reading as one black dot, and spread into
- * the Venn.
+ * to reveal.
+ *
+ * At rest the three sit almost on top of one another and drift, each on its
+ * own period so they never re-sync: a plate slightly out of register, not a
+ * spread. A navigation blooms them out to the full Venn and lets them settle
+ * back into that drift.
+ *
+ * The mark sits to the left of the name and is taller than it, so it is taken
+ * out of flow: the lockup reserves its width as padding, and the only in-flow
+ * child left is the name. That is what keeps the lockup's baseline the
+ * wordmark's own, so the name and every nav label sit on one line — a mark
+ * centred in flow would raise the lockup's box and take the name off it.
  */
-.site-mark {
-  --mark-dot: 0.62em;
-  /* Centres sit on an equilateral triangle whose side is the dot's radius:
-     a circumradius of 1/sqrt(3) of that, which is 0.29 of the diameter. */
-  --mark-x: 25.1%;
-  --mark-y: 14.5%;
+.site-lockup {
+  /* Each circle is the size of a nav accent: the ink of ● in Archivo measures
+     0.476 of its font size, and the accent is set at h5. Re-measure if the
+     typeface changes — the glyph's ink, not its em box, is what shows. */
+  --mark-dot: calc(var(--font-size-h5) * 0.476);
+  --mark-box: calc(var(--mark-dot) * 1.58);
   position: relative;
-  flex: none;
-  align-self: center;
-  display: inline-block;
-  width: calc(var(--mark-dot) * 1.58);
-  height: calc(var(--mark-dot) * 1.58);
-  margin-left: var(--page-gap);
-  /* Big enough that the three lobes and the black centre resolve; at the
-     accent's size it reads as one dark blob. */
-  font-size: var(--font-size-h3);
+  padding-left: calc(var(--mark-box) + var(--page-gap));
+}
+
+.site-mark {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--mark-box);
+  height: var(--mark-box);
   isolation: isolate;
 }
 
@@ -212,36 +223,76 @@ sup {
   margin: calc(var(--mark-dot) / -2) 0 0 calc(var(--mark-dot) / -2);
   border-radius: 50%;
   mix-blend-mode: multiply;
-  animation: site-mark-spread 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
+/* Full spread puts the centres on an equilateral triangle whose side is the
+   dot's radius: a circumradius of 1/sqrt(3) of that, 0.29 of the diameter. */
 .site-mark-dot--c {
   background: #00aeef;
-  transform: translate(0, calc(var(--mark-y) * -2));
-  --mark-to: translate(0, calc(var(--mark-y) * -2));
+  transform: translate(0, -5.8%);
+  animation:
+    mark-bloom-c 2.6s cubic-bezier(0.22, 0.61, 0.36, 1) both,
+    mark-drift-c 7s 2.6s ease-in-out infinite;
 }
 
 .site-mark-dot--m {
   background: #ec008c;
-  transform: translate(var(--mark-x), var(--mark-y));
-  --mark-to: translate(var(--mark-x), var(--mark-y));
-  animation-delay: 60ms;
+  transform: translate(5%, 2.9%);
+  animation:
+    mark-bloom-m 2.6s cubic-bezier(0.22, 0.61, 0.36, 1) 60ms both,
+    mark-drift-m 8.5s 2.66s ease-in-out infinite;
 }
 
 .site-mark-dot--y {
   background: #fff200;
-  transform: translate(calc(var(--mark-x) * -1), var(--mark-y));
-  --mark-to: translate(calc(var(--mark-x) * -1), var(--mark-y));
-  animation-delay: 120ms;
+  transform: translate(-5%, 2.9%);
+  animation:
+    mark-bloom-y 2.6s cubic-bezier(0.22, 0.61, 0.36, 1) 120ms both,
+    mark-drift-y 9.5s 2.72s ease-in-out infinite;
 }
 
-@keyframes site-mark-spread {
-  from {
-    transform: translate(0, 0);
-  }
-  to {
-    transform: var(--mark-to);
-  }
+/* Out to the full Venn, hold, then back to where the drift begins. */
+@keyframes mark-bloom-c {
+  0% { transform: translate(0, -5.8%); }
+  32% { transform: translate(0, -29%); }
+  54% { transform: translate(0, -29%); }
+  100% { transform: translate(0, -5.8%); }
+}
+
+@keyframes mark-bloom-m {
+  0% { transform: translate(5%, 2.9%); }
+  32% { transform: translate(25.1%, 14.5%); }
+  54% { transform: translate(25.1%, 14.5%); }
+  100% { transform: translate(5%, 2.9%); }
+}
+
+@keyframes mark-bloom-y {
+  0% { transform: translate(-5%, 2.9%); }
+  32% { transform: translate(-25.1%, 14.5%); }
+  54% { transform: translate(-25.1%, 14.5%); }
+  100% { transform: translate(-5%, 2.9%); }
+}
+
+/* Barely anything: a few hundredths of the dot, each on its own path. */
+@keyframes mark-drift-c {
+  0% { transform: translate(0, -5.8%); }
+  28% { transform: translate(1.4%, -9.2%); }
+  61% { transform: translate(-1.1%, -4.1%); }
+  100% { transform: translate(0, -5.8%); }
+}
+
+@keyframes mark-drift-m {
+  0% { transform: translate(5%, 2.9%); }
+  33% { transform: translate(8.1%, 4.6%); }
+  67% { transform: translate(3.6%, 1.7%); }
+  100% { transform: translate(5%, 2.9%); }
+}
+
+@keyframes mark-drift-y {
+  0% { transform: translate(-5%, 2.9%); }
+  41% { transform: translate(-8.4%, 1.6%); }
+  72% { transform: translate(-3.4%, 4.7%); }
+  100% { transform: translate(-5%, 2.9%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
