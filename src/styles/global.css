@@ -216,10 +216,16 @@ sup {
 }
 
 .site-mark {
+  /* Stacked, the three centre on the mark's own centre — so lining that up
+     with the nav accents puts every dot in the chrome on one line. The ● ink
+     sits 0.298 of its font size above the baseline while the middle of the
+     name's line box is 0.209 above it, leaving the mark 0.089 low. Both
+     numbers are Archivo's; re-measure if the typeface changes. */
+  --mark-lift: calc(var(--font-size-h5) * 0.0887);
   position: absolute;
   left: 0;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(calc(-50% - var(--mark-lift)));
   width: var(--mark-box);
   height: var(--mark-box);
   isolation: isolate;
