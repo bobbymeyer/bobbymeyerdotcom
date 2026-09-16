@@ -206,29 +206,38 @@ sup {
  * centred in flow would raise the lockup's box and take the name off it.
  */
 .site-lockup {
-  /* Each circle is the size of a nav accent: the ink of ● in Archivo measures
-     0.476 of its font size, and the accent is set at h5. Re-measure if the
-     typeface changes — the glyph's ink, not its em box, is what shows. */
-  --mark-dot: calc(var(--font-size-h5) * 0.476);
+  /* Each circle is the size of a nav accent. Both numbers here are measured
+     off the rendered pixels, not the font's metrics: canvas reported the ●
+     glyph 8.00px wide with its centre on the baseline's 5px mark, and it
+     paints 7.30px with its centre 0.65px higher than that. Re-measure the
+     same way if the typeface changes — screenshot it and read the ink. */
+  --mark-dot: calc(var(--font-size-h5) * 0.4345);
   --mark-box: calc(var(--mark-dot) * 1.58);
   position: relative;
   padding-left: calc(var(--mark-box) + var(--page-gap));
 }
 
 .site-mark {
-  /* Stacked, the three centre on the mark's own centre — so lining that up
-     with the nav accents puts every dot in the chrome on one line. The ● ink
-     sits 0.298 of its font size above the baseline while the middle of the
-     name's line box is 0.209 above it, leaving the mark 0.089 low. Both
-     numbers are Archivo's; re-measure if the typeface changes. */
-  --mark-lift: calc(var(--font-size-h5) * 0.0887);
+  /* Stacked, the three centre on the mark's own centre, so lining that up
+     with the nav accents puts every dot in the chrome on one rule. The lift
+     is what the painted accent sits above the middle of the name's line box.
+     Placed with `top` rather than a translate so `transform` is free for the
+     spin — a rotation composed after a translate would swing the whole mark
+     round the wordmark instead of turning it on its own centre. */
+  --mark-lift: calc(var(--font-size-h5) * 0.1274);
   position: absolute;
   left: 0;
-  top: 50%;
-  transform: translateY(calc(-50% - var(--mark-lift)));
+  top: calc(50% - var(--mark-box) / 2 - var(--mark-lift));
   width: var(--mark-box);
   height: var(--mark-box);
   isolation: isolate;
+  animation: mark-spin 120s linear infinite;
+}
+
+@keyframes mark-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .site-mark-dot {
@@ -313,6 +322,7 @@ sup {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .site-mark,
   .site-mark-dot {
     animation: none;
   }

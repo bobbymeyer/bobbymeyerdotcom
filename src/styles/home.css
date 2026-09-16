@@ -7,15 +7,22 @@
   background: #fff;
 }
 
-/* Matches the section headings on a project page: readme, merged. */
+/* The page's title, set like the one on about and contact: the plain h1, with
+   the spacing their .post-main header gives it. */
 .home-title {
   grid-column: 1 / -1;
-  margin: 0 0 var(--page-gutter);
-  padding-bottom: calc(var(--page-gap) / 2);
-  border-bottom: 1px solid #000;
-  font-size: var(--font-size-h6);
-  font-weight: 600;
+  padding-top: var(--page-gap);
+  margin-bottom: var(--page-gap);
+  /* .post sets this for about and contact; the index is not a .post, so the
+     title would otherwise take the browser's `normal` and sit a few pixels
+     higher in a shorter box. */
   line-height: var(--line-height);
+}
+
+@media (min-width: 1200px) {
+  .home-title {
+    padding-top: var(--page-gutter);
+  }
 }
 
 .home-index {
