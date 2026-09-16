@@ -77,27 +77,6 @@ export const PROJECTS: ProjectDef[] = [
     bg_color: POST_PALETTE.cobalt,
     splash: '/posts/halftoner/splash.png',
   },
-  // Public, and recently worked on, but never written up. They are declared
-  // here so the list is one edit away from carrying them: drop the `draft`
-  // line and the project is on the site, README and timeline and all.
-  {
-    repo: 'bobbymeyer/design-chassis',
-    title: 'design-chassis',
-    bg_color: POST_PALETTE.cobalt,
-    draft: true,
-  },
-  {
-    repo: 'bobbymeyer/stripeclub',
-    title: 'stripeclub',
-    bg_color: POST_PALETTE.green,
-    draft: true,
-  },
-  {
-    repo: 'bobbymeyer/badger',
-    title: 'badger',
-    bg_color: POST_PALETTE.yellow,
-    draft: true,
-  },
 ];
 
 /** The slug a project lives at: `slug` if it sets one, else the repo name. */
