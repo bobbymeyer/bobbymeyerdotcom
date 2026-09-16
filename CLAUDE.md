@@ -17,10 +17,12 @@
   fixed-size button or badge, numeric data in a cell where the column
   is right-aligned by convention. Default to left for everything else.
 
-- **Downcase titles.** Page titles, headings and project titles are
-  lowercase — `readme`, `merged`, `about`, `music for bus stops`. Proper
-  nouns keep their capital: a person (`Albers`), a place or people
-  (`Swiss`), a product or framework (`Rails`), a name (`Bobby Meyer`).
+- **Downcase titles.** Page titles, headings, project titles and the
+  one-line summaries under them are lowercase — `readme`, `merged`,
+  `about`, `music for bus stops`, `ink-first halftones from press
+  profiles`. Proper nouns keep their capital: a person (`Albers`), a place
+  or people (`Swiss`), a product or framework (`Rails`), a name (`Bobby
+  Meyer`), the title of a work (`a homage to Homage to the Square`).
   This is a rule for our own words. Text that comes from somewhere else —
   a pull request title from GitHub, a repository description — is quoted
   as written, not recased.
