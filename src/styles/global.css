@@ -178,6 +178,22 @@ sup {
   overflow: visible;
 }
 
+/* Stacked, the lockup sits above the nav and the two share a left edge, so the
+   mark and the current page's accent have to line up under one another — and
+   so do the wordmark and the first label. The accent slot is an em wide with
+   the glyph pushed to its right edge, which puts the dot 6.9px right of the
+   mark and the label 5.3px right of the name. Give the slot the mark's width
+   and centre the glyph in it: that is where a stacked mark sits, and the two
+   boxes then indent their text by the same amount. Side by side above this
+   width the lockup and the nav are in different columns, with no left edge to
+   share and nothing to reconcile. */
+@media (max-width: 639.98px) {
+  .site-header-nav a[data-accent-target] .site-accent-slot {
+    width: var(--mark-box);
+    justify-content: center;
+  }
+}
+
 .site-accent {
   flex: none;
   margin: 0;
@@ -205,7 +221,7 @@ sup {
  * wordmark's own, so the name and every nav label sit on one line — a mark
  * centred in flow would raise the lockup's box and take the name off it.
  */
-.site-lockup {
+.site-header {
   /* Each circle is the size of a nav accent. Both numbers here are measured
      off the rendered pixels, not the font's metrics: canvas reported the ●
      glyph 8.00px wide with its centre on the baseline's 5px mark, and it
@@ -213,6 +229,9 @@ sup {
      same way if the typeface changes — screenshot it and read the ink. */
   --mark-dot: calc(var(--font-size-h5) * 0.4345);
   --mark-box: calc(var(--mark-dot) * 1.58);
+}
+
+.site-lockup {
   position: relative;
   padding-left: calc(var(--mark-box) + var(--page-gap));
 }
