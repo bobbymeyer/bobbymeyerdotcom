@@ -77,6 +77,13 @@ export const PROJECTS: ProjectDef[] = [
     bg_color: POST_PALETTE.cobalt,
     splash: '/posts/halftoner/splash.png',
   },
+  {
+    repo: 'bobbymeyer/gridi',
+    title: '🔴 gridi',
+    summary: 'route based midi generation',
+    bg_color: POST_PALETTE.blue,
+    splash: '/posts/gridi/splash.svg',
+  },
 ];
 
 /** The slug a project lives at: `slug` if it sets one, else the repo name. */
