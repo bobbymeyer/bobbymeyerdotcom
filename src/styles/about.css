@@ -7,6 +7,13 @@
   display: block;
   width: 100%;
   height: auto;
+  /* The portrait is printed on the ground rather than laid over it: multiply
+     drops the photograph's white and lets the page's own ink come up through
+     it, so the picture is tinted by wherever on the gradient it happens to
+     sit. The same subtractive rule the mark is built on. It costs nothing on
+     a white ground — multiplying by white returns the image — so this only
+     shows once the page has a colour, which is the point. */
+  mix-blend-mode: multiply;
 }
 
 /* Stacked, the portrait sits between the header and the copy, so cap it —

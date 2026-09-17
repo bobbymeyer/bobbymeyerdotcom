@@ -28,6 +28,29 @@
   --font-size-h1: calc(var(--font-size-h2) * var(--font-size-ratio));
 
   --line-height: 1.5;
+
+  /* The ground.
+   *
+   * Stark white was doing nothing for the page, and a tint from outside the
+   * site would have been a second idea to defend. This is the mark's own inks
+   * instead: white where the page starts, cyan settling in through the
+   * middle, magenta by the end of it. The same two plates as the dot, at a
+   * strength you notice mostly by taking it away.
+   *
+   * The stops sit nine levels off white at their furthest. There is a floor
+   * under this and it is not taste: a gradient is dithered, but past about
+   * three levels the dither runs out and the wash breaks into visible
+   * horizontal bands — measured down a 900px column, three levels gives flat
+   * runs of 100px. Six is still smooth and is about as faint as this can go;
+   * nine leaves some room.
+   *
+   * Painted on the root, and deliberately not fixed to the viewport. The
+   * root's box is the whole document, so a long project page travels the
+   * gradient as it is read — opening white, cooling mid-way, warming as it
+   * runs out — where a fixed wash hands every screen the same slice and stops
+   * meaning anything over a five thousand pixel readme.
+   */
+  --ground: linear-gradient(#ffffff 0%, #f6fafc 55%, #fcf6fa 100%);
 }
 
 *,
@@ -41,7 +64,7 @@ html {
   min-height: 100%;
   width: 100%;
   overflow-x: hidden;
-  background: #fff;
+  background: var(--ground);
 }
 
 html,
@@ -61,7 +84,7 @@ body {
   min-width: 0;
   padding-inline: var(--page-inline);
   overflow-x: hidden;
-  background: #fff;
+  background: transparent;
   color: #000;
   font-family: Archivo, sans-serif;
   font-size: var(--font-size-base);
@@ -194,7 +217,7 @@ sup {
   align-items: end;
   padding-block: var(--page-gap);
   min-width: 0;
-  background: #fff;
+  background: transparent;
   color: #000;
 }
 
