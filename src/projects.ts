@@ -79,7 +79,7 @@ export const PROJECTS: ProjectDef[] = [
   },
   {
     repo: 'bobbymeyer/gridi',
-    title: '🔴 gridi',
+    title: '🎹 gridi',
     summary: 'route based midi generation',
     bg_color: POST_PALETTE.blue,
     splash: '/posts/gridi/splash.svg',
