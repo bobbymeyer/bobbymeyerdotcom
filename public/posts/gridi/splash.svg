@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="Sixteen steps along a line with seven evenly spread hits, the pattern x..x.x.x..x.x.x.">
+  <rect width="1600" height="900" fill="#ffffff"/>
+  <g stroke="#111111" stroke-opacity="0.09" stroke-width="2"><path d="M50 0V900M100 0V900M150 0V900M250 0V900M300 0V900M350 0V900M450 0V900M500 0V900M550 0V900M650 0V900M700 0V900M750 0V900M850 0V900M900 0V900M950 0V900M1050 0V900M1100 0V900M1150 0V900M1250 0V900M1300 0V900M1350 0V900M1450 0V900M1500 0V900M1550 0V900M0 50H1600M0 100H1600M0 150H1600M0 250H1600M0 300H1600M0 350H1600M0 450H1600M0 500H1600M0 550H1600M0 650H1600M0 700H1600M0 750H1600M0 850H1600"/></g>
+  <g stroke="#111111" stroke-opacity="0.2" stroke-width="2"><path d="M200 0V900M400 0V900M600 0V900M800 0V900M1000 0V900M1200 0V900M1400 0V900M0 200H1600M0 400H1600M0 600H1600M0 800H1600"/></g>
+  <!-- The line the pulses run along -->
+  <rect x="120" y="444" width="1360" height="12" fill="#111111"/>
+
+  <!-- E(7,16) = x..x.x.x..x.x.x.. Hits on the line, rests ticked below -->
+  <g>
+    <rect x="118.5" y="406" width="88" height="88" fill="#e1251b"/>
+    <rect x="238.5" y="570" width="18" height="18" fill="#111111"/>
+    <rect x="323.5" y="570" width="18" height="18" fill="#111111"/>
+    <rect x="373.5" y="406" width="88" height="88" fill="#e1251b"/>
+    <rect x="493.5" y="570" width="18" height="18" fill="#111111"/>
+    <rect x="543.5" y="406" width="88" height="88" fill="#e1251b"/>
+    <rect x="663.5" y="570" width="18" height="18" fill="#111111"/>
+    <rect x="713.5" y="406" width="88" height="88" fill="#e1251b"/>
+    <rect x="833.5" y="570" width="18" height="18" fill="#111111"/>
+    <rect x="918.5" y="570" width="18" height="18" fill="#111111"/>
+    <rect x="968.5" y="406" width="88" height="88" fill="#e1251b"/>
+    <rect x="1088.5" y="570" width="18" height="18" fill="#111111"/>
+    <rect x="1138.5" y="406" width="88" height="88" fill="#e1251b"/>
+    <rect x="1258.5" y="570" width="18" height="18" fill="#111111"/>
+    <rect x="1308.5" y="406" width="88" height="88" fill="#e1251b"/>
+    <rect x="1428.5" y="570" width="18" height="18" fill="#111111"/>
+  </g>
+</svg>
