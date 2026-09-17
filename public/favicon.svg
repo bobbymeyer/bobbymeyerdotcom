@@ -1,3 +1,47 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
-  <circle cx="8" cy="8" r="7" fill="#000"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Bobby Meyer">
+  <!--
+    The mark at rest: process cyan, magenta and yellow multiplied, a plate out
+    of register. Subtractive, so every overlap is darker than either dot —
+    c×m blue, c×y green, m×y red, all three black — and the black is the dot
+    the mark actually wants. The fringe is the mistake.
+
+    The register is opened to about one and three eighths of what the header
+    holds at rest. The header's is a few hundredths of the dot: right beside a
+    wordmark at reading size, and gone by 16px, where this is mostly seen.
+    This much brings the fringe back at that size and no more. It has to stay
+    a hair of colour on a black dot that still plainly carries the shape —
+    misregistration, one plate slipped. Open it much further and the three
+    start reading as plates arriving separately, which is a spread, and the
+    spread is the bloom: the animation's to do, not the icon's.
+
+    Painted as explicit regions rather than blended: a favicon is rasterised
+    by whatever draws tab icons, there is no white ground under it to multiply
+    against, and the products are fixed anyway. Painter's order does the
+    rest — each plate whole, then the pairs, then the centre — and every
+    region falls inside the ones it covers.
+
+      cyan #00aeef   magenta #ec008c   yellow #fff200
+      c×m  #000083   c×y     #00a500   m×y    #ec0000   c×m×y #000000
+
+    Inks and rest offsets come from the mark in src/styles/global.css.
+  -->
+  <defs>
+    <clipPath id="c"><circle cx="16" cy="14.53" r="12.31"/></clipPath>
+    <clipPath id="m"><circle cx="17.69" cy="17.47" r="12.31"/></clipPath>
+  </defs>
+
+  <circle cx="16" cy="14.53" r="12.31" fill="#00aeef"/>
+  <circle cx="17.69" cy="17.47" r="12.31" fill="#ec008c"/>
+  <circle cx="14.31" cy="17.47" r="12.31" fill="#fff200"/>
+
+  <g clip-path="url(#c)">
+    <circle cx="17.69" cy="17.47" r="12.31" fill="#000083"/>
+    <circle cx="14.31" cy="17.47" r="12.31" fill="#00a500"/>
+  </g>
+  <g clip-path="url(#m)">
+    <circle cx="14.31" cy="17.47" r="12.31" fill="#ec0000"/>
+    <g clip-path="url(#c)">
+      <circle cx="14.31" cy="17.47" r="12.31" fill="#000"/>
+    </g>
+  </g>
 </svg>
