@@ -4,7 +4,7 @@
   grid-column: 1 / -1;
   align-content: start;
   padding-block: 0 var(--page-gutter);
-  background: #fff;
+  background: transparent;
 }
 
 /* The page's title, set like the one on about and contact: the plain h1, with
