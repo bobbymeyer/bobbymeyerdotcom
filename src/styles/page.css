@@ -24,21 +24,28 @@
   border: 0;
   border-bottom: 1px solid #000;
   border-radius: 0;
-  background: #fff;
+  background: transparent;
   color: #000;
   font: inherit;
   line-height: var(--line-height);
 }
 
+/* The message is the field you write in, so its rule is a writing line:
+   dotted at rest, inked in solid once you are in it. */
 .contact-form textarea {
   resize: vertical;
   min-height: 8rem;
+  border-bottom-style: dotted;
 }
 
 .contact-form input:focus,
 .contact-form textarea:focus {
   outline: none;
   border-bottom-width: 2px;
+}
+
+.contact-form textarea:focus {
+  border-bottom-style: solid;
 }
 
 .contact-form .btn {
