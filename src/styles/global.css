@@ -596,8 +596,14 @@ sup {
 }
 /* An action is a button, wherever it appears: a link that navigates keeps its
    underline, a link that *does* something gets a fill. Solid black, white
-   label, vermillion on hover. */
+   label, and an accent on hover — vermillion unless the page has an ink of
+   its own. */
 .btn {
+  /* The fill a button takes on hover and keyboard focus, and the label that
+     reads on it. A page with an ink of its own — contact's process yellow —
+     sets these two; everywhere else takes the site's vermillion. */
+  --btn-accent: var(--color-vermillion);
+  --btn-accent-label: #fff;
   display: inline-flex;
   align-items: center;
   min-height: 44px;
@@ -614,12 +620,15 @@ sup {
   line-height: var(--line-height);
   text-decoration: none;
   cursor: pointer;
-  transition: background-color 0.25s ease;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
 }
 
 @media (hover: hover) {
   .btn:hover {
-    background: var(--color-vermillion);
+    background: var(--btn-accent);
+    color: var(--btn-accent-label);
   }
 }
 
@@ -630,7 +639,8 @@ sup {
 /* Keyboard focus reads as the hover state plus a keyline, so the fill never
    carries the signal on its own. */
 .btn:focus-visible {
-  background: var(--color-vermillion);
+  background: var(--btn-accent);
+  color: var(--btn-accent-label);
   outline: 2px solid #000;
   outline-offset: 2px;
 }
