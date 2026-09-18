@@ -43,7 +43,10 @@ export interface ProjectEntry {
   splash: string | undefined;
   /** When the repository was created. */
   published: Date;
-  /** The last commit on the default branch — the date the index sorts on. */
+  /**
+   * The last commit on the default branch — the date the index sorts on,
+   * within its half of the list.
+   */
   updated: Date;
   repo: {
     nameWithOwner: string;
@@ -52,7 +55,10 @@ export interface ProjectEntry {
     language: string | null;
     topics: string[];
     stars: number;
-    /** Archived on GitHub: the splash says so, and loses its colour. */
+    /**
+     * Archived on GitHub: the splash says so, it loses its colour, and the
+     * project sorts below the live ones.
+     */
     archived: boolean;
   };
   readmeHtml: string | null;
@@ -63,9 +69,10 @@ export interface ProjectEntry {
 let cached: Promise<ProjectEntry[]> | null = null;
 
 /**
- * Every project on the site, newest change first. Memoised: the index, each
- * project page and the feed all ask for this during one build, and they should
- * agree with each other and cost one read of GitHub between them.
+ * Every project on the site, newest change first, archived ones last. Memoised:
+ * the index, each project page and the feed all ask for this during one build,
+ * and they should agree with each other and cost one read of GitHub between
+ * them.
  */
 export function projectEntries(): Promise<ProjectEntry[]> {
   cached ??= build();
@@ -100,7 +107,18 @@ async function build(): Promise<ProjectEntry[]> {
     }
   }
 
-  return entries.sort((a, b) => b.updated.valueOf() - a.updated.valueOf());
+  return entries.sort(byArchivedThenUpdated);
+}
+
+/**
+ * The order the index and the feed both use: newest change first, but an
+ * archived repository sits below every live one however recently it moved.
+ * Archiving is the last commit a project gets, and that commit should not put
+ * a finished project back at the top of the list.
+ */
+function byArchivedThenUpdated(a: ProjectEntry, b: ProjectEntry): number {
+  if (a.repo.archived !== b.repo.archived) return a.repo.archived ? 1 : -1;
+  return b.updated.valueOf() - a.updated.valueOf();
 }
 
 /**
