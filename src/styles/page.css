@@ -18,9 +18,10 @@
 
 .contact-form input,
 .contact-form textarea {
+  --field-pad: calc(var(--page-gap) / 2);
   width: 100%;
   min-width: 0;
-  padding: calc(var(--page-gap) / 2) 0;
+  padding: var(--field-pad) 0;
   border: 0;
   border-bottom: 1px solid #000;
   border-radius: 0;
@@ -30,22 +31,28 @@
   line-height: var(--line-height);
 }
 
-/* The message is the field you write in, so its rule is a writing line:
-   dotted at rest, inked in solid once you are in it. */
+/*
+ * The message is the field you write on rather than in, so it is ruled like
+ * paper: a dotted line under every line of text. Each tile is one dot and its
+ * gap wide and one line tall, with the dot sitting on the tile's bottom edge —
+ * a whole-pixel mark rather than a soft sub-pixel one, which a 1x screen drops
+ * altogether. The grid starts at the field's top padding so the rules land on
+ * the text, and `local` keeps them there when a long message scrolls.
+ */
 .contact-form textarea {
+  --rule-step: calc(var(--font-size-base) * var(--line-height));
   resize: vertical;
   min-height: 8rem;
-  border-bottom-style: dotted;
+  background-image: radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0.42) 0 1px, transparent 1px);
+  background-size: 5px var(--rule-step);
+  background-position: 0 var(--field-pad);
+  background-attachment: local;
 }
 
 .contact-form input:focus,
 .contact-form textarea:focus {
   outline: none;
   border-bottom-width: 2px;
-}
-
-.contact-form textarea:focus {
-  border-bottom-style: solid;
 }
 
 .contact-form .btn {
