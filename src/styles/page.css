@@ -55,6 +55,11 @@
   border-bottom-width: 2px;
 }
 
+/* Send is this page's action, so it hovers to this page's ink rather than the
+   site's vermillion. Process yellow is the faint one — black carries the label
+   on it, where white would not. */
 .contact-form .btn {
+  --btn-accent: var(--ink-yellow);
+  --btn-accent-label: #000;
   align-self: start;
 }
