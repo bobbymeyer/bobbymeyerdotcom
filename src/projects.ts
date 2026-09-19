@@ -88,6 +88,7 @@ export const PROJECTS: ProjectDef[] = [
     repo: 'bobbymeyer/succession',
     title: '👑 succession',
     bg_color: POST_PALETTE.rust,
+    splash: '/posts/succession/splash.svg',
   },
 ];
 
