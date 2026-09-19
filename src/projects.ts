@@ -84,6 +84,12 @@ export const PROJECTS: ProjectDef[] = [
     bg_color: POST_PALETTE.blue,
     splash: '/posts/gridi/splash.svg',
   },
+  {
+    repo: 'bobbymeyer/succession',
+    title: '👑 succession',
+    summary: 'a game of power politics',
+    bg_color: POST_PALETTE.rust,
+  },
 ];
 
 /** The slug a project lives at: `slug` if it sets one, else the repo name. */
