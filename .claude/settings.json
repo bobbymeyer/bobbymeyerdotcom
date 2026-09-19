@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "bobbymeyer-rules": {
+      "source": {
+        "source": "github",
+        "repo": "bobbymeyer/claude-rules"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "house-rules@bobbymeyer-rules": true
+  }
+}
