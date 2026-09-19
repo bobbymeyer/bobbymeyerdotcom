@@ -87,7 +87,6 @@ export const PROJECTS: ProjectDef[] = [
   {
     repo: 'bobbymeyer/succession',
     title: '👑 succession',
-    summary: 'a game of power politics',
     bg_color: POST_PALETTE.rust,
   },
 ];
