@@ -294,6 +294,44 @@ sup {
   translate: -20.1% 11.6%;
 }
 
+/* The ribbon on a featured project's splash.
+ *
+ * A scrim rather than a band: the ink is heaviest at the bottom edge and
+ * fades out before it reaches the picture, so it reads as something laid over
+ * the image rather than a strip cut out of it. It is also how a label holds
+ * up over artwork this stylesheet knows nothing about, now that a shadow is
+ * not an option — and it is the better answer anyway, since a gradient works
+ * on a light splash and a dark one alike.
+ *
+ * Two reds rather than one. White on vermillion measures 4.38:1, which is
+ * under AA for text at this size. The deeper stop carries the bottom of the
+ * gradient, and white on the colour actually painted behind the word —
+ * sampled off the rendered page rather than worked out from the stops, since
+ * a gradient is not either of its ends — measures 4.94:1. The vermillion
+ * above it is what keeps the thing reading as the site's red and not as
+ * brown. Re-sample if either stop moves.
+ */
+.splash-ribbon {
+  position: absolute;
+  z-index: 1;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  margin: 0;
+  padding: var(--page-gutter) var(--page-gap) calc(var(--page-gap) / 2);
+  background: linear-gradient(
+    to top,
+    #b7410e 0%,
+    var(--color-vermillion) 55%,
+    rgba(224, 58, 43, 0) 100%
+  );
+  color: #fff;
+  font-size: 0.786em;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+}
+
 .site-header,
 .site-footer {
   display: grid;

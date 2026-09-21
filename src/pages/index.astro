@@ -139,6 +139,10 @@ const anyInteractive = projects.some((project) => project.interactive);
             {project.interactive && (
               <span class="mark-badge splash-mark"><Mark /></span>
             )}
+            {/* Left in the accessibility tree on purpose: "featured" is a
+                fact about the project, and the only other place it shows is
+                the order, which nobody can hear. */}
+            {project.featured && <p class="splash-ribbon">featured</p>}
           </div>
           <div class="home-item-copy">
             <h3 transition:name={`title-${project.slug}`}>
