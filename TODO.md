@@ -1,23 +1,10 @@
 # todo
 
-In order. The second is the one that matters: the about page now introduces
-you, but nothing on this site is still written by you.
+In order, and the first is the one that matters: the about page now introduces
+you and the index says what you work on, but nothing on this site is written
+by you yet.
 
-## 1. Finish saying where to find you
-
-`/about` points at GitHub now. What it still does not give is a way to reach
-you that is not a form — no address, nothing to copy, nothing to put in a
-contacts app. A form is a black box to anyone deciding whether to bother, and
-the people most worth hearing from are the ones least likely to use one.
-
-An address on the page is the fix, and the only real question is spam: a
-`mailto:` is scraped within days. Worth deciding whether you care.
-
-Nothing else outbound exists either — no Mastodon, Bluesky, LinkedIn, nothing.
-That may be correct; the site is quite happy being only about the work. But it
-should be a decision rather than an omission.
-
-## 2. Write the featured notes
+## 1. Write the featured notes
 
 `featured` in `src/projects.ts` buys a project twice the width on the index
 and the top of the order. What it is supposed to buy the reader is the part
@@ -34,7 +21,7 @@ project page.
 Currently featured: `treegen`, `music for bus stops`. That was a guess —
 change it.
 
-## 3. A colophon
+## 2. A colophon
 
 The cleverest thing on this site is the site: no CMS, no content to keep in
 step, a portfolio that reads its own projects out of GitHub every three hours
@@ -46,7 +33,7 @@ hook. A note on it — `src/content/posts/bobbymeyerdotcom.md` — is the
 colophon, and it lands in the one place where somebody is already looking at
 the thing it describes.
 
-## 4. A 404 worth landing on
+## 3. A 404 worth landing on
 
 `src/pages/404.astro` says "Nothing here." on a site whose whole argument is
 generative toys. Grow a tree, print a halftone of the path that missed, run
