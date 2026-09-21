@@ -27,7 +27,7 @@ const sketchCss = sketch ? `/posts/${project.slug}/${sketch}.css` : null;
 <Base
   title={project.title}
   description={project.summary}
-  image={project.splash}
+  image={`/og/${project.slug}.png`}
   ogType="article"
 >
   {sketchCss && <link slot="head" rel="stylesheet" href={sketchCss} />}
@@ -85,6 +85,10 @@ const sketchCss = sketch ? `/posts/${project.slug}/${sketch}.css` : null;
             </Fragment>
           )}
         </dl>
+
+        {/* The merges belong with the repository's other facts, under the
+            splash, rather than in a rail of their own beside the readme. */}
+        <Timeline entries={project.timeline} repoUrl={project.repo.url} />
       </aside>
 
       <div class="post-main">
@@ -101,8 +105,6 @@ const sketchCss = sketch ? `/posts/${project.slug}/${sketch}.css` : null;
           </article>
         )}
       </div>
-
-      <Timeline entries={project.timeline} repoUrl={project.repo.url} />
     </div>
   </main>
 </Base>

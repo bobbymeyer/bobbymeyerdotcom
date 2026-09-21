@@ -7,30 +7,147 @@
   background: transparent;
 }
 
-/* The page's title, set like the one on about and contact: the plain h1, with
-   the spacing their .post-main header gives it. */
-.home-title {
+/* Who this is. The index opens on the name, not on the word "projects" —
+   a visitor who arrives here should not have to go to the about page to find
+   out whose work this is. */
+.home-intro {
   grid-column: 1 / -1;
   padding-top: var(--page-gap);
-  margin-bottom: var(--page-gap);
   /* .post sets this for about and contact; the index is not a .post, so the
-     title would otherwise take the browser's `normal` and sit a few pixels
+     heading would otherwise take the browser's `normal` and sit a few pixels
      higher in a shorter box. */
   line-height: var(--line-height);
 }
 
 @media (min-width: 1200px) {
-  .home-title {
+  .home-intro {
     padding-top: var(--page-gutter);
   }
 }
 
+/* A measure for the line under the name. Across four fields it would run to
+   something no one reads in one go. */
+.home-lede {
+  max-width: 34em;
+  margin-top: var(--page-gap);
+  font-size: var(--font-size-h4);
+  line-height: 1.3;
+}
+
+.home-place {
+  margin-top: var(--page-gap);
+  font-size: var(--font-size-h6);
+}
+
+.home-place a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 4px solid transparent;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat;
+  transition: border-color 0.4s ease, background 0.4s ease;
+}
+
+@media (hover: hover) {
+  .home-place a:hover {
+    border-bottom-color: currentColor;
+    background: none;
+  }
+}
+
+.home-place a:focus {
+  outline: none;
+}
+
+.home-place a:focus-visible {
+  border-bottom-color: currentColor;
+  background: none;
+}
+
+/* "projects" is a section label under the introduction now, not the page's
+   own title, so it is set like the labels over the readme and the merges: a
+   small heading with a rule hanging under it. The legend sits on that line,
+   after the word, because the mark it explains is about to appear eight
+   times and nowhere else does the page get to say what it means. */
+.home-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--page-gap);
+  grid-column: 1 / -1;
+  margin-top: var(--page-gutter);
+  margin-bottom: var(--page-gap);
+  padding-bottom: calc(var(--page-gap) / 2);
+  border-bottom: 1px solid #000;
+  font-size: var(--font-size-h6);
+  font-weight: 600;
+  line-height: var(--line-height);
+}
+
+/* Set as running text, not as a flex row: the brackets belong tight against
+   what they enclose, and a gap that puts air after the opening one reads as a
+   mistake. The mark spaces itself with margins instead. */
+.home-legend {
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+.home-legend-mark {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin: 0 0.15em;
+  /* Optical: the target's centre wants to sit near the middle of the
+     x-height, not on the baseline it would otherwise stand on. */
+  vertical-align: -0.14em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-place a {
+    transition: none;
+  }
+}
+
+/*
+ * Featured down the left, everything else packed to the right of it.
+ *
+ * A featured project is pinned to the first field and takes two, so each one
+ * starts a row of its own on the left; `dense` then lets the unfeatured ones
+ * behind it backfill the two fields it leaves on the right, two to a row,
+ * rather than queueing up underneath. The result reads as depth and breadth
+ * at once — the projects worth stopping on shown large, the rest of the shelf
+ * legible beside them — and once the featured run out the unfeatured carry on
+ * across the full width.
+ *
+ * `dense` is safe here because the cards carry no order of their own: they are
+ * sorted by band and date, and a reader scans this as a field rather than a
+ * sequence. Tab order still follows the document, which is that sort.
+ */
 .home-index {
   display: grid;
   grid-template-columns: subgrid;
+  grid-auto-flow: row dense;
   grid-column: 1 / -1;
   row-gap: var(--page-gutter);
   align-items: start;
+}
+
+/* Only on the four-field grid. Two of two fields is the whole width, and a
+   16:9 splash across the whole width of a tablet is not a featured project,
+   it is a billboard with the rest of the shelf pushed under the fold. Below
+   1200px featuring is carried by the order alone. */
+@media (min-width: 1200px) {
+  .home-item[data-featured] {
+    grid-column: 1 / span 2;
+  }
+
+  /* Two fields of splash is twice the picture and wants a title to match. */
+  .home-item[data-featured] .home-item-copy h3 {
+    font-size: var(--font-size-h3);
+  }
+
+  .home-item[data-featured] .home-item-summary {
+    font-size: var(--font-size-h5);
+  }
 }
 
 .home-item {
@@ -62,7 +179,7 @@
   padding-top: var(--page-gap);
 }
 
-.home-item-copy h2 {
+.home-item-copy h3 {
   font-size: var(--font-size-h4);
   line-height: 1.25;
 }

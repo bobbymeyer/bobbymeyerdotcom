@@ -1,14 +1,15 @@
 ---
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
+import { LEDE, NAME, PLACE } from '@/site';
 import portrait from '@/assets/portrait.jpg';
 import '@/styles/post.css';
 import '@/styles/about.css';
 
-const description = 'About Bobby Meyer.';
+const description = `About ${NAME}.`;
 ---
 
-<Base title="about — Bobby Meyer" description={description}>
+<Base title="about" description={description}>
   <main class="post">
     <div class="post-layout">
       <aside class="post-aside">
@@ -27,12 +28,15 @@ const description = 'About Bobby Meyer.';
           <h1>about</h1>
         </header>
         <article class="post-article">
+          {/*
+            The same two lines the index opens with, from src/site.ts, so the
+            page and the index cannot drift apart. This is a placeholder for
+            an about page, not an about page — see TODO.md, where rewriting it
+            is the first thing on the list.
+          */}
+          <p>I’m {NAME}. {LEDE}</p>
           <p>
-            I’m Bobby Meyer. I make computers build stuff, talk to each other,
-            and look good while doing it.
-          </p>
-          <p>
-            I’m based in Ojai, CA — <a href="/contact">say hello</a>.
+            I’m based in {PLACE} — <a href="/contact">say hello</a>.
           </p>
         </article>
       </div>

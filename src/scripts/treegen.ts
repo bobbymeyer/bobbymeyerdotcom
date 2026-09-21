@@ -5,7 +5,15 @@
 // file decide, which is what lets the sketch be torn down on client-side
 // navigation. It loads on demand, only on the page that has the markup.
 
+import { clearSketchFallback, showSketchFallback } from '@/scripts/sketch-fallback';
+
 const TREEGEN_SRC = 'https://bobbymeyer.github.io/treegen/treegen.js';
+
+/** Where the tool runs when this page cannot run it. */
+const FALLBACK = {
+  href: 'https://bobbymeyer.github.io/treegen/',
+  label: 'its own deploy',
+};
 
 type TreegenModule = {
   initTreegen: (root?: HTMLElement) => unknown;
@@ -23,6 +31,7 @@ function load(): Promise<TreegenModule> {
 }
 
 function teardown() {
+  clearSketchFallback(document.getElementById('treegen'));
   if (!live) return;
   live.destroyTreegen();
   live = null;
@@ -30,6 +39,9 @@ function teardown() {
 
 export async function initTreegen() {
   if (!document.getElementById('treegen') || live) return;
+
+  // A retry after a failed load starts from a clean container.
+  clearSketchFallback(document.getElementById('treegen'));
 
   // The load reaches across the network and the reader can navigate away while
   // it is in flight. Failing should not take the page with it — the note reads
@@ -39,6 +51,8 @@ export async function initTreegen() {
     mod = await load();
   } catch (error) {
     console.error('treegen: could not load the tool', error);
+    const root = document.getElementById('treegen');
+    if (root) showSketchFallback(root, FALLBACK);
     return;
   }
 

@@ -1,5 +1,5 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
-import { PROJECTS, projectSlug, type ProjectDef } from '@/projects';
+import { PROJECTS, projectSlug, isFeatured, isInteractive, type ProjectDef } from '@/projects';
 import { cleanReadmeHtml, cleanNote } from '@/lib/github-text';
 import {
   ghHtml,
@@ -41,6 +41,10 @@ export interface ProjectEntry {
   versionUrl: string | null;
   bg: string;
   splash: string | undefined;
+  /** Twice the width on the index, and sorted above everything unfeatured. */
+  featured: boolean;
+  /** Runs on its own page; the index marks it with a registration target. */
+  interactive: boolean;
   /** When the repository was created. */
   published: Date;
   /**
@@ -107,17 +111,30 @@ async function build(): Promise<ProjectEntry[]> {
     }
   }
 
-  return entries.sort(byArchivedThenUpdated);
+  return entries.sort(byBandThenUpdated);
 }
 
 /**
- * The order the index and the feed both use: newest change first, but an
- * archived repository sits below every live one however recently it moved.
- * Archiving is the last commit a project gets, and that commit should not put
- * a finished project back at the top of the list.
+ * Which of the three bands a project sorts into, before dates are considered.
+ *
+ * Featured on top, because a commit date cannot tell you which projects are
+ * worth stopping on and the tag can. Archived on the bottom, because
+ * archiving is the last commit a project gets and that commit should not put
+ * a finished project back at the head of the list — which is also why
+ * archiving beats featuring rather than the other way round.
  */
-function byArchivedThenUpdated(a: ProjectEntry, b: ProjectEntry): number {
-  if (a.repo.archived !== b.repo.archived) return a.repo.archived ? 1 : -1;
+function band(entry: ProjectEntry): number {
+  if (entry.repo.archived) return 2;
+  return entry.featured ? 0 : 1;
+}
+
+/**
+ * The order the index and the feed both use: featured, then live, then
+ * archived, and newest change first inside each band.
+ */
+function byBandThenUpdated(a: ProjectEntry, b: ProjectEntry): number {
+  const bands = band(a) - band(b);
+  if (bands !== 0) return bands;
   return b.updated.valueOf() - a.updated.valueOf();
 }
 
@@ -178,6 +195,8 @@ async function load(
     versionUrl: version?.url ?? null,
     bg: project.bg_color,
     splash: project.splash,
+    featured: isFeatured(project),
+    interactive: isInteractive(project),
     published: new Date(repo.created_at),
     updated: new Date(lastCommit ?? repo.pushed_at),
     repo: {
@@ -195,6 +214,36 @@ async function load(
     timeline,
     note: notes.get(slug) ?? null,
   };
+}
+
+/** For comparing a note with a title: case, spacing and final stop are noise. */
+function flatten(text: string): string {
+  return text.trim().replace(/\s+/g, ' ').replace(/[.!?]+$/, '').toLowerCase();
+}
+
+/**
+ * A timeline note with the entry's own title taken back out of it.
+ *
+ * Squash merges put the pull request title in the commit subject and plain
+ * merges put it in the commit body, so the text that stands in for a missing
+ * description very often *is* the title — and the title is already set, in
+ * bold, directly above. A note that only repeats it says nothing twice, and a
+ * note that opens with it and then goes on is worth keeping from the second
+ * line. Everything else passes through as it came.
+ */
+function withoutEchoOf(note: string | null, title: string): string | null {
+  if (!note) return null;
+
+  const wanted = flatten(title);
+  if (flatten(note) === wanted) return null;
+
+  const [first, ...rest] = note.split('\n');
+  if (flatten(first ?? '') === wanted) {
+    const remainder = rest.join('\n').trim();
+    return remainder || null;
+  }
+
+  return note;
 }
 
 /**
@@ -238,6 +287,11 @@ async function buildTimeline(path: string, pulls: PullRequest[]): Promise<Timeli
         // which the entry already says. What is worth showing is under it.
         note = cleanNote(commit?.commit.message.split('\n').slice(1).join('\n') ?? null);
       }
+
+      // GitHub's default body for a merge commit *is* the pull request title,
+      // so a pull request merged without a description arrives here with a
+      // note that repeats the heading it would be set under. Say it once.
+      note = withoutEchoOf(note, pull.title);
 
       return {
         number: pull.number,

@@ -29,36 +29,57 @@ The contact form only submits on Netlify (production or `netlify dev`). Plain
 
 ```
 src/
-  projects.ts              # the list of projects — which repos, what colour
+  projects.ts              # the list of projects — which repos, what colour, what tags
+  site.ts                  # the name, the lede, the place — shared by index, about, cards
   lib/
     github.ts              # the GitHub API, with an on-disk cache
     github-text.ts         # readme HTML and pull request bodies, tidied
     project-entries.ts     # a repo + its note, assembled into a page
+    og.ts                  # the social card, drawn at build time
   pages/
-    index.astro            # the index — projects, newest change first
+    index.astro            # the index — featured first, newest change after
     posts/[...slug].astro  # one project page
-  components/Timeline.astro
+    og/[slug].png.ts       # /og/<slug>.png, one card per project + /og/site.png
+  components/
+    Timeline.astro         # the merged pull requests, under the splash
+    RegMark.astro          # the registration target on an interactive splash
   content.config.ts        # the note schema (there is barely any)
   content/posts/           # optional note per project, named for its slug
-  layouts/Base.astro       # HTML wrapper
-  styles/                  # global, home, post, project, page (contact form)
+  layouts/Base.astro       # HTML wrapper, meta and social tags
+  scripts/
+    sketch-fallback.ts     # what an interactive piece says when it cannot load
+  styles/                  # fonts, global, home, post, project, page (contact form)
+  assets/fonts/            # Archivo TTF — for drawing cards, never served
   breakpoints.ts           # shared layout widths (sync with global.css)
 public/
   posts/<slug>/            # per-project images
-.github/workflows/refresh.yml   # the clock that asks Netlify to rebuild
+  fonts/                   # Archivo woff2 — self-hosted, see src/styles/fonts.css
+  robots.txt
+.github/workflows/
+  ci.yml                   # type-check and build, on every push
+  refresh.yml              # the clock that asks Netlify to rebuild
+TODO.md                    # what this site still needs, in order
 ```
 
 ## How the index works
 
 The index is a list of projects, and a project is a GitHub repository. At build
 time each repo in `src/projects.ts` is read for its description, its README, its
-latest release or tag, and its merged pull requests. The index is ordered by the
-last commit on each repo's default branch, so a project that moves comes back to
-the top on the next build.
+latest release or tag, and its merged pull requests.
 
-A project page sets that out in three fields: the merged pull requests down the
-left with whatever was written about each merge, the README in the middle, and
-the splash and the repository's facts on the right.
+The order is three bands — featured, live, archived — and inside each one the
+last commit on the repo's default branch, so a project that moves comes back to
+the top of its band on the next build. Featured projects also take two of the
+four fields, pinned to the left, and the rest pack into the two they leave; see
+**Tags**.
+
+A project page sets a project out in two fields: the note and the README on the
+left across three of four, and on the right the repository's own account of
+itself — the splash, the facts under it, the merged pull requests under those,
+each with whatever was written about the merge. The merges had a field of their
+own on the far left until they didn't: that gave the loudest column on the page
+to a list of commit titles and pushed what the project actually *is* into the
+middle.
 
 Nothing here is checked in. Push to a project, and the site says so the next time
 it builds.
@@ -72,6 +93,7 @@ One entry in `src/projects.ts`:
   repo: 'bobbymeyer/pandatone',   // owner/repo. Public repositories only
   title: '🐼 Pandatone',           // optional; defaults to the repo name
   summary: 'A unix inspired color tool',  // optional; defaults to the GitHub description
+  tags: ['featured', 'interactive'],      // optional; see below
   bg_color: POST_PALETTE.vermillion,      // fills the 16:9 splash field
   splash: '/posts/pandatone/splash.svg',  // optional, laid over that field
   slug: 'pandatone',              // optional; defaults to the repo name
@@ -81,6 +103,23 @@ One entry in `src/projects.ts`:
 
 The build **fails** on a repo it cannot read, rather than quietly shipping a page
 with nothing on it. `npm run dev` warns and carries on without it.
+
+### Tags
+
+Two, both declared in `src/projects.ts`, both acted on by the index. A typo in
+either is a type error rather than a tag that quietly does nothing.
+
+| Tag | What it does |
+| --- | --- |
+| `featured` | Two fields wide on the index instead of one, and sorted above everything unfeatured however recently anything moved. Below 1200px the grid is two fields, where two of two is the whole width, so there the tag carries order alone. |
+| `interactive` | The project runs on its own page, so its splash gets a registration target in the corner and the index prints a legend beside the heading saying what the mark means. |
+
+Archiving still beats featuring: an archived repository sorts to the bottom
+whatever it is tagged, because archiving is the last commit a project gets and
+that commit should not put a finished project back at the top.
+
+A featured project is asking for the thing only you can write — see
+`TODO.md`.
 
 ### Writing a note
 
@@ -153,12 +192,63 @@ indented treatment (`.marginalia-inline`).
 
 ### Layout widths
 
-| Viewport | Columns | Project layout |
-| --- | --- | --- |
-| Phone (&lt; 640px) | 1 | Stacked |
-| Tablet (640–1199px) | 2 | Stacked |
-| Desktop (1200–1599px) | 4 | Timeline + readme + margin |
-| Ultrawide (1600px+) | 4, capped width | Timeline + readme + margin |
+| Viewport | Columns | Index | Project layout |
+| --- | --- | --- | --- |
+| Phone (&lt; 640px) | 1 | Stacked | Stacked |
+| Tablet (640–1199px) | 2 | Two up, featured first | Stacked |
+| Desktop (1200–1599px) | 4 | Featured 2 fields, rest pack right | Note + readme, then the rail |
+| Ultrawide (1600px+) | 4, capped width | As above | As above |
+
+Prose in the note and the README keeps a 70ch measure on the wide layouts —
+three fields of body text runs past 160 characters otherwise. Tables, code,
+figures, sketches and marginalia go on using the full width.
+
+## Social cards
+
+A link to this site unfurls into a picture, and that picture is drawn here at
+build time: `/og/<slug>.png` for each project, `/og/site.png` for every page
+that is not one. 1200×630, which is what every platform crops to, and PNG,
+which is the part that matters — Twitter, Facebook, LinkedIn, Slack and
+iMessage all decline to render an SVG in a preview, and five of the eight
+splashes on this site are SVGs.
+
+Satori lays the card out from `src/lib/og.ts` and hands back SVG; sharp
+rasterises it. The splash is flattened to a PNG over the project's ink first,
+because it may itself be an SVG and nesting one inside another renders on your
+machine and not on the build. Emoji are dropped from the title — Satori has no
+glyph for one without an emoji font bundled, and the card's right-hand third is
+already the project's own artwork.
+
+Check one after changing the card: `npm run build`, then open
+`dist/og/site.png`.
+
+## Fonts
+
+Archivo, served from this origin — `public/fonts`, declared in
+`src/styles/fonts.css`. No connection to fonts.googleapis.com, no DNS and no
+round trip before the first paint. Four files cover the eight faces the site
+sets, because they are Google's subsets of the variable face and each carries
+the whole 200–800 axis.
+
+`src/assets/fonts/*.ttf` is a second copy, and not a mistake: Satori draws the
+social cards and wants a file per weight and does not decompress woff2. Those
+are never served.
+
+Refreshing either: fetch the stylesheet with a browser User-Agent (which is
+what makes Google answer in woff2) and take the URLs out of it. OFL 1.1, text
+in `public/fonts/OFL.txt`.
+
+## Checks
+
+`.github/workflows/ci.yml` type-checks and builds on every push. The build is
+a real check here rather than a formality: it reads every repository in
+`src/projects.ts`, so one that has been renamed, made private or deleted fails
+CI instead of failing a deploy.
+
+```bash
+npm run check      # astro check
+npm run build
+```
 
 ## Feed
 

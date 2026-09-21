@@ -1,24 +1,37 @@
 ---
 import { ClientRouter } from 'astro:transitions';
 import { normalizePath } from '@/utils/normalize-path';
+import { DESCRIPTION, LEDE, NAME, pageTitle } from '@/site';
+import { OG_HEIGHT, OG_WIDTH } from '@/lib/og';
+import '../styles/fonts.css';
 import '../styles/global.css';
 
 interface Props {
+  /**
+   * What this page is called, on its own: `about`, `🐼 pandatone`. The site
+   * adds the signature — see `pageTitle` — so nothing passes one itself. The
+   * index passes nothing and is the handle alone.
+   */
   title?: string;
   description?: string;
+  /** The social card. Defaults to the site's; a project passes its own. */
   image?: string;
   ogType?: 'website' | 'article';
 }
 
-const {
-  title = 'bobbymeyer.com',
-  description,
-  image,
-  ogType = 'website',
-} = Astro.props;
+const { title, description = DESCRIPTION, image, ogType = 'website' } = Astro.props;
 
+/** The card every page that is not a project shares. */
+const SITE_CARD = '/og/site.png';
+
+const documentTitle = pageTitle(title);
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
-const ogImage = image ? new URL(image, Astro.site) : undefined;
+const ogImage = new URL(image ?? SITE_CARD, Astro.site);
+
+// The alt describes the card, which is not the same thing as describing the
+// page: about and contact carry the site's card, so theirs reads the name and
+// the line under it, whatever the page itself is called.
+const ogImageAlt = image ? `${title} — ${description}` : `${NAME} — ${LEDE}`;
 
 const path = normalizePath(Astro.url.pathname);
 const isHome = path === '/';
@@ -32,21 +45,30 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
     <link rel="canonical" href={canonicalURL} />
-    {description && <meta name="description" content={description} />}
+    <meta name="description" content={description} />
     <meta property="og:type" content={ogType} />
     <meta property="og:url" content={canonicalURL} />
-    <meta property="og:title" content={title} />
-    {description && <meta property="og:description" content={description} />}
-    {ogImage && <meta property="og:image" content={ogImage} />}
-    <meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
-    <meta name="twitter:title" content={title} />
-    {description && <meta name="twitter:description" content={description} />}
-    {ogImage && <meta name="twitter:image" content={ogImage} />}
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <meta property="og:site_name" content={NAME} />
+    <meta property="og:title" content={documentTitle} />
+    <meta property="og:description" content={description} />
+    {/* Absolute, PNG and 1200×630: the three things every platform insists on. */}
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content={String(OG_WIDTH)} />
+    <meta property="og:image:height" content={String(OG_HEIGHT)} />
+    <meta property="og:image:alt" content={ogImageAlt} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={documentTitle} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="twitter:image:alt" content={ogImageAlt} />
+    {/* The roman latin face carries nearly every page; the rest load on demand. */}
     <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Archivo:ital,wght@0,200;0,400;0,600;0,800;1,200;1,400;1,600;1,800&display=swap"
+      rel="preload"
+      href="/fonts/archivo-latin.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link
@@ -55,7 +77,7 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
       title="Bobby Meyer"
       href="/rss.xml"
     />
-    <title>{title}</title>
+    <title>{documentTitle}</title>
     <ClientRouter />
     <slot name="head" />
   </head>

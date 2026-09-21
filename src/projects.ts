@@ -1,6 +1,3 @@
-import type { PostColor } from '@/palette';
-import { POST_PALETTE } from '@/palette';
-
 /**
  * The index is a list of projects, not of posts, and this is the list.
  *
@@ -17,9 +14,29 @@ import { POST_PALETTE } from '@/palette';
  * set above the README on the project page. It is optional — a project with no
  * note is the README and the timeline, and reads fine.
  */
+import type { PostColor } from '@/palette';
+import { POST_PALETTE } from '@/palette';
+
+/**
+ * What a project can be tagged as.
+ *
+ * Two tags, both of which the index acts on, and a typo in either is a type
+ * error rather than a tag that silently does nothing. Adding a third is a
+ * word here and whatever reads it.
+ *
+ * - `featured` — twice the width on the index, and above everything that is
+ *   not featured however recently anything moved. The projects worth stopping
+ *   on, in other words, which is a judgement no commit date can make.
+ * - `interactive` — the thing runs on its own project page, so the index
+ *   marks it with a registration target and says so in the legend.
+ */
+export type ProjectTag = 'featured' | 'interactive';
+
 export interface ProjectDef {
   /** `owner/repo`, exactly as GitHub spells it. Public repositories only. */
   repo: string;
+  /** See `ProjectTag`. Order does not matter; a project may have both. */
+  tags?: ProjectTag[];
   /** URL segment, and the name of the optional note. Defaults to the repo name. */
   slug?: string;
   /** Defaults to the repo name. Emoji are fine; they are part of the title. */
@@ -53,6 +70,7 @@ export const PROJECTS: ProjectDef[] = [
     repo: 'bobbymeyer/music-for-bus-stops',
     title: '🚏 music for bus stops',
     summary: 'algorithmic ambience on the cheap',
+    tags: ['featured', 'interactive'],
     bg_color: POST_PALETTE.teal,
     splash: '/posts/music-for-bus-stops/map.png',
   },
@@ -60,6 +78,7 @@ export const PROJECTS: ProjectDef[] = [
     repo: 'bobbymeyer/albers-squares',
     title: '🟧 Albers’ squares',
     summary: 'a homage to Homage to the Square',
+    tags: ['interactive'],
     bg_color: POST_PALETTE.violet,
     splash: '/posts/albers-squares/splash.png',
   },
@@ -67,6 +86,7 @@ export const PROJECTS: ProjectDef[] = [
     repo: 'bobbymeyer/treegen',
     title: '🌳 treegen',
     summary: 'get in touch with nature without touching any nature',
+    tags: ['featured', 'interactive'],
     bg_color: POST_PALETTE.green,
     splash: '/posts/treegen/splash.svg',
   },
@@ -90,9 +110,26 @@ export const PROJECTS: ProjectDef[] = [
     bg_color: POST_PALETTE.rust,
     splash: '/posts/succession/splash.svg',
   },
+  {
+    repo: 'bobbymeyer/bobbymeyerdotcom',
+    title: '🪞 bobbymeyer.com',
+    summary: 'a portfolio that rebuilds itself from GitHub',
+    bg_color: POST_PALETTE.paper,
+    splash: '/posts/bobbymeyerdotcom/splash.svg',
+  },
 ];
 
 /** The slug a project lives at: `slug` if it sets one, else the repo name. */
 export function projectSlug(project: ProjectDef): string {
   return project.slug ?? project.repo.split('/')[1]!;
+}
+
+/** Twice the width on the index, and sorted above everything that is not. */
+export function isFeatured(project: ProjectDef): boolean {
+  return project.tags?.includes('featured') ?? false;
+}
+
+/** Runs on its own page: the index marks it, and the legend explains the mark. */
+export function isInteractive(project: ProjectDef): boolean {
+  return project.tags?.includes('interactive') ?? false;
 }

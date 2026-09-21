@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="Three process ink dots — cyan, magenta and yellow — overlapping into blue, green, red and black.">
+  <!--
+    The site's own mark at splash size: process cyan, magenta and yellow,
+    blown out from the near-register drift of the header lockup to the full
+    Venn. The centres sit on an equilateral triangle whose side is the dot's
+    radius, which is the same geometry the header blooms to.
+
+    The ground is the sheet. Process inks are subtractive — each one is a
+    statement about what it takes out of the light the paper sends back — so
+    they are only themselves on white, and the secondaries below are only the
+    right colours there. A tinted ground would make the whole thing a picture
+    of a mark rather than the mark.
+
+    The overlaps are painted rather than blended. `mix-blend-mode: multiply`
+    is what the header uses and what this file used first, and librsvg — which
+    is what rasterises this SVG into the social card — does not implement it,
+    so the card came out as three flat opaque circles in the wrong colours.
+    These seven regions are that multiply worked out by hand instead:
+
+      C #00aeef   M #ec008c   Y #fff200
+      C×M #000083   C×Y #00a500   M×Y #ec0000   C×M×Y #000000
+
+    which renders the same everywhere, browsers and rasterisers alike.
+
+    Sized to survive a crop. The card takes a 430×630 portrait out of the
+    middle of this, which is 614 source pixels wide; the mark is 600 across
+    and centred, so nothing of it is trimmed.
+  -->
+  <defs>
+    <clipPath id="ink-c"><circle cx="800" cy="334.5" r="200"/></clipPath>
+    <clipPath id="ink-m"><circle cx="900" cy="507.7" r="200"/></clipPath>
+    <clipPath id="ink-y"><circle cx="700" cy="507.7" r="200"/></clipPath>
+  </defs>
+
+  <rect width="1600" height="900" fill="#ffffff"/>
+
+  <circle cx="800" cy="334.5" r="200" fill="#00aeef"/>
+  <circle cx="900" cy="507.7" r="200" fill="#ec008c"/>
+  <circle cx="700" cy="507.7" r="200" fill="#fff200"/>
+
+  <g clip-path="url(#ink-c)">
+    <g clip-path="url(#ink-m)"><rect width="1600" height="900" fill="#000083"/></g>
+    <g clip-path="url(#ink-y)"><rect width="1600" height="900" fill="#00a500"/></g>
+  </g>
+  <g clip-path="url(#ink-m)">
+    <g clip-path="url(#ink-y)"><rect width="1600" height="900" fill="#ec0000"/></g>
+  </g>
+  <g clip-path="url(#ink-c)">
+    <g clip-path="url(#ink-m)">
+      <g clip-path="url(#ink-y)"><rect width="1600" height="900" fill="#000000"/></g>
+    </g>
+  </g>
+</svg>

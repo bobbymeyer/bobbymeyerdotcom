@@ -1,0 +1,63 @@
+# What has to hold before a change reaches Netlify.
+#
+# The site is assembled from other repositories at build time, so a build here
+# is a real check rather than a formality: it type-checks the source and then
+# reads every repository in `src/projects.ts`. A repo that has been renamed,
+# made private or deleted fails the build — by design, `src/lib/project-
+# entries.ts` would rather stop than ship a project page with nothing on it —
+# and this is where that should surface, not in a deploy.
+#
+# `GITHUB_TOKEN` is the token Actions mints for the run. It needs no scopes:
+# every repository on the site is public, and all it buys is the API's 5,000
+# requests an hour instead of 60, which one push can otherwise exhaust.
+#
+# `npm install` rather than `npm ci`, and no dependency cache, because
+# package-lock.json is not checked in (see .gitignore) and both of those want
+# one — setup-node's `cache: npm` fails the run outright without a lockfile to
+# key on. The install is a cold one every time, which for this many
+# dependencies costs a few seconds.
+#
+# Committing the lockfile would buy back the cache, `npm ci`, and runs that
+# resolve the same tree twice. That is a decision for the repository rather
+# than for this file; it is written down in TODO.md.
+name: CI
+
+# `push` alone, deliberately. A check run attaches to a commit, and a pull
+# request shows the checks for its head commit, so a `pull_request` trigger
+# alongside this one does not add coverage — it just runs everything twice and
+# puts two identically named "build" checks on every pull request. Pushing a
+# branch is what should be checked, whether or not a pull request exists yet.
+# A fork's pull request would need the `pull_request` trigger; there are none.
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check
+        run: npm run check
+
+      - name: Build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build

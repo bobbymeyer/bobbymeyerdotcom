@@ -360,3 +360,54 @@
   white-space: nowrap;
   border: 0;
 }
+
+/* When an interactive piece could not load. It stands where the canvas would
+   have been, so the note is not left holding an empty box, and it is ruled
+   like a pulled quote rather than styled as an error — nothing has gone
+   wrong with the page, one request did not come back. */
+.sketch-fallback {
+  margin: var(--page-gap) 0;
+  padding: var(--page-gap);
+  border: 1px solid #000;
+}
+
+.sketch-fallback p {
+  margin: 0;
+  max-width: 48em;
+  line-height: var(--line-height);
+}
+
+.sketch-fallback p + p {
+  margin-top: var(--page-gap);
+  font-weight: 600;
+}
+
+.sketch-fallback a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 4px solid transparent;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat;
+  transition: border-color 0.4s ease, background 0.4s ease;
+}
+
+@media (hover: hover) {
+  .sketch-fallback a:hover {
+    border-bottom-color: currentColor;
+    background: none;
+  }
+}
+
+.sketch-fallback a:focus {
+  outline: none;
+}
+
+.sketch-fallback a:focus-visible {
+  border-bottom-color: currentColor;
+  background: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sketch-fallback a {
+    transition: none;
+  }
+}
