@@ -9,6 +9,7 @@ import {
   interestRanks,
   interestsFrom,
   orderInterests,
+  tagHref,
 } from '@/lib/interests';
 import portrait from '@/assets/portrait.jpg';
 import '@/styles/post.css';
@@ -79,7 +80,12 @@ const listed = orderInterests(interests, DEFAULT_INTEREST_ORDER);
                     data-rank-greatest={ranks.greatest[interest.tag]}
                     data-rank-recent={ranks.recent[interest.tag]}
                   >
-                    {interest.tag}
+                    <a href={tagHref(interest.tag)}>
+                      {interest.tag}
+                      <span class="visually-hidden">
+                        {interest.count === 1 ? ' — 1 project' : ` — ${interest.count} projects`}
+                      </span>
+                    </a>
                   </li>
                 ))}
               </ul>

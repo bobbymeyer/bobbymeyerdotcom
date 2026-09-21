@@ -221,3 +221,101 @@
   letter-spacing: 0.04em;
   opacity: 0.6;
 }
+
+/*
+ * The filter row: every tag on the site, weightiest first, with "everything"
+ * at the head of it as the way back.
+ *
+ * These are links to pages, not controls — each tag has a page built for it,
+ * so narrowing the list is a navigation and needs no script. The current one
+ * carries `aria-current="page"` and is filled, so the state is in the markup
+ * rather than only in the ink.
+ */
+.home-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--page-gap) / 2);
+  grid-column: 1 / -1;
+  margin-bottom: var(--page-gutter);
+}
+
+.home-filter-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  padding: calc(var(--page-gap) / 4) calc(var(--page-gap) / 2);
+  border: 1px solid #000;
+  color: inherit;
+  font-size: 0.857em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: var(--line-height);
+  text-decoration: none;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+@media (hover: hover) {
+  .home-filter-tag:hover {
+    background: #000;
+    color: #fff;
+  }
+}
+
+.home-filter-tag:focus {
+  outline: none;
+}
+
+.home-filter-tag:focus-visible {
+  background: #000;
+  color: #fff;
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+.home-filter-tag[aria-current='page'] {
+  background: #000;
+  color: #fff;
+}
+
+/* The tally rides at the weight of a caption so the tag stays the thing you
+   read and the number stays the thing you check. */
+.home-filter-count {
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+.home-filter-tag[aria-current='page'] .home-filter-count {
+  opacity: 0.7;
+}
+
+/* On a card: what this one is about, set rather than linked. The card is one
+   anchor already and an anchor cannot hold another. The tag matching the page
+   being looked at is drawn in, so a filtered view shows at a glance which of
+   a card's tags put it there. */
+.home-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--page-gap) / 3);
+  margin-top: calc(var(--page-gap) / 2);
+}
+
+.home-item-tag {
+  padding: 0 0.4em;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  font-size: 0.786em;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+.home-item-tag[data-active] {
+  border-color: #000;
+  background: #000;
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-filter-tag {
+    transition: none;
+  }
+}

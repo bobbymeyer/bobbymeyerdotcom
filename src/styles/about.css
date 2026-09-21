@@ -119,3 +119,51 @@
 .about-copy > p + p {
   margin-top: var(--page-gap);
 }
+
+/* A tag is a way into the projects carrying it now, so the whole chip is the
+   target rather than the word inside it — a 4px strip of border that does
+   nothing is the sort of thing that only reads as a bug on a touchscreen.
+ *
+ * Selectors carry `.about-tags` for weight rather than style: post.css sets
+ * every link in an article with `.post article a`, which is one class and two
+ * elements, and a plain `.about-tag a` is one class and one element and loses
+ * to it. That is how the chips first shipped with the article's hairline
+ * underline drawn beneath their own border — a box with a second rule under
+ * it. Two classes settles it. */
+.about-tag {
+  padding: 0;
+}
+
+.about-tags .about-tag a {
+  display: block;
+  padding: calc(var(--page-gap) / 4) calc(var(--page-gap) / 2);
+  border: 0;
+  background: none;
+  color: inherit;
+  text-decoration: none;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+@media (hover: hover) {
+  .about-tags .about-tag a:hover {
+    background: #000;
+    color: #fff;
+  }
+}
+
+.about-tags .about-tag a:focus {
+  outline: none;
+}
+
+.about-tags .about-tag a:focus-visible {
+  background: #000;
+  color: #fff;
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about-tags .about-tag a {
+    transition: none;
+  }
+}

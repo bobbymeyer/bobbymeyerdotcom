@@ -38,9 +38,11 @@ src/
     og.ts                  # the social card, drawn at build time
   pages/
     index.astro            # the index — featured first, newest change after
+    tags/[tag].astro       # the index, narrowed to one tag
     posts/[...slug].astro  # one project page
     og/[slug].png.ts       # /og/<slug>.png, one card per project + /og/site.png
   components/
+    ProjectIndex.astro     # the grid and its tag filter, shared by / and /tags
     Timeline.astro         # the merged pull requests, under the splash
     RegMark.astro          # the registration target on an interactive splash
   content.config.ts        # the note schema (there is barely any)
@@ -72,6 +74,8 @@ last commit on the repo's default branch, so a project that moves comes back to
 the top of its band on the next build. Featured projects also take two of the
 four fields, pinned to the left, and the rest pack into the two they leave; see
 **Tags**.
+
+`/tags/<tag>/` is the same index narrowed to one tag — see **Filtering**.
 
 A project page sets a project out in two fields: the note and the README on the
 left across three of four, and on the right the repository's own account of
@@ -229,6 +233,24 @@ the order the page claims to be showing.
 Tags live on the note rather than on the project because the note is the part
 that is not a repository — writing with no repo behind it would carry tags the
 same way. `src/lib/interests.ts` does the counting.
+
+### Filtering
+
+Each tag has a page: `/tags/<tag>/`, built from the tags the notes actually
+carry, so there is never a page for a tag nothing has and never a tag with
+nowhere to go. The index and every tag page are the same component
+(`src/components/ProjectIndex.astro`) looking at different amounts of the same
+list.
+
+Filtering is navigation, not a script. That is what makes a filtered view
+linkable, bookmarkable and crawlable, and it is why it works with JavaScript
+off — a query string on a static site would be none of those. The client
+router makes it feel like filtering; nothing depends on that.
+
+A card prints its own tags but does not link them: the card is already one
+anchor and an anchor cannot hold another. The filter row above the grid is
+where a tag is something you can press, and on a filtered view the tag that
+put a card there is drawn in, so it is clear which one matched.
 
 ## Social cards
 

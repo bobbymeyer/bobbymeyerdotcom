@@ -41,6 +41,12 @@ export interface ProjectEntry {
   versionUrl: string | null;
   bg: string;
   splash: string | undefined;
+  /**
+   * What this project is about, from its note's frontmatter. The index prints
+   * them on the card, the about page counts them, and each one has a page of
+   * its own listing everything that carries it.
+   */
+  tags: string[];
   /** Twice the width on the index, and sorted above everything unfeatured. */
   featured: boolean;
   /** Runs on its own page; the index marks it with a registration target. */
@@ -195,6 +201,7 @@ async function load(
     versionUrl: version?.url ?? null,
     bg: project.bg_color,
     splash: project.splash,
+    tags: normalizeTags(notes.get(slug)?.data.tags),
     featured: isFeatured(project),
     interactive: isInteractive(project),
     published: new Date(repo.created_at),
@@ -214,6 +221,24 @@ async function load(
     timeline,
     note: notes.get(slug) ?? null,
   };
+}
+
+/**
+ * A note's tags, tidied and deduplicated.
+ *
+ * Lowercased so that `Print` and `print` are one interest rather than two,
+ * and order is kept as written — a note lists what it is mostly about first,
+ * and the card prints them in that order.
+ */
+function normalizeTags(tags: string[] | undefined): string[] {
+  const seen = new Set<string>();
+
+  for (const raw of tags ?? []) {
+    const tag = raw.trim().toLowerCase();
+    if (tag) seen.add(tag);
+  }
+
+  return [...seen];
 }
 
 /** For comparing a note with a title: case, spacing and final stop are noise. */

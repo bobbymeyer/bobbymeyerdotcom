@@ -1,0 +1,126 @@
+---
+/**
+ * The grid of projects, and the row of tags that narrows it.
+ *
+ * Shared by `/` and by every `/tags/<tag>/`, because those are the same page
+ * looking at different amounts of the same list, and two copies of a card
+ * would have drifted apart by the second change.
+ *
+ * Filtering is navigation rather than a script: each tag is a real page built
+ * at build time, so a filtered view is linkable, survives being bookmarked,
+ * is crawlable, and works with no JavaScript at all. The client router makes
+ * it feel like filtering; nothing here depends on that.
+ */
+import Mark from '@/components/Mark.astro';
+import { formatPostDate } from '@/utils/format-post-date';
+import { tagHref } from '@/lib/interests';
+import type { Interest } from '@/lib/interests';
+import type { ProjectEntry } from '@/lib/project-entries';
+
+interface Props {
+  /** Already filtered — this component narrows nothing itself. */
+  projects: ProjectEntry[];
+  /** Every tag on the site, in the order the filter row should print them. */
+  tags: Interest[];
+  /** The tag being looked at, if this is a filtered view. */
+  activeTag?: string;
+  /** The heading over the grid, and what level it sits at on this page. */
+  heading: string;
+  headingLevel: 'h1' | 'h2';
+}
+
+const { projects, tags, activeTag, heading, headingLevel } = Astro.props;
+
+// The index is the top of the page's outline and a tag page is its own
+// subject, so the same heading is an h2 on one and an h1 on the other.
+const Heading = headingLevel;
+
+// The legend only earns its place if something on *this* page wears the mark
+// it explains — a filtered view often has nothing interactive in it.
+const anyInteractive = projects.some((project) => project.interactive);
+---
+
+<Heading class="home-title">
+  {heading}
+  {anyInteractive && (
+    <span class="home-legend">
+      (<span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = interactive preview)
+    </span>
+  )}
+</Heading>
+
+{tags.length > 0 && (
+  <nav class="home-filter" aria-label="Filter projects by tag">
+    <a class="home-filter-tag" href="/" aria-current={activeTag ? undefined : 'page'}>
+      everything
+    </a>
+    {tags.map((interest) => (
+      <a
+        class="home-filter-tag"
+        href={tagHref(interest.tag)}
+        aria-current={interest.tag === activeTag ? 'page' : undefined}
+      >
+        {interest.tag}
+        <span class="home-filter-count" aria-hidden="true">{interest.count}</span>
+        <span class="visually-hidden">
+          {interest.count === 1 ? '1 project' : `${interest.count} projects`}
+        </span>
+      </a>
+    ))}
+  </nav>
+)}
+
+<div class="home-index">
+  {projects.map((project) => (
+    <a
+      class="home-item"
+      href={project.href}
+      data-featured={project.featured ? '' : undefined}
+      data-archived={project.repo.archived ? '' : undefined}
+    >
+      <div
+        class="splash"
+        style={`--post-color: ${project.bg}`}
+        transition:name={`splash-${project.slug}`}
+      >
+        {project.splash && <img src={project.splash} alt="" />}
+        {project.interactive && (
+          <span class="mark-badge splash-mark"><Mark /></span>
+        )}
+      </div>
+      <div class="home-item-copy">
+        <h3 transition:name={`title-${project.slug}`}>
+          {project.title}{project.version && <sup>v{project.version}</sup>}
+        </h3>
+        {project.repo.archived && <p class="archived-note">archived</p>}
+        <p class="home-item-summary" transition:name={`summary-${project.slug}`}>{project.summary}</p>
+        {/*
+          Tags are set here, not linked. The whole card is already one anchor,
+          and an anchor cannot hold another — the filter row above is where a
+          tag is something you can press.
+        */}
+        {project.tags.length > 0 && (
+          <p class="home-item-tags">
+            {project.tags.map((tag) => (
+              <span class="home-item-tag" data-active={tag === activeTag ? '' : undefined}>{tag}</span>
+            ))}
+          </p>
+        )}
+        <p class="home-item-meta">
+          <span class="home-item-date">
+            <span class="visually-hidden">Last change </span>
+            {formatPostDate(project.updated)}
+          </span>
+          {project.interactive && <span class="visually-hidden">Interactive</span>}
+          {project.timeline.length > 0 && (
+            <span class="home-item-count">
+              {project.timeline.length === 1
+                ? '1 merged pull request'
+                : `${project.timeline.length} merged pull requests`}
+            </span>
+          )}
+        </p>
+      </div>
+    </a>
+  ))}
+</div>

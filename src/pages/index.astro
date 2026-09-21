@@ -1,16 +1,16 @@
 ---
 import Base from '@/layouts/Base.astro';
-import Mark from '@/components/Mark.astro';
+import ProjectIndex from '@/components/ProjectIndex.astro';
 import { projectEntries } from '@/lib/project-entries';
-import { formatPostDate } from '@/utils/format-post-date';
+import { interestsFrom, orderInterests } from '@/lib/interests';
 import { DESCRIPTION, LEDE, NAME, PLACE } from '@/site';
 import '@/styles/home.css';
 
 const projects = await projectEntries();
 
-// The legend only earns its place if there is something on the page wearing
-// the mark it explains.
-const anyInteractive = projects.some((project) => project.interactive);
+// The filter row is ordered by weight: the tags with the most behind them are
+// the ones worth offering first, and the singles trail off the end.
+const tags = orderInterests(interestsFrom(projects), 'greatest');
 ---
 
 <Base description={DESCRIPTION}>
@@ -26,56 +26,6 @@ const anyInteractive = projects.some((project) => project.interactive);
       <p class="home-place">{PLACE} — <a href="/contact">say hello</a></p>
     </header>
 
-    <h2 class="home-title">
-      projects
-      {anyInteractive && (
-        <span class="home-legend">
-          (<span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = interactive preview)
-        </span>
-      )}
-    </h2>
-
-    <div class="home-index">
-      {projects.map((project) => (
-        <a
-          class="home-item"
-          href={project.href}
-          data-featured={project.featured ? '' : undefined}
-          data-archived={project.repo.archived ? '' : undefined}
-        >
-          <div
-            class="splash"
-            style={`--post-color: ${project.bg}`}
-            transition:name={`splash-${project.slug}`}
-          >
-            {project.splash && <img src={project.splash} alt="" />}
-            {project.interactive && (
-              <span class="mark-badge splash-mark"><Mark /></span>
-            )}
-          </div>
-          <div class="home-item-copy">
-            <h3 transition:name={`title-${project.slug}`}>
-              {project.title}{project.version && <sup>v{project.version}</sup>}
-            </h3>
-            {project.repo.archived && <p class="archived-note">archived</p>}
-            <p class="home-item-summary" transition:name={`summary-${project.slug}`}>{project.summary}</p>
-            <p class="home-item-meta">
-              <span class="home-item-date">
-                <span class="visually-hidden">Last change </span>
-                {formatPostDate(project.updated)}
-              </span>
-              {project.interactive && <span class="visually-hidden">Interactive</span>}
-              {project.timeline.length > 0 && (
-                <span class="home-item-count">
-                  {project.timeline.length === 1
-                    ? '1 merged pull request'
-                    : `${project.timeline.length} merged pull requests`}
-                </span>
-              )}
-            </p>
-          </div>
-        </a>
-      ))}
-    </div>
+    <ProjectIndex projects={projects} tags={tags} heading="projects" headingLevel="h2" />
   </main>
 </Base>
