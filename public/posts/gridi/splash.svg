@@ -1,27 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="Sixteen steps along a line with seven evenly spread hits, the pattern x..x.x.x..x.x.x.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" width="1600" height="900" role="img" aria-label="Five lines leaving one edge together, each ending at a different distance. The two shortest have delivered; the rest carry a red pulse, all the same distance out.">
   <rect width="1600" height="900" fill="#ffffff"/>
-  <g stroke="#111111" stroke-opacity="0.09" stroke-width="2"><path d="M50 0V900M100 0V900M150 0V900M250 0V900M300 0V900M350 0V900M450 0V900M500 0V900M550 0V900M650 0V900M700 0V900M750 0V900M850 0V900M900 0V900M950 0V900M1050 0V900M1100 0V900M1150 0V900M1250 0V900M1300 0V900M1350 0V900M1450 0V900M1500 0V900M1550 0V900M0 50H1600M0 100H1600M0 150H1600M0 250H1600M0 300H1600M0 350H1600M0 450H1600M0 500H1600M0 550H1600M0 650H1600M0 700H1600M0 750H1600M0 850H1600"/></g>
-  <g stroke="#111111" stroke-opacity="0.2" stroke-width="2"><path d="M200 0V900M400 0V900M600 0V900M800 0V900M1000 0V900M1200 0V900M1400 0V900M0 200H1600M0 400H1600M0 600H1600M0 800H1600"/></g>
-  <!-- The line the pulses run along -->
-  <rect x="120" y="444" width="1360" height="12" fill="#111111"/>
+  <g stroke="#111111" stroke-opacity="0.12" stroke-width="1.5"><path d="M44 0V900M88 0V900M132 0V900M220 0V900M264 0V900M308 0V900M396 0V900M440 0V900M484 0V900M572 0V900M616 0V900M660 0V900M748 0V900M792 0V900M836 0V900M924 0V900M968 0V900M1012 0V900M1100 0V900M1144 0V900M1188 0V900M1276 0V900M1320 0V900M1364 0V900M1452 0V900M1496 0V900M1540 0V900M1628 0V900M0 44H1600M0 88H1600M0 132H1600M0 220H1600M0 264H1600M0 308H1600M0 396H1600M0 440H1600M0 484H1600M0 572H1600M0 616H1600M0 660H1600M0 748H1600M0 792H1600M0 836H1600M0 924H1600"/></g>
+  <g stroke="#111111" stroke-opacity="0.2" stroke-width="1.5"><path d="M0 0V900M352 0V900M528 0V900M704 0V900M1056 0V900M1232 0V900M1408 0V900M0 176H1600M0 352H1600M0 528H1600M0 880H1600"/></g>
+  <g stroke="#111111" stroke-opacity="0.34" stroke-width="2"><path d="M176 0V900M880 0V900M1584 0V900M0 0H1600M0 704H1600"/></g>
 
-  <!-- E(7,16) = x..x.x.x..x.x.x.. Hits on the line, rests ticked below -->
+  <rect x="171" y="149" width="10" height="582" fill="#111111"/>
+
+  <!-- Five lines, 0, 6, 12, 20, 28 sixteenths long: the bossa clave. -->
+  <g stroke="#111111" stroke-width="10" fill="none">
+    <path d="M176 308H440"/>
+    <path d="M176 440H704"/>
+    <path d="M176 572H1056"/>
+    <path d="M176 704H1408"/>
+  </g>
+
+  <!-- Where each one ends is when its note sounds. -->
   <g>
-    <rect x="118.5" y="406" width="88" height="88" fill="#e1251b"/>
-    <rect x="238.5" y="570" width="18" height="18" fill="#111111"/>
-    <rect x="323.5" y="570" width="18" height="18" fill="#111111"/>
-    <rect x="373.5" y="406" width="88" height="88" fill="#e1251b"/>
-    <rect x="493.5" y="570" width="18" height="18" fill="#111111"/>
-    <rect x="543.5" y="406" width="88" height="88" fill="#e1251b"/>
-    <rect x="663.5" y="570" width="18" height="18" fill="#111111"/>
-    <rect x="713.5" y="406" width="88" height="88" fill="#e1251b"/>
-    <rect x="833.5" y="570" width="18" height="18" fill="#111111"/>
-    <rect x="918.5" y="570" width="18" height="18" fill="#111111"/>
-    <rect x="968.5" y="406" width="88" height="88" fill="#e1251b"/>
-    <rect x="1088.5" y="570" width="18" height="18" fill="#111111"/>
-    <rect x="1138.5" y="406" width="88" height="88" fill="#e1251b"/>
-    <rect x="1258.5" y="570" width="18" height="18" fill="#111111"/>
-    <rect x="1308.5" y="406" width="88" height="88" fill="#e1251b"/>
-    <rect x="1428.5" y="570" width="18" height="18" fill="#111111"/>
+    <rect x="149" y="149" width="54" height="54" fill="#e1251b"/>
+    <rect x="413" y="281" width="54" height="54" fill="#e1251b"/>
+    <rect x="677" y="413" width="54" height="54" fill="#111111"/>
+    <rect x="1029" y="545" width="54" height="54" fill="#111111"/>
+    <rect x="1381" y="677" width="54" height="54" fill="#111111"/>
+  </g>
+
+  <!-- Same instant, same speed, so still in a column. -->
+  <g fill="#e1251b">
+    <rect x="467" y="423" width="34" height="34"/>
+    <rect x="467" y="555" width="34" height="34"/>
+    <rect x="467" y="687" width="34" height="34"/>
   </g>
 </svg>
