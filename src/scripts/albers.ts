@@ -5,8 +5,16 @@
 // the post, torn down on client-side navigation. p5 and the sketch both load on
 // demand, only on the page that has the #albers-container.
 
+import { clearSketchFallback, showSketchFallback } from '@/scripts/sketch-fallback';
+
 const P5_SRC = 'https://cdn.jsdelivr.net/npm/p5@1.11.3/lib/p5.min.js';
 const SKETCH_SRC = 'https://bobbymeyer.github.io/albers-squares/sketch.js';
+
+/** Where the sketch runs when this page cannot run it. */
+const FALLBACK = {
+  href: 'https://bobbymeyer.github.io/albers-squares/',
+  label: 'its own deploy',
+};
 
 let p5Loading: Promise<void> | null = null;
 let sketchLoading: Promise<void> | null = null;
@@ -37,6 +45,7 @@ function loadSketch(): Promise<void> {
 }
 
 function teardown() {
+  clearSketchFallback(document.getElementById('albers-container'));
   if (!instance) return;
   instance.remove();
   instance = null;
@@ -46,6 +55,9 @@ export async function initAlbers() {
   const container = document.getElementById('albers-container');
   if (!container || instance) return;
 
+  // A retry after a failed load starts from a clean container.
+  clearSketchFallback(container);
+
   // Both loads reach across the network, and the reader can navigate away
   // while they are in flight. Neither failing should take the page with it —
   // the post reads fine without the canvas.
@@ -53,6 +65,7 @@ export async function initAlbers() {
     await Promise.all([loadP5(), loadSketch()]);
   } catch (error) {
     console.error('Albers: could not load the sketch', error);
+    showSketchFallback(container, FALLBACK);
     return;
   }
 

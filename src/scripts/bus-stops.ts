@@ -3,8 +3,20 @@
 // navigation; p5 and p5.sound load on demand, only on the page that has the
 // #song-container, and only once.
 
+import { clearSketchFallback, showSketchFallback } from '@/scripts/sketch-fallback';
+
 const P5_SRC = 'https://cdn.jsdelivr.net/npm/p5@1.11.3/lib/p5.min.js';
 const P5_SOUND_SRC = 'https://cdn.jsdelivr.net/npm/p5@1.11.3/lib/addons/p5.sound.min.js';
+
+/**
+ * Where it works when p5 will not load. Unlike the other two sketches this
+ * one is not published anywhere but its repository — the page it runs on is
+ * this page — so the repository is what there is to point at.
+ */
+const FALLBACK = {
+  href: 'https://github.com/bobbymeyer/music-for-bus-stops',
+  label: 'GitHub',
+};
 
 let p5Loading: Promise<void> | null = null;
 let instance: any = null;
@@ -30,6 +42,7 @@ function loadP5(): Promise<void> {
 }
 
 function teardown() {
+  clearSketchFallback(document.getElementById('song-container'));
   if (!instance) return;
   instance.__cleanup?.();
   instance.remove();
@@ -42,7 +55,20 @@ export async function initBusStops() {
 
   const base = container.dataset.base ?? '/posts/music-for-bus-stops/';
 
-  await loadP5();
+  // A retry after a failed load starts from a clean container.
+  clearSketchFallback(container);
+
+  // p5 comes off a CDN, and the reader can navigate away while it is in
+  // flight. Neither failing should take the page with it, and an unhandled
+  // rejection is not an account of it that anyone reading the page can see.
+  try {
+    await loadP5();
+  } catch (error) {
+    console.error('Music for bus stops: could not load p5', error);
+    showSketchFallback(container, FALLBACK);
+    return;
+  }
+
   const p5 = (window as any).p5;
   // Guard against navigating away while p5 was loading.
   if (!p5 || !document.getElementById('song-container')) return;
