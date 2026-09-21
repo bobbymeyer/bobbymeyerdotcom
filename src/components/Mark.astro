@@ -18,13 +18,19 @@
  */
 interface Props {
   class?: string;
+  /**
+   * What the three plates are cut as. Circles are the mark; stars are the
+   * mark a featured project wears, so that a project which is both featured
+   * and interactive says both things with one mark instead of two badges.
+   */
+  shape?: 'dot' | 'star';
 }
 
-const { class: className } = Astro.props;
+const { class: className, shape = 'dot' } = Astro.props;
 ---
 
-<span class:list={['mark', className]} aria-hidden="true">
-  <span class="mark-dot mark-dot--c"></span>
-  <span class="mark-dot mark-dot--m"></span>
-  <span class="mark-dot mark-dot--y"></span>
+<span class:list={['mark', shape === 'star' && 'mark--star', className]} aria-hidden="true">
+  <span class="mark-dot mark-dot--c">{shape === 'star' ? '★' : ''}</span>
+  <span class="mark-dot mark-dot--m">{shape === 'star' ? '★' : ''}</span>
+  <span class="mark-dot mark-dot--y">{shape === 'star' ? '★' : ''}</span>
 </span>

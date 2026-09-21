@@ -105,9 +105,21 @@
 /* Set as running text, not as a flex row: the brackets belong tight against
    what they enclose, and a gap that puts air after the opening one reads as a
    mistake. The mark spaces itself with margins instead. */
+/* The brackets are punctuation around the legend, not content in it, so CSS
+   sets them. Written into the markup they have to be expressions to keep JSX
+   from putting a space between a bracket and what it encloses, which is a lot
+   of machinery for two characters. */
 .home-legend {
   font-weight: 400;
   opacity: 0.6;
+}
+
+.home-legend::before {
+  content: '(';
+}
+
+.home-legend::after {
+  content: ')';
 }
 
 /* The legend prints the same badge the splashes wear, at reading size. The
