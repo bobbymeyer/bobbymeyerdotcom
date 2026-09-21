@@ -1,12 +1,13 @@
 ---
 import Base from '@/layouts/Base.astro';
+import { NAME } from '@/site';
 import '@/styles/post.css';
 import '@/styles/page.css';
 
-const description = 'Get in touch with Bobby Meyer.';
+const description = `Get in touch with ${NAME}.`;
 ---
 
-<Base title="contact — Bobby Meyer" description={description}>
+<Base title="contact" description={description}>
   <main class="post">
     <div class="post-main">
       <header>
