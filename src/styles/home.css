@@ -75,16 +75,28 @@
    small heading with a rule hanging under it. The legend sits on that line,
    after the word, because the mark it explains is about to appear eight
    times and nowhere else does the page get to say what it means. */
-.home-title {
+/* The heading and the filter share a line, and the rule belongs to the row
+   rather than to either of them. `relative` so the open panel can be laid
+   over the grid instead of pushing it down the page. */
+.home-head {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
+  justify-content: space-between;
   gap: var(--page-gap);
   grid-column: 1 / -1;
   margin-top: var(--page-gutter);
   margin-bottom: var(--page-gap);
   padding-bottom: calc(var(--page-gap) / 2);
   border-bottom: 1px solid #000;
+}
+
+.home-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--page-gap);
   font-size: var(--font-size-h6);
   font-weight: 600;
   line-height: var(--line-height);
@@ -229,9 +241,10 @@
  * reader reaches for occasionally rather than the first thing on the page.
  * Closed it is one word and, when something is ticked, a count.
  */
+/* Left static on purpose: the panel below positions itself against
+   `.home-head`, so it spans the row rather than hanging off the button. */
 .home-filter {
-  grid-column: 1 / -1;
-  margin-bottom: var(--page-gutter);
+  position: static;
 }
 
 .home-filter-summary {
@@ -293,10 +306,18 @@
   color: #000;
 }
 
+/* Over the grid, not above it. Opening a filter should not move the thing
+   you are about to filter. Needs its own ground — the page's is a gradient
+   and the cards would otherwise read straight through. */
 .home-filter-panel {
-  margin-top: var(--page-gap);
+  position: absolute;
+  z-index: 2;
+  top: calc(100% + var(--page-gap));
+  right: 0;
+  left: 0;
   padding: var(--page-gap);
   border: 1px solid #000;
+  background: #fff;
 }
 
 .home-filter-set {
@@ -391,6 +412,31 @@
   border-color: #000;
   background: #000;
   color: #fff;
+}
+
+/* An option that would leave nothing on the page. Dimmed rather than removed,
+   so the vocabulary stays put as a reader ticks things and the panel does not
+   reflow under the pointer. */
+.home-filter-option:has(input:disabled),
+.home-filter-option[data-empty] {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.home-filter-option:has(input:disabled) input {
+  cursor: not-allowed;
+}
+
+/* Reachable only by a hand-written query, but a grid that silently emptied
+   would read as a broken page rather than an answer. */
+.home-empty {
+  grid-column: 1 / -1;
+  margin-bottom: var(--page-gutter);
+  font-size: var(--font-size-h5);
+}
+
+.home-empty[hidden] {
+  display: none;
 }
 
 /* A filtered-out card. `.home-item` sets `display: flex`, which beats the

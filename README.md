@@ -37,12 +37,10 @@ src/
     project-entries.ts     # a repo + its note, assembled into a page
     og.ts                  # the social card, drawn at build time
   pages/
-    index.astro            # the index — featured first, newest change after
-    tags/[tag].astro       # the index, narrowed to one tag
+    index.astro            # the index — the grid, and the tag filter over it
     posts/[...slug].astro  # one project page
     og/[slug].png.ts       # /og/<slug>.png, one card per project + /og/site.png
   components/
-    ProjectIndex.astro     # the grid and its tag filter, shared by / and /tags
     Timeline.astro         # the merged pull requests, under the splash
     RegMark.astro          # the registration target on an interactive splash
   content.config.ts        # the note schema (there is barely any)
@@ -75,8 +73,6 @@ last commit on the repo's default branch, so a project that moves comes back to
 the top of its band on the next build. Featured projects also take two of the
 four fields, pinned to the left, and the rest pack into the two they leave; see
 **Tags**.
-
-`/tags/<tag>/` is the same index narrowed to one tag — see **Filtering**.
 
 A project page sets a project out in two fields: the note and the README on the
 left across three of four, and on the right the repository's own account of
@@ -237,34 +233,33 @@ same way. `src/lib/interests.ts` does the counting.
 
 ### Filtering
 
-Each tag has a page: `/tags/<tag>/`, built from the tags the notes actually
-carry, so there is never a page for a tag nothing has and never a tag with
-nowhere to go. The index and every tag page are the same component
-(`src/components/ProjectIndex.astro`) looking at different amounts of the same
-list.
+There is one filtered view of the projects and it is the index with a query on
+it: `/?tags=print,music`. The dropdown on the heading line writes that query
+and narrows the grid in the browser.
 
-Those pages are the whole story for one tag: linkable, bookmarkable,
-crawlable, and working with no script at all. They are what `/about` links to.
+There were briefly static pages under `/tags/` as well. They were crawlable
+and worked without script, and they were also a second URL for one idea, a
+second code path to keep in step, and a dropdown that behaved differently
+depending on which of the two you were standing on. One mechanism won.
 
-Several tags at once cannot be a static page — there are 2^n of those — so the
-dropdown above the grid narrows it in the browser and writes the selection
-into the address bar as `?tags=a,b`, which is enough to share. That is the one
-piece of this site that filters at runtime, and it sits on top of a page that
-is already complete: with scripting off the dropdown does nothing, every
-project is still listed, and the tag pages are still there.
+**Ticking tags narrows**: a project has to carry all of them. On nine projects
+most second picks land on nothing, so an option that would take the result to
+zero is disabled as the selection changes — a reader cannot click their way
+into an empty page. The empty state exists anyway, for a `?tags=` typed by
+hand.
 
-**Ticking two tags widens the result**, not narrows it — a project matching
-*any* ticked tag is shown. Intersection reads like the obvious meaning of a
-filter right up until you try it on nine projects, where a second tag almost
-always empties the page.
+The whole grid is rendered and the browser hides what does not match, so with
+scripting off every project is listed and reachable and the only thing missing
+is the narrowing. `/about`'s interests link to the same query.
 
-The filter is a disclosure rather than a row of every tag: fifteen chips above
-the grid is a wall, and this is a thing a reader reaches for occasionally.
-Closed it is one word and, when something is ticked, a count.
+The panel is laid over the grid rather than above it, because opening a filter
+should not move the thing you are about to filter — which is also why it
+closes on Escape and on a click outside, neither of which a `<details>` does
+by itself.
 
 A card prints its own tags but does not link them: the card is already one
-anchor and an anchor cannot hold another. On a narrowed view the tag that put
-a card there is drawn in, so it is clear which one matched.
+anchor and an anchor cannot hold another. The tag that matched is drawn in, so
+it is clear which one put the card there.
 
 ## Social cards
 
