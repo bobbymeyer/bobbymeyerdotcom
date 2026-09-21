@@ -1,0 +1,54 @@
+# What has to hold before a change reaches Netlify.
+#
+# The site is assembled from other repositories at build time, so a build here
+# is a real check rather than a formality: it type-checks the source and then
+# reads every repository in `src/projects.ts`. A repo that has been renamed,
+# made private or deleted fails the build — by design, `src/lib/project-
+# entries.ts` would rather stop than ship a project page with nothing on it —
+# and this is where that should surface, not in a deploy.
+#
+# `GITHUB_TOKEN` is the token Actions mints for the run. It needs no scopes:
+# every repository on the site is public, and all it buys is the API's 5,000
+# requests an hour instead of 60, which one push can otherwise exhaust.
+#
+# `npm install` rather than `npm ci`, because package-lock.json is not checked
+# in (see .gitignore). Committing the lockfile and switching to `npm ci` would
+# make these runs reproducible; that is a decision for the repository, not for
+# this file.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+# A second push to the same branch makes the first run irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Type-check
+        run: npm run check
+
+      - name: Build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npm run build

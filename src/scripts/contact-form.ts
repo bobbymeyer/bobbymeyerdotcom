@@ -8,7 +8,14 @@ export function initContactForm() {
     event.preventDefault();
     error?.setAttribute('hidden', '');
 
-    const body = new URLSearchParams(new FormData(form)).toString();
+    // Every browser accepts a FormData here and encodes it, and has for
+    // years; TypeScript's DOM library does not say so, because FormData's
+    // iterator can in principle yield a File and URLSearchParams takes
+    // strings. This form is three text fields, so it cannot. The cast is
+    // that, and not a shortcut past a real problem.
+    const body = new URLSearchParams(
+      new FormData(form) as unknown as Record<string, string>,
+    ).toString();
 
     try {
       const response = await fetch('/', {
