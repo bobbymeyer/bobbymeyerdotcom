@@ -158,7 +158,7 @@ sup {
   opacity: 1;
 }
 
-.home-item[data-archived] h2,
+.home-item[data-archived] h3,
 .post[data-archived] .project-header h1 {
   text-decoration: line-through;
   text-decoration-thickness: 0.06em;
@@ -168,7 +168,7 @@ sup {
    like a mistake. A decoration does not propagate into an atomic inline box,
    and there is no way to switch one off further down the tree, so making the
    superscript one is what keeps the strike on the name alone. */
-.home-item[data-archived] h2 sup,
+.home-item[data-archived] h3 sup,
 .post[data-archived] .project-header h1 sup {
   display: inline-block;
 }
@@ -207,6 +207,38 @@ sup {
   max-width: none;
   object-fit: cover;
   object-position: center;
+}
+
+/* The registration target on an interactive project's splash.
+ *
+ * It lands on artwork this stylesheet knows nothing about — a pale map, a
+ * near-black halftone, a photograph of leaves — so it cannot be set in any of
+ * the site's inks and hope to be seen. White strokes carry it on the dark
+ * splashes; a dark halo, drawn tight around those strokes rather than cast
+ * under them like a shadow, is what carries it on the light and the busy
+ * ones. A single soft shadow was tried first and disappeared into the
+ * halftone map, which is the worst case on the index and the one to set it
+ * against. The legend beside the heading says what it means, once.
+ */
+.splash-mark {
+  position: absolute;
+  z-index: 1;
+  top: var(--page-gap);
+  right: var(--page-gap);
+  width: 24px;
+  height: 24px;
+  color: #fff;
+  filter:
+    drop-shadow(0 0 1px rgba(0, 0, 0, 0.9))
+    drop-shadow(0 0 3px rgba(0, 0, 0, 0.7))
+    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
+}
+
+@media (min-width: 1200px) {
+  .home-item[data-featured] .splash-mark {
+    width: 32px;
+    height: 32px;
+  }
 }
 
 .site-header,
