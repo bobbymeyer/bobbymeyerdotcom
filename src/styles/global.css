@@ -209,36 +209,96 @@ sup {
   object-position: center;
 }
 
-/* The registration target on an interactive project's splash.
+/* The mark on a disc — what an interactive project wears on its splash, and
+ * what the index's legend prints beside the heading to say so.
  *
- * It lands on artwork this stylesheet knows nothing about — a pale map, a
- * near-black halftone, a photograph of leaves — so it cannot be set in any of
- * the site's inks and hope to be seen. White strokes carry it on the dark
- * splashes; a dark halo, drawn tight around those strokes rather than cast
- * under them like a shadow, is what carries it on the light and the busy
- * ones. A single soft shadow was tried first and disappeared into the
- * halftone map, which is the worst case on the index and the one to set it
- * against. The legend beside the heading says what it means, once.
+ * It lands on artwork this stylesheet knows nothing about: a pale map, a
+ * near-black halftone, a photograph of leaves. The disc is what makes it
+ * legible on all three, and it is the honest answer rather than a contrived
+ * one — process inks are only themselves on white, so a mark of process inks
+ * wants its own sheet under it wherever it goes. The same reasoning put the
+ * site's own splash on paper.
+ *
+ * Centring is deliberate and is the exception the house rules allow: a mark
+ * in a small fixed badge, not text in a column.
  */
+.mark-badge {
+  --mark-box: 22px;
+  --mark-dot: calc(var(--mark-box) / 1.58);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #fff;
+}
+
 .splash-mark {
   position: absolute;
   z-index: 1;
   top: var(--page-gap);
   right: var(--page-gap);
-  width: 24px;
-  height: 24px;
-  color: #fff;
-  filter:
-    drop-shadow(0 0 1px rgba(0, 0, 0, 0.9))
-    drop-shadow(0 0 3px rgba(0, 0, 0, 0.7))
-    drop-shadow(0 1px 2px rgba(0, 0, 0, 0.45));
 }
 
 @media (min-width: 1200px) {
   .home-item[data-featured] .splash-mark {
-    width: 32px;
-    height: 32px;
+    --mark-box: 30px;
+    width: 46px;
+    height: 46px;
   }
+}
+
+/* Hovering a card blows its mark out to full register — the same spread the
+ * lockup performs on a navigation, asked for by the pointer rather than by
+ * the page loading. The offsets are what the bloom keyframes reach, less the
+ * rest position each dot already carries on `transform`: the two compose, so
+ * this is the distance still to travel.
+ *
+ * Keyboard focus gets it too. Touch has no hover and does not need one — the
+ * mark is drifting at rest, which is the thing that says the project moves.
+ */
+@media (hover: hover) {
+  .home-item:hover .mark-dot--c {
+    translate: 0 -23.2%;
+  }
+
+  .home-item:hover .mark-dot--m {
+    translate: 20.1% 11.6%;
+  }
+
+  .home-item:hover .mark-dot--y {
+    translate: -20.1% 11.6%;
+  }
+}
+
+.home-item:focus-visible .mark-dot--c {
+  translate: 0 -23.2%;
+}
+
+.home-item:focus-visible .mark-dot--m {
+  translate: 20.1% 11.6%;
+}
+
+.home-item:focus-visible .mark-dot--y {
+  translate: -20.1% 11.6%;
+}
+
+/* A mark held at full register, for somewhere that has to show what the mark
+   *is* rather than wear it. At reading size a resting mark is three inks
+   almost on top of each other, which reads as a dark dot with a coloured
+   fringe and teaches nobody anything; spread, it is unmistakably three
+   plates — and it shows what hovering a card will do. */
+.mark--spread .mark-dot--c {
+  translate: 0 -23.2%;
+}
+
+.mark--spread .mark-dot--m {
+  translate: 20.1% 11.6%;
+}
+
+.mark--spread .mark-dot--y {
+  translate: -20.1% 11.6%;
 }
 
 .site-header,
@@ -322,6 +382,18 @@ sup {
  * wordmark's own, so the name and every nav label sit on one line — a mark
  * centred in flow would raise the lockup's box and take the name off it.
  */
+/* The mark is its own thing now, not the header's, because the index wears it
+   too — on the splash of any project that runs in the page. A context sets
+   `--mark-box` and `--mark-dot` and positions it; everything below is the
+   mark. */
+.mark {
+  position: relative;
+  width: var(--mark-box);
+  height: var(--mark-box);
+  isolation: isolate;
+  animation: mark-spin 120s linear infinite;
+}
+
 .site-header {
   /* Each circle is the size of a nav accent. Both numbers here are measured
      off the rendered pixels, not the font's metrics: canvas reported the ●
@@ -337,7 +409,7 @@ sup {
   padding-left: calc(var(--mark-box) + var(--page-gap));
 }
 
-.site-mark {
+.site-lockup .mark {
   /* Stacked, the three centre on the mark's own centre, so lining that up
      with the nav accents puts every dot in the chrome on one rule. The lift
      is what the painted accent sits above the middle of the name's line box.
@@ -348,9 +420,6 @@ sup {
   position: absolute;
   left: 0;
   top: calc(50% - var(--mark-box) / 2 - var(--mark-lift));
-  width: var(--mark-box);
-  height: var(--mark-box);
-  isolation: isolate;
   /* Two turns at once, on two different properties so neither clobbers the
      other: the endless slow one on `transform`, and a single fast revolution
      on `rotate` that runs with the bloom. They compose, so the fast turn
@@ -377,7 +446,7 @@ sup {
   }
 }
 
-.site-mark-dot {
+.mark-dot {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -386,11 +455,17 @@ sup {
   margin: calc(var(--mark-dot) / -2) 0 0 calc(var(--mark-dot) / -2);
   border-radius: 50%;
   mix-blend-mode: multiply;
+  /* The spread a card's hover asks for rides on `translate`, which composes
+     with the drift's `transform` rather than replacing it — the same trick
+     the spin and the turn play on each other above. So a dot can be blown
+     out to full register and still be drifting while it is out there, and a
+     pointer that leaves halfway settles it back instead of snapping. */
+  transition: translate 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 /* Full spread puts the centres on an equilateral triangle whose side is the
    dot's radius: a circumradius of 1/sqrt(3) of that, 0.29 of the diameter. */
-.site-mark-dot--c {
+.mark-dot--c {
   background: var(--ink-cyan);
   transform: translate(0, -5.8%);
   animation:
@@ -398,7 +473,7 @@ sup {
     mark-drift-c 7s 2.6s ease-in-out infinite;
 }
 
-.site-mark-dot--m {
+.mark-dot--m {
   background: var(--ink-magenta);
   transform: translate(5%, 2.9%);
   animation:
@@ -406,7 +481,7 @@ sup {
     mark-drift-m 8.5s 2.66s ease-in-out infinite;
 }
 
-.site-mark-dot--y {
+.mark-dot--y {
   background: var(--ink-yellow);
   transform: translate(-5%, 2.9%);
   animation:
@@ -459,9 +534,10 @@ sup {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .site-mark,
-  .site-mark-dot {
+  .mark,
+  .mark-dot {
     animation: none;
+    transition: none;
   }
 }
 
