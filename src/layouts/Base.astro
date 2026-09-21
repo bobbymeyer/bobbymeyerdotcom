@@ -2,7 +2,7 @@
 import { ClientRouter } from 'astro:transitions';
 import { normalizePath } from '@/utils/normalize-path';
 import Mark from '@/components/Mark.astro';
-import { DESCRIPTION, LEDE, NAME, pageTitle } from '@/site';
+import { DESCRIPTION, GITHUB, LEDE, NAME, pageTitle } from '@/site';
 import { OG_HEIGHT, OG_WIDTH } from '@/lib/og';
 import '../styles/fonts.css';
 import '../styles/global.css';
@@ -144,7 +144,13 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
     </header>
     <slot />
     <footer class="site-footer" transition:persist="site-footer">
-      <nav class="site-footer-nav" aria-label="Feed">
+      {/*
+        Short labels here, unlike the about page, which writes the address out
+        in full because it sits in a sentence where the destination is the
+        point. A footer is a row of names, and "RSS" is already one.
+      */}
+      <nav class="site-footer-nav" aria-label="Elsewhere">
+        <a href={GITHUB.url} rel="noopener">GitHub</a>
         <a href="/rss.xml">RSS</a>
       </nav>
     </footer>
