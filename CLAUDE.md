@@ -21,8 +21,22 @@
   one-line summaries under them are lowercase — `readme`, `merged`,
   `about`, `music for bus stops`, `ink-first halftones from press
   profiles`. Proper nouns keep their capital: a person (`Albers`), a place
-  or people (`Swiss`), a product or framework (`Rails`), a name (`Bobby
-  Meyer`), the title of a work (`a homage to Homage to the Square`).
+  or people (`Swiss`), a product or framework (`Rails`), the title of a
+  work (`a homage to Homage to the Square`).
   This is a rule for our own words. Text that comes from somewhere else —
   a pull request title from GitHub, a repository description — is quoted
   as written, not recased.
+
+  **Bobby's own name is the exception to the exception**: it is set
+  `bobby meyer`, lowercase, wherever the site displays it — the header
+  lockup, the index, the social card, the feed. Set it from `NAME` in
+  `src/site.ts` rather than typing it, and track it tighter than the
+  -0.025em headings take when it is set large. Prose that happens to
+  mention him — image alt text, a sentence — is ordinary prose and
+  capitalises normally.
+
+- **Never use a shadow.** No `drop-shadow`, no `box-shadow`, no
+  `text-shadow`, for any reason, including making something legible over
+  an image. This site is ink on paper and ink does not cast shadows. When
+  a mark has to hold up over artwork, give it its own ground — the disc
+  under the mark on an interactive project's splash is how that is done.

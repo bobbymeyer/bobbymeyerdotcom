@@ -7,8 +7,14 @@
  * search result call the site, which is the domain without the dot-com.
  */
 
-/** The person. A name, so it keeps its capitals. */
-export const NAME = 'Bobby Meyer';
+/**
+ * The person.
+ *
+ * Lowercase, which is how he sets it — the header lockup always did, and the
+ * rest of the site follows it rather than the other way round. It is not the
+ * general rule for names on this site, only for this one.
+ */
+export const NAME = 'bobby meyer';
 
 /** What a `<title>` is attributed to, and what the social card signs off. */
 export const HANDLE = 'bobbymeyer';

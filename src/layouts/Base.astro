@@ -1,6 +1,7 @@
 ---
 import { ClientRouter } from 'astro:transitions';
 import { normalizePath } from '@/utils/normalize-path';
+import Mark from '@/components/Mark.astro';
 import { DESCRIPTION, LEDE, NAME, pageTitle } from '@/site';
 import { OG_HEIGHT, OG_WIDTH } from '@/lib/og';
 import '../styles/fonts.css';
@@ -74,7 +75,7 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
     <link
       rel="alternate"
       type="application/rss+xml"
-      title="Bobby Meyer"
+      title={NAME}
       href="/rss.xml"
     />
     <title>{documentTitle}</title>
@@ -84,12 +85,8 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
   <body>
     <header class="site-header">
       <a class="site-lockup" href="/">
-        <span class="site-mark" aria-hidden="true">
-          <span class="site-mark-dot site-mark-dot--c"></span>
-          <span class="site-mark-dot site-mark-dot--m"></span>
-          <span class="site-mark-dot site-mark-dot--y"></span>
-        </span>
-        <span class="site-name">bobby meyer</span>
+        <Mark />
+        <span class="site-name">{NAME}</span>
       </a>
       <nav class="site-header-nav" aria-label="Site">
         <a

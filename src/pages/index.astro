@@ -1,6 +1,6 @@
 ---
 import Base from '@/layouts/Base.astro';
-import RegMark from '@/components/RegMark.astro';
+import Mark from '@/components/Mark.astro';
 import { projectEntries } from '@/lib/project-entries';
 import { formatPostDate } from '@/utils/format-post-date';
 import { DESCRIPTION, LEDE, NAME, PLACE } from '@/site';
@@ -30,7 +30,7 @@ const anyInteractive = projects.some((project) => project.interactive);
       projects
       {anyInteractive && (
         <span class="home-legend">
-          (<RegMark class="home-legend-mark" decorative={false} /> = interactive preview)
+          (<span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = interactive preview)
         </span>
       )}
     </h2>
@@ -49,7 +49,9 @@ const anyInteractive = projects.some((project) => project.interactive);
             transition:name={`splash-${project.slug}`}
           >
             {project.splash && <img src={project.splash} alt="" />}
-            {project.interactive && <RegMark class="splash-mark" />}
+            {project.interactive && (
+              <span class="mark-badge splash-mark"><Mark /></span>
+            )}
           </div>
           <div class="home-item-copy">
             <h3 transition:name={`title-${project.slug}`}>

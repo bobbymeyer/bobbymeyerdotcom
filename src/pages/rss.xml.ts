@@ -1,13 +1,14 @@
 import rss from '@astrojs/rss';
 import type { APIContext } from 'astro';
 import { projectEntries } from '@/lib/project-entries';
+import { DESCRIPTION, NAME } from '@/site';
 
 export async function GET(context: APIContext) {
   const projects = await projectEntries();
 
   return rss({
-    title: 'Bobby Meyer',
-    description: 'Projects by Bobby Meyer, newest change first.',
+    title: NAME,
+    description: DESCRIPTION,
     site: context.site!,
     items: projects.map((project) => ({
       title: project.version ? `${project.title} v${project.version}` : project.title,

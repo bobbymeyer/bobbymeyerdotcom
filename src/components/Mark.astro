@@ -1,0 +1,30 @@
+---
+/**
+ * The mark: process cyan, magenta and yellow, multiplied.
+ *
+ * Three plates slightly out of register with each other, which is what a
+ * press looks like before someone corrects it and what this site uses as its
+ * signature. The header wears it beside the wordmark; an interactive
+ * project's splash wears it on a white disc to say the thing runs in the page.
+ *
+ * Markup only — `src/styles/global.css` holds the ink, the drift, and the
+ * spread. A context sets `--mark-box` and `--mark-dot` and decides where it
+ * sits; `.mark-badge` is the disc.
+ *
+ * Always decorative. It is a signature in the header, and on a splash the
+ * index's legend explains it once beside the heading — a screen reader meeting
+ * it on every card would only be read the same sentence eight times over.
+ * Anything that needs a name in the accessibility tree provides its own.
+ */
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<span class:list={['mark', className]} aria-hidden="true">
+  <span class="mark-dot mark-dot--c"></span>
+  <span class="mark-dot mark-dot--m"></span>
+  <span class="mark-dot mark-dot--y"></span>
+</span>
