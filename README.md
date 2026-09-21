@@ -38,15 +38,18 @@ src/
     og.ts                  # the social card, drawn at build time
   pages/
     index.astro            # the index — featured first, newest change after
+    tags/[tag].astro       # the index, narrowed to one tag
     posts/[...slug].astro  # one project page
     og/[slug].png.ts       # /og/<slug>.png, one card per project + /og/site.png
   components/
+    ProjectIndex.astro     # the grid and its tag filter, shared by / and /tags
     Timeline.astro         # the merged pull requests, under the splash
     RegMark.astro          # the registration target on an interactive splash
   content.config.ts        # the note schema (there is barely any)
   content/posts/           # optional note per project, named for its slug
   layouts/Base.astro       # HTML wrapper, meta and social tags
   scripts/
+    project-filter.ts      # narrowing the grid to several tags, in the browser
     sketch-fallback.ts     # what an interactive piece says when it cannot load
   styles/                  # fonts, global, home, post, project, page (contact form)
   assets/fonts/            # Archivo TTF — for drawing cards, never served
@@ -72,6 +75,8 @@ last commit on the repo's default branch, so a project that moves comes back to
 the top of its band on the next build. Featured projects also take two of the
 four fields, pinned to the left, and the rest pack into the two they leave; see
 **Tags**.
+
+`/tags/<tag>/` is the same index narrowed to one tag — see **Filtering**.
 
 A project page sets a project out in two fields: the note and the README on the
 left across three of four, and on the right the repository's own account of
@@ -229,6 +234,37 @@ the order the page claims to be showing.
 Tags live on the note rather than on the project because the note is the part
 that is not a repository — writing with no repo behind it would carry tags the
 same way. `src/lib/interests.ts` does the counting.
+
+### Filtering
+
+Each tag has a page: `/tags/<tag>/`, built from the tags the notes actually
+carry, so there is never a page for a tag nothing has and never a tag with
+nowhere to go. The index and every tag page are the same component
+(`src/components/ProjectIndex.astro`) looking at different amounts of the same
+list.
+
+Those pages are the whole story for one tag: linkable, bookmarkable,
+crawlable, and working with no script at all. They are what `/about` links to.
+
+Several tags at once cannot be a static page — there are 2^n of those — so the
+dropdown above the grid narrows it in the browser and writes the selection
+into the address bar as `?tags=a,b`, which is enough to share. That is the one
+piece of this site that filters at runtime, and it sits on top of a page that
+is already complete: with scripting off the dropdown does nothing, every
+project is still listed, and the tag pages are still there.
+
+**Ticking two tags widens the result**, not narrows it — a project matching
+*any* ticked tag is shown. Intersection reads like the obvious meaning of a
+filter right up until you try it on nine projects, where a second tag almost
+always empties the page.
+
+The filter is a disclosure rather than a row of every tag: fifteen chips above
+the grid is a wall, and this is a thing a reader reaches for occasionally.
+Closed it is one word and, when something is ticked, a count.
+
+A card prints its own tags but does not link them: the card is already one
+anchor and an anchor cannot hold another. On a narrowed view the tag that put
+a card there is drawn in, so it is clear which one matched.
 
 ## Social cards
 

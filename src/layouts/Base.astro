@@ -2,7 +2,7 @@
 import { ClientRouter } from 'astro:transitions';
 import { normalizePath } from '@/utils/normalize-path';
 import Mark from '@/components/Mark.astro';
-import { DESCRIPTION, LEDE, NAME, pageTitle } from '@/site';
+import { DESCRIPTION, GITHUB, LEDE, NAME, pageTitle } from '@/site';
 import { OG_HEIGHT, OG_WIDTH } from '@/lib/og';
 import '../styles/fonts.css';
 import '../styles/global.css';
@@ -35,7 +35,16 @@ const ogImage = new URL(image ?? SITE_CARD, Astro.site);
 const ogImageAlt = image ? `${title} — ${description}` : `${NAME} — ${LEDE}`;
 
 const path = normalizePath(Astro.url.pathname);
+
+// The nav marks a section, not just a page. A project page and a tag page are
+// both the projects section, and until now neither lit anything: a reader deep
+// in /posts/pandatone had no indication of where in the site they were.
+//
+// `page` is reserved for the index itself, since that is the only one of the
+// three that *is* the projects page; the rest take the generic `true`, which
+// is what aria-current has for "you are in here somewhere".
 const isHome = path === '/';
+const isProjects = isHome || path.startsWith('/posts/') || path.startsWith('/tags/');
 const isAbout = path === '/about';
 const isContact = path === '/contact' || path.startsWith('/contact/');
 ---
@@ -91,11 +100,11 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
       <nav class="site-header-nav" aria-label="Site">
         <a
           href="/"
-          aria-current={isHome ? 'page' : undefined}
-          data-accent-target={isHome ? '' : undefined}
+          aria-current={isHome ? 'page' : isProjects ? 'true' : undefined}
+          data-accent-target={isProjects ? '' : undefined}
         >
-          <span class="site-accent-slot" aria-hidden={!isHome}>
-            {isHome && (
+          <span class="site-accent-slot" aria-hidden={!isProjects}>
+            {isProjects && (
               <span
                 class="site-accent site-accent--projects"
                 aria-hidden="true"
@@ -144,7 +153,13 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
     </header>
     <slot />
     <footer class="site-footer" transition:persist="site-footer">
-      <nav class="site-footer-nav" aria-label="Feed">
+      {/*
+        Short labels here, unlike the about page, which writes the address out
+        in full because it sits in a sentence where the destination is the
+        point. A footer is a row of names, and "RSS" is already one.
+      */}
+      <nav class="site-footer-nav" aria-label="Elsewhere">
+        <a href={GITHUB.url} rel="noopener">GitHub</a>
         <a href="/rss.xml">RSS</a>
       </nav>
     </footer>

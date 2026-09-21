@@ -221,3 +221,188 @@
   letter-spacing: 0.04em;
   opacity: 0.6;
 }
+
+/*
+ * The filter: a disclosure, not a row of every tag.
+ *
+ * Fifteen chips laid out above the grid is a wall, and this is a thing a
+ * reader reaches for occasionally rather than the first thing on the page.
+ * Closed it is one word and, when something is ticked, a count.
+ */
+.home-filter {
+  grid-column: 1 / -1;
+  margin-bottom: var(--page-gutter);
+}
+
+.home-filter-summary {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  padding: calc(var(--page-gap) / 4) calc(var(--page-gap) / 2);
+  border: 1px solid #000;
+  font-size: 0.857em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: var(--line-height);
+  list-style: none;
+  cursor: pointer;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Safari draws its own triangle through ::-webkit-details-marker, and every
+   other engine through `list-style` on the summary. Both go: the open state
+   is carried by the panel appearing. */
+.home-filter-summary::-webkit-details-marker {
+  display: none;
+}
+
+@media (hover: hover) {
+  .home-filter-summary:hover {
+    background: #000;
+    color: #fff;
+  }
+}
+
+.home-filter-summary:focus {
+  outline: none;
+}
+
+.home-filter-summary:focus-visible {
+  background: #000;
+  color: #fff;
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+.home-filter[open] > .home-filter-summary {
+  background: #000;
+  color: #fff;
+}
+
+/* How many tags are ticked, so a narrowed grid is never a mystery with the
+   dropdown shut. */
+.home-filter-badge {
+  padding: 0 0.4em;
+  background: var(--ink-magenta);
+  color: #fff;
+  font-weight: 600;
+}
+
+.home-filter[open] > .home-filter-summary .home-filter-badge {
+  background: #fff;
+  color: #000;
+}
+
+.home-filter-panel {
+  margin-top: var(--page-gap);
+  padding: var(--page-gap);
+  border: 1px solid #000;
+}
+
+.home-filter-set {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--page-gap) / 2) var(--page-gap);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.home-filter-option {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  font-size: 0.857em;
+  line-height: var(--line-height);
+  cursor: pointer;
+}
+
+.home-filter-option input {
+  flex: none;
+  width: 0.85em;
+  height: 0.85em;
+  margin: 0;
+  accent-color: #000;
+  cursor: pointer;
+}
+
+.home-filter-name {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.home-filter-count {
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+.home-filter-actions {
+  margin-top: var(--page-gap);
+  padding-top: var(--page-gap);
+  border-top: 1px solid #d4d4d4;
+  font-size: 0.857em;
+  font-weight: 600;
+}
+
+.home-filter-clear {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 4px solid transparent;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat;
+  transition: border-color 0.4s ease, background 0.4s ease;
+}
+
+@media (hover: hover) {
+  .home-filter-clear:hover {
+    border-bottom-color: currentColor;
+    background: none;
+  }
+}
+
+.home-filter-clear:focus {
+  outline: none;
+}
+
+.home-filter-clear:focus-visible {
+  border-bottom-color: currentColor;
+  background: none;
+}
+
+/* On a card: what this one is about, set rather than linked. The card is one
+   anchor already and an anchor cannot hold another. The tag that put a card
+   in a filtered view is drawn in, so it is clear which one matched. */
+.home-item-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--page-gap) / 3);
+  margin-top: calc(var(--page-gap) / 2);
+}
+
+.home-item-tag {
+  padding: 0 0.4em;
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  font-size: 0.786em;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  line-height: 1.6;
+}
+
+.home-item-tag[data-active] {
+  border-color: #000;
+  background: #000;
+  color: #fff;
+}
+
+/* A filtered-out card. `.home-item` sets `display: flex`, which beats the
+   user agent's `[hidden]` rule on equal specificity and source order, so
+   without this a hidden card stays on the page. */
+.home-item[hidden] {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-filter-summary,
+  .home-filter-clear {
+    transition: none;
+  }
+}

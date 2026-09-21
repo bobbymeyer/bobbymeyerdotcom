@@ -1,0 +1,48 @@
+---
+/**
+ * `/tags/<tag>/` — the index, narrowed to one tag.
+ *
+ * One page per tag, built at build time from the tags the notes actually
+ * carry, so there is never a tag page for a tag nothing has and never a tag
+ * with nowhere to go. That is also what makes a filtered view something you
+ * can link to, bookmark, or hand to a crawler — a query string on a static
+ * site would be none of those.
+ */
+import Base from '@/layouts/Base.astro';
+import ProjectIndex from '@/components/ProjectIndex.astro';
+import { projectEntries } from '@/lib/project-entries';
+import { interestsFrom, orderInterests, projectsTagged, tagSlug } from '@/lib/interests';
+import '@/styles/home.css';
+
+export async function getStaticPaths() {
+  const projects = await projectEntries();
+  const tags = orderInterests(interestsFrom(projects), 'greatest');
+
+  return tags.map((interest) => ({
+    params: { tag: tagSlug(interest.tag) },
+    props: { tag: interest.tag, tags, projects: projectsTagged(projects, interest.tag) },
+  }));
+}
+
+const { tag, tags, projects } = Astro.props;
+
+const description = `Projects tagged ${tag}.`;
+---
+
+<Base title={tag} description={description}>
+  <main class="home">
+    <ProjectIndex
+      projects={projects}
+      tags={tags}
+      activeTag={tag}
+      heading={`projects tagged ${tag}`}
+      headingLevel="h1"
+    />
+  </main>
+</Base>
+
+<script>
+  import { initProjectFilter } from '@/scripts/project-filter';
+  document.addEventListener('astro:page-load', initProjectFilter);
+  initProjectFilter();
+</script>

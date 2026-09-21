@@ -46,10 +46,7 @@ export function interestsFrom(projects: ProjectEntry[]): Interest[] {
   const seen = new Map<string, Interest>();
 
   for (const project of projects) {
-    for (const raw of project.note?.data.tags ?? []) {
-      const tag = raw.trim().toLowerCase();
-      if (!tag) continue;
-
+    for (const tag of project.tags) {
       const found = seen.get(tag);
       if (!found) {
         seen.set(tag, { tag, count: 1, latest: project.updated });
@@ -85,6 +82,32 @@ export function orderInterests(interests: Interest[], order: InterestOrder): Int
   }
 
   return sorted;
+}
+
+/**
+ * The URL segment a tag lives at.
+ *
+ * Tags are authored lowercase and mostly already URL-safe — `design-systems`
+ * is a slug as it stands — but a tag is prose first and a path second, so
+ * anything that would have to be percent-encoded is folded out here rather
+ * than left to leak into a link.
+ */
+export function tagSlug(tag: string): string {
+  return tag
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/** Where a tag's page lives. */
+export function tagHref(tag: string): string {
+  return `/tags/${tagSlug(tag)}/`;
+}
+
+/** Everything carrying a tag, in whatever order it was handed over in. */
+export function projectsTagged<T extends { tags: string[] }>(projects: T[], tag: string): T[] {
+  return projects.filter((project) => project.tags.includes(tag));
 }
 
 /**

@@ -48,9 +48,6 @@ demand — `src/scripts/albers.ts` is the shortest of them to borrow from.
   them — what it still needs is a route, a date of its own (there is no repo
   to read one from), and a decision about whether it shares the index with
   the projects or gets a list of its own.
-- **Somewhere for a tag to go.** The interests on `/about` are words, not
-  links, because there is no page to send them to. A filtered index would
-  give them one.
 - **Lockfile.** `package-lock.json` is gitignored, so CI installs with
   `npm install` and two runs can resolve different trees. Committing it and
   switching `.github/workflows/ci.yml` to `npm ci` makes builds reproducible.
