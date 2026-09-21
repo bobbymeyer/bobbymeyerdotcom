@@ -85,29 +85,21 @@ export function orderInterests(interests: Interest[], order: InterestOrder): Int
 }
 
 /**
- * The URL segment a tag lives at.
+ * The index, narrowed to a tag.
  *
- * Tags are authored lowercase and mostly already URL-safe — `design-systems`
- * is a slug as it stands — but a tag is prose first and a path second, so
- * anything that would have to be percent-encoded is folded out here rather
- * than left to leak into a link.
+ * There is one filtered view of the projects and it is the index with a
+ * query on it. There were briefly static pages under `/tags/` as well, which
+ * meant two URLs for one idea, two code paths to keep in step, and a
+ * dropdown that behaved differently depending on which of them you were
+ * standing on. One mechanism is worth more than the crawlable pages were.
+ *
+ * The query is read by `src/scripts/project-filter.ts`, so a link here
+ * narrows nothing on its own: with scripting off it lands on the index with
+ * every project listed, which is a worse answer than the one asked for but
+ * not a broken one.
  */
-export function tagSlug(tag: string): string {
-  return tag
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-/** Where a tag's page lives. */
 export function tagHref(tag: string): string {
-  return `/tags/${tagSlug(tag)}/`;
-}
-
-/** Everything carrying a tag, in whatever order it was handed over in. */
-export function projectsTagged<T extends { tags: string[] }>(projects: T[], tag: string): T[] {
-  return projects.filter((project) => project.tags.includes(tag));
+  return `/?tags=${encodeURIComponent(tag)}`;
 }
 
 /**
