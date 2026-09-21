@@ -49,6 +49,7 @@ src/
   content/posts/           # optional note per project, named for its slug
   layouts/Base.astro       # HTML wrapper, meta and social tags
   scripts/
+    project-filter.ts      # narrowing the grid to several tags, in the browser
     sketch-fallback.ts     # what an interactive piece says when it cannot load
   styles/                  # fonts, global, home, post, project, page (contact form)
   assets/fonts/            # Archivo TTF — for drawing cards, never served
@@ -242,15 +243,28 @@ nowhere to go. The index and every tag page are the same component
 (`src/components/ProjectIndex.astro`) looking at different amounts of the same
 list.
 
-Filtering is navigation, not a script. That is what makes a filtered view
-linkable, bookmarkable and crawlable, and it is why it works with JavaScript
-off — a query string on a static site would be none of those. The client
-router makes it feel like filtering; nothing depends on that.
+Those pages are the whole story for one tag: linkable, bookmarkable,
+crawlable, and working with no script at all. They are what `/about` links to.
+
+Several tags at once cannot be a static page — there are 2^n of those — so the
+dropdown above the grid narrows it in the browser and writes the selection
+into the address bar as `?tags=a,b`, which is enough to share. That is the one
+piece of this site that filters at runtime, and it sits on top of a page that
+is already complete: with scripting off the dropdown does nothing, every
+project is still listed, and the tag pages are still there.
+
+**Ticking two tags widens the result**, not narrows it — a project matching
+*any* ticked tag is shown. Intersection reads like the obvious meaning of a
+filter right up until you try it on nine projects, where a second tag almost
+always empties the page.
+
+The filter is a disclosure rather than a row of every tag: fifteen chips above
+the grid is a wall, and this is a thing a reader reaches for occasionally.
+Closed it is one word and, when something is ticked, a count.
 
 A card prints its own tags but does not link them: the card is already one
-anchor and an anchor cannot hold another. The filter row above the grid is
-where a tag is something you can press, and on a filtered view the tag that
-put a card there is drawn in, so it is clear which one matched.
+anchor and an anchor cannot hold another. On a narrowed view the tag that put
+a card there is drawn in, so it is clear which one matched.
 
 ## Social cards
 

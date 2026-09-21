@@ -40,3 +40,9 @@ const description = `Projects tagged ${tag}.`;
     />
   </main>
 </Base>
+
+<script>
+  import { initProjectFilter } from '@/scripts/project-filter';
+  document.addEventListener('astro:page-load', initProjectFilter);
+  initProjectFilter();
+</script>

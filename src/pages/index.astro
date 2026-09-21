@@ -26,6 +26,18 @@ const tags = orderInterests(interestsFrom(projects), 'greatest');
       <p class="home-place">{PLACE} — <a href="/contact">say hello</a></p>
     </header>
 
-    <ProjectIndex projects={projects} tags={tags} heading="projects" headingLevel="h2" />
+    <ProjectIndex
+      projects={projects}
+      tags={tags}
+      filterable
+      heading="projects"
+      headingLevel="h2"
+    />
   </main>
 </Base>
+
+<script>
+  import { initProjectFilter } from '@/scripts/project-filter';
+  document.addEventListener('astro:page-load', initProjectFilter);
+  initProjectFilter();
+</script>
