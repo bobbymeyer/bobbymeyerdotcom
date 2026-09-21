@@ -197,6 +197,36 @@ async function load(
   };
 }
 
+/** For comparing a note with a title: case, spacing and final stop are noise. */
+function flatten(text: string): string {
+  return text.trim().replace(/\s+/g, ' ').replace(/[.!?]+$/, '').toLowerCase();
+}
+
+/**
+ * A timeline note with the entry's own title taken back out of it.
+ *
+ * Squash merges put the pull request title in the commit subject and plain
+ * merges put it in the commit body, so the text that stands in for a missing
+ * description very often *is* the title — and the title is already set, in
+ * bold, directly above. A note that only repeats it says nothing twice, and a
+ * note that opens with it and then goes on is worth keeping from the second
+ * line. Everything else passes through as it came.
+ */
+function withoutEchoOf(note: string | null, title: string): string | null {
+  if (!note) return null;
+
+  const wanted = flatten(title);
+  if (flatten(note) === wanted) return null;
+
+  const [first, ...rest] = note.split('\n');
+  if (flatten(first ?? '') === wanted) {
+    const remainder = rest.join('\n').trim();
+    return remainder || null;
+  }
+
+  return note;
+}
+
 /**
  * What version a project is at.
  *
@@ -238,6 +268,11 @@ async function buildTimeline(path: string, pulls: PullRequest[]): Promise<Timeli
         // which the entry already says. What is worth showing is under it.
         note = cleanNote(commit?.commit.message.split('\n').slice(1).join('\n') ?? null);
       }
+
+      // GitHub's default body for a merge commit *is* the pull request title,
+      // so a pull request merged without a description arrives here with a
+      // note that repeats the heading it would be set under. Say it once.
+      note = withoutEchoOf(note, pull.title);
 
       return {
         number: pull.number,
