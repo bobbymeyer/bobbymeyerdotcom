@@ -296,20 +296,19 @@ sup {
 
 /* The ribbon on a featured project's splash.
  *
- * A scrim rather than a band: the ink is heaviest at the bottom edge and
- * fades out before it reaches the picture, so it reads as something laid over
- * the image rather than a strip cut out of it. It is also how a label holds
- * up over artwork this stylesheet knows nothing about, now that a shadow is
- * not an option — and it is the better answer anyway, since a gradient works
- * on a light splash and a dark one alike.
+ * A band across the bottom that runs out before it reaches the right edge:
+ * solid where the word sits, fading from the middle so the ribbon stops being
+ * ink and starts being picture again rather than ending on a cut. Laid over
+ * the artwork, which is also how a label holds up over an image this
+ * stylesheet knows nothing about now that a shadow is not an option — and the
+ * better answer anyway, since the same band works on the pale halftone map
+ * and on the dark tree alike.
  *
- * Two reds rather than one. White on vermillion measures 4.38:1, which is
- * under AA for text at this size. The deeper stop carries the bottom of the
- * gradient, and white on the colour actually painted behind the word —
- * sampled off the rendered page rather than worked out from the stops, since
- * a gradient is not either of its ends — measures 4.94:1. The vermillion
- * above it is what keeps the thing reading as the site's red and not as
- * brown. Re-sample if either stop moves.
+ * Two reds. White on vermillion measures 4.38:1, which is under AA for text
+ * at this size, so the deeper stop carries the left end where the word
+ * actually is, and measures 5.51:1 there. That figure was sampled off the
+ * rendered page rather than worked out from the stops — a gradient is not
+ * either of its ends. Re-sample if either stop moves.
  */
 .splash-ribbon {
   position: absolute;
@@ -318,11 +317,11 @@ sup {
   bottom: 0;
   left: 0;
   margin: 0;
-  padding: var(--page-gutter) var(--page-gap) calc(var(--page-gap) / 2);
+  padding: calc(var(--page-gap) / 2) var(--page-gap);
   background: linear-gradient(
-    to top,
+    to right,
     #b7410e 0%,
-    var(--color-vermillion) 55%,
+    var(--color-vermillion) 45%,
     rgba(224, 58, 43, 0) 100%
   );
   color: #fff;
