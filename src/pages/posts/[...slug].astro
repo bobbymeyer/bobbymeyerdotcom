@@ -15,7 +15,12 @@ export async function getStaticPaths() {
 }
 
 const { project } = Astro.props as { project: ProjectEntry };
-const Note = project.note ? (await render(project.note)).Content : null;
+
+// A note may be frontmatter and nothing else — a project with tags to declare
+// and nothing written about it yet. That is a note for the about page's
+// purposes and not one for this page's, so it does not get an empty article.
+const hasNoteBody = Boolean(project.note?.body?.trim());
+const Note = hasNoteBody && project.note ? (await render(project.note)).Content : null;
 
 // An interactive note declares a sketch; its stylesheet sits beside the
 // project's assets in public/, named for the sketch, loaded only on the page

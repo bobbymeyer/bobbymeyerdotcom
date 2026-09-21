@@ -1,12 +1,28 @@
 ---
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
-import { LEDE, NAME, PLACE } from '@/site';
+import { NAME } from '@/site';
+import { projectEntries } from '@/lib/project-entries';
+import {
+  DEFAULT_INTEREST_ORDER,
+  INTEREST_ORDERS,
+  interestRanks,
+  interestsFrom,
+  orderInterests,
+} from '@/lib/interests';
 import portrait from '@/assets/portrait.jpg';
 import '@/styles/post.css';
 import '@/styles/about.css';
 
 const description = `About ${NAME}.`;
+
+const interests = interestsFrom(await projectEntries());
+const ranks = interestRanks(interests);
+
+// Rendered in the default order, so the list is right before a line of
+// JavaScript has run and right if none ever does. The ranks ride along on each
+// tag; the script reorders against them.
+const listed = orderInterests(interests, DEFAULT_INTEREST_ORDER);
 ---
 
 <Base title="about" description={description}>
@@ -27,19 +43,63 @@ const description = `About ${NAME}.`;
         <header>
           <h1>about</h1>
         </header>
-        <article class="post-article">
+        <article class="post-article about-copy">
           {/*
-            The same two lines the index opens with, from src/site.ts, so the
-            page and the index cannot drift apart. This is a placeholder for
-            an about page, not an about page — see TODO.md, where rewriting it
-            is the first thing on the list.
+            The one place on the site that sets his name in capitals: this is
+            the formal statement of who this is, not the chrome. Everywhere
+            else takes NAME from src/site.ts, lowercase. See CLAUDE.md.
           */}
-          <p>I’m {NAME}. {LEDE}</p>
+          <p class="about-statement">
+            Bobby Meyer. Based in Ojai, California. I build systems that make
+            things. Some of them are useful. Some of them are not.
+          </p>
+
+          {interests.length > 0 && (
+            <div class="about-interests">
+              <p class="about-interests-lead">
+                This site documents my{' '}
+                <span class="about-select">
+                  <label class="visually-hidden" for="interest-order">
+                    Order my interests by
+                  </label>
+                  <select id="interest-order" data-interest-order>
+                    {INTEREST_ORDERS.map((option) => (
+                      <option value={option.value} selected={option.value === DEFAULT_INTEREST_ORDER}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </span>{' '}
+                interests:
+              </p>
+              <ul class="about-tags" data-interest-list>
+                {listed.map((interest) => (
+                  <li
+                    class="about-tag"
+                    data-rank-greatest={ranks.greatest[interest.tag]}
+                    data-rank-recent={ranks.recent[interest.tag]}
+                  >
+                    {interest.tag}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <p>
-            I’m based in {PLACE} — <a href="/contact">say hello</a>.
+            <a href="/">See what I’ve been building.</a>
+          </p>
+          <p>
+            Want to talk? <a href="/contact">Say hello</a>.
           </p>
         </article>
       </div>
     </div>
   </main>
 </Base>
+
+<script>
+  import { initInterestOrder } from '@/scripts/interest-order';
+  document.addEventListener('astro:page-load', initInterestOrder);
+  initInterestOrder();
+</script>

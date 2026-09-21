@@ -128,14 +128,20 @@ A project can have a note — the part only you can write, set above the README:
 
 ```yaml
 ---
+tags: [generative, color, p5]
 ---
 markdown body…
 ```
 
-The frontmatter is empty on purpose. The title, summary, colour and splash are
+There is barely any frontmatter. The title, summary, colour and splash are
 declared once in `src/projects.ts`; the version, the dates and the README come
 from GitHub. `draft: true` keeps an unfinished note off the site without hiding
 the project.
+
+`tags` is what the note is about, and the about page collects them — see
+**Interests**. A note may be tags and nothing else: a project with something to
+declare and nothing written about it yet gets a frontmatter-only note, and the
+project page skips the empty article rather than setting one.
 
 **Palette** — pick one from `src/palette.ts` (mid-century inks):
 
@@ -202,6 +208,27 @@ indented treatment (`.marginalia-inline`).
 Prose in the note and the README keeps a 70ch measure on the wide layouts —
 three fields of body text runs past 160 characters otherwise. Tables, code,
 figures, sketches and marginalia go on using the full width.
+
+## Interests
+
+`/about` sets out what the site is about by counting: every `tags` entry across
+every note in `src/content/posts`, tallied, in one of two orders.
+
+*Greatest* is by how often a tag comes up — what he keeps returning to.
+*Recent* is by when a tag was last touched, dated by the last commit on the
+project carrying it — what he is on now. The difference between the two orders
+is the interesting part, so both are worth having: a preoccupation that has
+gone quiet ranks high in one and low in the other.
+
+The page renders the default order server-side and carries both positions on
+each tag, so the list is correct before any JavaScript runs and correct if none
+ever does; the dropdown reorders the DOM rather than applying a CSS `order`,
+because a ranked list's sequence is its content and a screen reader should get
+the order the page claims to be showing.
+
+Tags live on the note rather than on the project because the note is the part
+that is not a repository — writing with no repo behind it would carry tags the
+same way. `src/lib/interests.ts` does the counting.
 
 ## Social cards
 
