@@ -131,46 +131,20 @@
 }
 
 /*
- * Featured down the left, everything else packed to the right of it.
+ * One field each, in the order the entries were sorted into: featured first,
+ * then live, then archived, newest change first inside each band.
  *
- * A featured project is pinned to the first field and takes two, so each one
- * starts a row of its own on the left; `dense` then lets the unfeatured ones
- * behind it backfill the two fields it leaves on the right, two to a row,
- * rather than queueing up underneath. The result reads as depth and breadth
- * at once — the projects worth stopping on shown large, the rest of the shelf
- * legible beside them — and once the featured run out the unfeatured carry on
- * across the full width.
- *
- * `dense` is safe here because the cards carry no order of their own: they are
- * sorted by band and date, and a reader scans this as a field rather than a
- * sequence. Tab order still follows the document, which is that sort.
+ * Featured used to take two fields and pin itself to the left, with `dense`
+ * letting the rest backfill around it. It read as depth and breadth at once
+ * on paper and as a lopsided page in practice, so featuring is carried by the
+ * order alone now — which is the part of it that was always doing the work.
  */
 .home-index {
   display: grid;
   grid-template-columns: subgrid;
-  grid-auto-flow: row dense;
   grid-column: 1 / -1;
   row-gap: var(--page-gutter);
   align-items: start;
-}
-
-/* Only on the four-field grid. Two of two fields is the whole width, and a
-   16:9 splash across the whole width of a tablet is not a featured project,
-   it is a billboard with the rest of the shelf pushed under the fold. Below
-   1200px featuring is carried by the order alone. */
-@media (min-width: 1200px) {
-  .home-item[data-featured] {
-    grid-column: 1 / span 2;
-  }
-
-  /* Two fields of splash is twice the picture and wants a title to match. */
-  .home-item[data-featured] .home-item-copy h3 {
-    font-size: var(--font-size-h3);
-  }
-
-  .home-item[data-featured] .home-item-summary {
-    font-size: var(--font-size-h5);
-  }
 }
 
 .home-item {

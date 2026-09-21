@@ -241,13 +241,6 @@ sup {
   right: var(--page-gap);
 }
 
-@media (min-width: 1200px) {
-  .home-item[data-featured] .splash-mark {
-    --mark-box: 30px;
-    width: 46px;
-    height: 46px;
-  }
-}
 
 /* Hovering a card blows its mark out to full register — the same spread the
  * lockup performs on a navigation, asked for by the pointer rather than by

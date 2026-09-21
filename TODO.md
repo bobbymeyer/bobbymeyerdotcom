@@ -6,8 +6,7 @@ by you yet.
 
 ## 1. Write the featured notes
 
-`featured` in `src/projects.ts` buys a project twice the width on the index
-and the top of the order. What it is supposed to buy the reader is the part
+`featured` in `src/projects.ts` buys a project the top of the index. What it is supposed to buy the reader is the part
 only you can write, and right now every note in `src/content/posts/` is a
 container for a sketch, or for a line of tags, and nothing else — not one
 sentence across all nine.

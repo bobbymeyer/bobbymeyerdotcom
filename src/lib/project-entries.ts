@@ -47,7 +47,7 @@ export interface ProjectEntry {
    * its own listing everything that carries it.
    */
   tags: string[];
-  /** Twice the width on the index, and sorted above everything unfeatured. */
+  /** Sorted above everything unfeatured. Position is all it buys. */
   featured: boolean;
   /** Runs on its own page; the index marks it with a registration target. */
   interactive: boolean;

@@ -70,9 +70,8 @@ latest release or tag, and its merged pull requests.
 
 The order is three bands — featured, live, archived — and inside each one the
 last commit on the repo's default branch, so a project that moves comes back to
-the top of its band on the next build. Featured projects also take two of the
-four fields, pinned to the left, and the rest pack into the two they leave; see
-**Tags**.
+the top of its band on the next build. Every card is one field wide; featuring
+is carried by the order alone. See **Tags**.
 
 A project page sets a project out in two fields: the note and the README on the
 left across three of four, and on the right the repository's own account of
@@ -112,7 +111,7 @@ either is a type error rather than a tag that quietly does nothing.
 
 | Tag | What it does |
 | --- | --- |
-| `featured` | Two fields wide on the index instead of one, and sorted above everything unfeatured however recently anything moved. Below 1200px the grid is two fields, where two of two is the whole width, so there the tag carries order alone. |
+| `featured` | Sorted above everything unfeatured on the index, however recently anything moved. Position is all it buys — it took two fields of width for a while, and a page with a double-width card in it read as lopsided rather than emphatic. |
 | `interactive` | The project runs on its own page, so its splash gets a registration target in the corner and the index prints a legend beside the heading saying what the mark means. |
 
 Archiving still beats featuring: an archived repository sorts to the bottom
@@ -203,7 +202,7 @@ indented treatment (`.marginalia-inline`).
 | --- | --- | --- | --- |
 | Phone (&lt; 640px) | 1 | Stacked | Stacked |
 | Tablet (640–1199px) | 2 | Two up, featured first | Stacked |
-| Desktop (1200–1599px) | 4 | Featured 2 fields, rest pack right | Note + readme, then the rail |
+| Desktop (1200–1599px) | 4 | Four up, featured first | Note + readme, then the rail |
 | Ultrawide (1600px+) | 4, capped width | As above | As above |
 
 Prose in the note and the README keeps a 70ch measure on the wide layouts —

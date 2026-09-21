@@ -24,9 +24,11 @@ import { POST_PALETTE } from '@/palette';
  * error rather than a tag that silently does nothing. Adding a third is a
  * word here and whatever reads it.
  *
- * - `featured` — twice the width on the index, and above everything that is
- *   not featured however recently anything moved. The projects worth stopping
- *   on, in other words, which is a judgement no commit date can make.
+ * - `featured` — above everything that is not featured on the index, however
+ *   recently anything moved. The projects worth stopping on, in other words,
+ *   which is a judgement no commit date can make. It buys position and
+ *   nothing else: it bought two fields of width for a while, and a page with
+ *   a double-width card in it read as lopsided rather than emphatic.
  * - `interactive` — the thing runs on its own project page, so the index
  *   marks it with a registration target and says so in the legend.
  */
