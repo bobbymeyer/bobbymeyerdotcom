@@ -65,6 +65,9 @@ demand — `src/scripts/albers.ts` is the shortest of them to borrow from.
 - **Lockfile.** `package-lock.json` is gitignored, so CI installs with
   `npm install` and two runs can resolve different trees. Committing it and
   switching `.github/workflows/ci.yml` to `npm ci` makes builds reproducible.
+- **Action versions.** `actions/checkout@v4` and `actions/setup-node@v4` target
+  Node 20, which GitHub has deprecated — runs carry a warning and are forced
+  onto Node 24. Bumping both to v5 clears it.
 - **The its-swiss specimen** is an iframe with a hardcoded `height="7800"`
   fallback and a script that corrects it once the frame reports its own
   height. Fine, but it is a lot of machinery for one embed.

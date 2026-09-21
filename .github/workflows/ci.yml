@@ -22,10 +22,15 @@
 # than for this file; it is written down in TODO.md.
 name: CI
 
+# `push` alone, deliberately. A check run attaches to a commit, and a pull
+# request shows the checks for its head commit, so a `pull_request` trigger
+# alongside this one does not add coverage — it just runs everything twice and
+# puts two identically named "build" checks on every pull request. Pushing a
+# branch is what should be checked, whether or not a pull request exists yet.
+# A fork's pull request would need the `pull_request` trigger; there are none.
 on:
   push:
     branches: ['**']
-  pull_request:
   workflow_dispatch:
 
 # A second push to the same branch makes the first run irrelevant.
