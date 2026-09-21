@@ -323,10 +323,29 @@
 .home-filter-set {
   display: flex;
   flex-wrap: wrap;
+  align-items: baseline;
   gap: calc(var(--page-gap) / 2) var(--page-gap);
   margin: 0;
   padding: 0;
   border: 0;
+}
+
+/* Two questions, two groups: what a thing is, and what it is about. The
+   kinds group only exists once there is more than one kind, so today this
+   rule is waiting for the first post. */
+.home-filter-set--kinds {
+  margin-bottom: var(--page-gap);
+  padding-bottom: var(--page-gap);
+  border-bottom: 1px solid #d4d4d4;
+}
+
+.home-filter-legend {
+  padding: 0;
+  font-size: 0.857em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: var(--line-height);
+  opacity: 0.6;
 }
 
 .home-filter-option {

@@ -1,5 +1,5 @@
 ---
-tags: [color, design-systems, rails]
+tags: [project, color, design-systems, rails]
 ---
 
 <figure>

@@ -1,3 +1,3 @@
 ---
-tags: [typography, design-systems, print]
+tags: [project, typography, design-systems, print]
 ---

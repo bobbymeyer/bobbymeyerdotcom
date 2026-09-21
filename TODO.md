@@ -43,11 +43,13 @@ demand — `src/scripts/albers.ts` is the shortest of them to borrow from.
 ## Smaller
 
 - **Standalone posts.** A note in `src/content/posts` is matched to a project
-  by slug and does not render without one. Tags already live on the note
-  rather than on the project, so writing that is not a project would inherit
-  them — what it still needs is a route, a date of its own (there is no repo
-  to read one from), and a decision about whether it shares the index with
-  the projects or gets a list of its own.
+  by slug and does not render without one. Most of the groundwork is in:
+  tags live on the note rather than on the project, and every note already
+  declares a kind, so a post tagged `post` would sort itself out on the about
+  page and in the filter the moment one exists. What it still needs is a
+  route, a date of its own (there is no repo to read one from), and a decision
+  about whether it shares the index with the projects or gets a list of its
+  own.
 - **Lockfile.** `package-lock.json` is gitignored, so CI installs with
   `npm install` and two runs can resolve different trees. Committing it and
   switching `.github/workflows/ci.yml` to `npm ci` makes builds reproducible.

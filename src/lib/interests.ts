@@ -16,6 +16,27 @@
  */
 import type { ProjectEntry } from '@/lib/project-entries';
 
+/**
+ * Tags that say what a thing *is* rather than what it is about.
+ *
+ * Every note carries one. They live in the same list as the topics because a
+ * tag is a tag and the filter already understands them, but they are held
+ * apart everywhere a reader meets them: "project" is not an interest, so it
+ * has no business in the list on the about page, and it is on all nine cards
+ * at once, so printing it on each of them says nothing.
+ *
+ * Where they earn their place is the filter, as a facet of their own — which
+ * is worth nearly nothing today, with one kind and everything in it, and is
+ * the whole point the first time a post appears next to the projects.
+ */
+export const KIND_TAGS = ['project', 'post'] as const;
+
+export type KindTag = (typeof KIND_TAGS)[number];
+
+export function isKind(tag: string): tag is KindTag {
+  return (KIND_TAGS as readonly string[]).includes(tag);
+}
+
 export interface Interest {
   tag: string;
   /** How many things carry it. */
@@ -82,6 +103,16 @@ export function orderInterests(interests: Interest[], order: InterestOrder): Int
   }
 
   return sorted;
+}
+
+/** The ones that describe a subject. What the about page counts. */
+export function topicsOnly(interests: Interest[]): Interest[] {
+  return interests.filter((interest) => !isKind(interest.tag));
+}
+
+/** The ones that describe a kind. Their own group in the filter. */
+export function kindsOnly(interests: Interest[]): Interest[] {
+  return interests.filter((interest) => isKind(interest.tag));
 }
 
 /**

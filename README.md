@@ -215,6 +215,14 @@ figures, sketches and marginalia go on using the full width.
 `/about` sets out what the site is about by counting: every `tags` entry across
 every note in `src/content/posts`, tallied, in one of two orders.
 
+Every note also carries a **kind** — `project`, and `post` once there is
+writing that is not a project. Kinds live in the same list as the subjects,
+because a tag is a tag and the filter already understands them, but they are
+held apart wherever a reader meets them: off this list, since "project" is
+nobody's interest, off the cards, since it is on all nine at once and so says
+nothing on any of them, and in their own group in the filter, which is where
+they earn their place the first time there are two kinds to tell apart.
+
 *Greatest* is by how often a tag comes up — what he keeps returning to.
 *Recent* is by when a tag was last touched, dated by the last commit on the
 project carrying it — what he is on now. The difference between the two orders
@@ -241,6 +249,11 @@ There were briefly static pages under `/tags/` as well. They were crawlable
 and worked without script, and they were also a second URL for one idea, a
 second code path to keep in step, and a dropdown that behaved differently
 depending on which of the two you were standing on. One mechanism won.
+
+The filter offers the subjects, and — once there is more than one kind — a
+group for the kinds above them. A kind filters like any other tag whether or
+not it is offered: `?tags=project` works today, it is just not worth a
+checkbox while everything is one.
 
 **Ticking tags narrows**: a project has to carry all of them. On nine projects
 most second picks land on nothing, so an option that would take the result to
