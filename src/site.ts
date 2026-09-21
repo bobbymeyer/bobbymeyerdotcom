@@ -21,6 +21,20 @@ export const HANDLE = 'bobbymeyer';
 
 export const DOMAIN = 'bobbymeyer.com';
 
+/**
+ * Where else to find him.
+ *
+ * A project page already links to its own repository, so this is the profile
+ * rather than the source: the answer to "what else has he got", which the
+ * index cannot give because the index is only the projects he chose to put on
+ * it.
+ */
+export const GITHUB = {
+  url: 'https://github.com/bobbymeyer',
+  /** How it is written when the address is worth showing rather than hiding. */
+  label: 'github.com/bobbymeyer',
+};
+
 /** The line under the name, on the index and on the card. */
 export const LEDE =
   'I make computers build stuff, talk to each other, and look good while doing it.';

@@ -1,19 +1,10 @@
 # todo
 
-In order. The second is the one that matters: the about page now introduces
-you, but nothing on this site is still written by you.
+In order, and the first is the one that matters: the about page now introduces
+you and the index says what you work on, but nothing on this site is written
+by you yet.
 
-## 1. Say where else to find you
-
-`/about` now introduces you, and what it still does not do is point anywhere
-off this site. There is no link to a GitHub profile, no email address, no
-social — the contact form is the only way to reach you, and a form is a black
-box to anyone deciding whether to bother.
-
-The page has the room for it: the statement, the interests, then the two
-links, and a third line of "elsewhere" would sit naturally under them.
-
-## 2. Write the featured notes
+## 1. Write the featured notes
 
 `featured` in `src/projects.ts` buys a project twice the width on the index
 and the top of the order. What it is supposed to buy the reader is the part
@@ -30,7 +21,7 @@ project page.
 Currently featured: `treegen`, `music for bus stops`. That was a guess —
 change it.
 
-## 3. A colophon
+## 2. A colophon
 
 The cleverest thing on this site is the site: no CMS, no content to keep in
 step, a portfolio that reads its own projects out of GitHub every three hours
@@ -42,7 +33,7 @@ hook. A note on it — `src/content/posts/bobbymeyerdotcom.md` — is the
 colophon, and it lands in the one place where somebody is already looking at
 the thing it describes.
 
-## 4. A 404 worth landing on
+## 3. A 404 worth landing on
 
 `src/pages/404.astro` says "Nothing here." on a site whose whole argument is
 generative toys. Grow a tree, print a halftone of the path that missed, run
