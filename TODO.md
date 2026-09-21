@@ -3,15 +3,19 @@
 In order. The second is the one that matters: the about page now introduces
 you, but nothing on this site is still written by you.
 
-## 1. Say where else to find you
+## 1. Finish saying where to find you
 
-`/about` now introduces you, and what it still does not do is point anywhere
-off this site. There is no link to a GitHub profile, no email address, no
-social — the contact form is the only way to reach you, and a form is a black
-box to anyone deciding whether to bother.
+`/about` points at GitHub now. What it still does not give is a way to reach
+you that is not a form — no address, nothing to copy, nothing to put in a
+contacts app. A form is a black box to anyone deciding whether to bother, and
+the people most worth hearing from are the ones least likely to use one.
 
-The page has the room for it: the statement, the interests, then the two
-links, and a third line of "elsewhere" would sit naturally under them.
+An address on the page is the fix, and the only real question is spam: a
+`mailto:` is scraped within days. Worth deciding whether you care.
+
+Nothing else outbound exists either — no Mastodon, Bluesky, LinkedIn, nothing.
+That may be correct; the site is quite happy being only about the work. But it
+should be a decision rather than an omission.
 
 ## 2. Write the featured notes
 

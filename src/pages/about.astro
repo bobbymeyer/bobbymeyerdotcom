@@ -1,7 +1,7 @@
 ---
 import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
-import { NAME } from '@/site';
+import { GITHUB, NAME } from '@/site';
 import { projectEntries } from '@/lib/project-entries';
 import {
   DEFAULT_INTEREST_ORDER,
@@ -88,6 +88,15 @@ const listed = orderInterests(interests, DEFAULT_INTEREST_ORDER);
 
           <p>
             <a href="/">See what I’ve been building.</a>
+          </p>
+          {/*
+            The index is only the projects he chose to put on it; the profile
+            is everything else. A project page already links to its own
+            repository, so this is the one link on the site that answers
+            "what else is there".
+          */}
+          <p>
+            Or find the rest on <a href={GITHUB.url} rel="noopener">{GITHUB.label}</a>.
           </p>
           <p>
             Want to talk? <a href="/contact">Say hello</a>.
