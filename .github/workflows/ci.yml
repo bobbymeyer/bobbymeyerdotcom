@@ -11,10 +11,15 @@
 # every repository on the site is public, and all it buys is the API's 5,000
 # requests an hour instead of 60, which one push can otherwise exhaust.
 #
-# `npm install` rather than `npm ci`, because package-lock.json is not checked
-# in (see .gitignore). Committing the lockfile and switching to `npm ci` would
-# make these runs reproducible; that is a decision for the repository, not for
-# this file.
+# `npm install` rather than `npm ci`, and no dependency cache, because
+# package-lock.json is not checked in (see .gitignore) and both of those want
+# one — setup-node's `cache: npm` fails the run outright without a lockfile to
+# key on. The install is a cold one every time, which for this many
+# dependencies costs a few seconds.
+#
+# Committing the lockfile would buy back the cache, `npm ci`, and runs that
+# resolve the same tree twice. That is a decision for the repository rather
+# than for this file; it is written down in TODO.md.
 name: CI
 
 on:
@@ -40,7 +45,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
 
       - name: Install
         run: npm install --no-audit --no-fund
