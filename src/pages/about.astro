@@ -10,6 +10,7 @@ import {
   interestsFrom,
   orderInterests,
   tagHref,
+  topicsOnly,
 } from '@/lib/interests';
 import portrait from '@/assets/portrait.jpg';
 import '@/styles/post.css';
@@ -17,7 +18,10 @@ import '@/styles/about.css';
 
 const description = `About ${NAME}.`;
 
-const interests = interestsFrom(await projectEntries());
+// Topics only. Every note also carries a kind — "project", and "post" when
+// there are any — which says what a thing is rather than what it is about,
+// and is nobody's interest.
+const interests = topicsOnly(interestsFrom(await projectEntries()));
 const ranks = interestRanks(interests);
 
 // Rendered in the default order, so the list is right before a line of

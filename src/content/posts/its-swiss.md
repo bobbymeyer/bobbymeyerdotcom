@@ -1,5 +1,5 @@
 ---
-tags: [typography, design-systems, rails]
+tags: [project, typography, design-systems, rails]
 ---
 
 <figure class="specimen">

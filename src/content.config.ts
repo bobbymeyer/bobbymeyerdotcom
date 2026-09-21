@@ -38,6 +38,13 @@ const posts = defineCollection({
      * Lowercase, and reuse a tag before inventing one — a vocabulary of four
      * tags used three times each says something, and twelve used once each
      * says nothing.
+     *
+     * One of them says what the thing *is* rather than what it is about:
+     * every note carries `project`, and writing that is not a project will
+     * carry `post`. Those two are held apart wherever a reader meets them —
+     * off the about page's interests, off the cards, and in their own group
+     * in the filter — because "what is this" and "what is it about" are
+     * different questions. See `KIND_TAGS` in `src/lib/interests.ts`.
      */
     tags: z.array(z.string()).default([]),
   }),

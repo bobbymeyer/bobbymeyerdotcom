@@ -3,19 +3,25 @@ import Base from '@/layouts/Base.astro';
 import Mark from '@/components/Mark.astro';
 import { projectEntries } from '@/lib/project-entries';
 import { formatPostDate } from '@/utils/format-post-date';
-import { interestsFrom, orderInterests } from '@/lib/interests';
+import { interestsFrom, isKind, kindsOnly, orderInterests, topicsOnly } from '@/lib/interests';
 import { DESCRIPTION, LEDE, NAME, PLACE } from '@/site';
 import '@/styles/home.css';
 
 const projects = await projectEntries();
 
 // The dropdown lists tags by weight: the ones with the most behind them are
-// worth offering first, and the singles trail off the end.
-const tags = orderInterests(interestsFrom(projects), 'greatest');
+// worth offering first, and the singles trail off the end. Kinds — "project",
+// and "post" when there are any — are held apart from the subjects, because
+// "what is this" and "what is it about" are different questions, and read as
+// one list "project 9" looks like a topic he is extremely into.
+const interests = interestsFrom(projects);
+const kinds = orderInterests(kindsOnly(interests), 'greatest');
+const tags = orderInterests(topicsOnly(interests), 'greatest');
 
-// The legend only earns its place if something on the page wears the mark it
-// explains.
+// A legend entry only earns its place if something on the page wears the mark
+// it explains.
 const anyInteractive = projects.some((project) => project.interactive);
+const anyFeatured = projects.some((project) => project.featured);
 ---
 
 <Base description={DESCRIPTION}>
@@ -37,9 +43,19 @@ const anyInteractive = projects.some((project) => project.interactive);
     <div class="home-head">
       <h2 class="home-title">
         projects
-        {anyInteractive && (
+        {(anyInteractive || anyFeatured) && (
           <span class="home-legend">
-            (<span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = interactive preview)
+            {anyInteractive && (
+              <Fragment>
+                <span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = interactive preview{anyFeatured ? ',' : ''}
+              </Fragment>
+            )}
+            {anyInteractive && anyFeatured && ' '}
+            {anyFeatured && (
+              <Fragment>
+                <span class="mark-badge home-legend-mark"><span class="mark-star">★</span></span> = featured
+              </Fragment>
+            )}
           </span>
         )}
       </h2>
@@ -64,15 +80,34 @@ const anyInteractive = projects.some((project) => project.interactive);
       with scripting off every project is listed and reachable and the only
       thing missing is the narrowing.
     */}
-      {tags.length > 0 && (
+      {(tags.length > 0 || kinds.length > 1) && (
         <details class="home-filter" data-project-filter>
           <summary class="home-filter-summary">
             <span>filter</span>
             <span class="home-filter-badge" data-filter-badge hidden></span>
           </summary>
           <div class="home-filter-panel">
+            {/* One kind with everything in it is not worth offering. The
+                group appears the first time there are two to tell apart. */}
+            {kinds.length > 1 && (
+              <fieldset class="home-filter-set home-filter-set--kinds">
+                <legend class="home-filter-legend">kind</legend>
+                {kinds.map((interest) => (
+                  <label class="home-filter-option">
+                    <input type="checkbox" value={interest.tag} data-filter-tag />
+                    <span class="home-filter-name">{interest.tag}</span>
+                    <span class="home-filter-count" aria-hidden="true">{interest.count}</span>
+                    <span class="visually-hidden">
+                      {interest.count === 1 ? '1 entry' : `${interest.count} entries`}
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
             <fieldset class="home-filter-set">
-              <legend class="visually-hidden">Show projects tagged</legend>
+              <legend class={kinds.length > 1 ? 'home-filter-legend' : 'visually-hidden'}>
+                {kinds.length > 1 ? 'about' : 'Show projects tagged'}
+              </legend>
               {tags.map((interest) => (
                 <label class="home-filter-option">
                   <input type="checkbox" value={interest.tag} data-filter-tag />
@@ -103,7 +138,6 @@ const anyInteractive = projects.some((project) => project.interactive);
         <a
           class="home-item"
           href={project.href}
-          data-featured={project.featured ? '' : undefined}
           data-archived={project.repo.archived ? '' : undefined}
           data-tags={project.tags.join(' ')}
         >
@@ -113,8 +147,33 @@ const anyInteractive = projects.some((project) => project.interactive);
             transition:name={`splash-${project.slug}`}
           >
             {project.splash && <img src={project.splash} alt="" />}
-            {project.interactive && (
-              <span class="mark-badge splash-mark"><Mark /></span>
+            {/*
+              One badge, two things said at once. The silhouette is whether
+              the project is featured — a star, or a circle when it is not.
+              The plates are whether it runs in the page: three inks slightly
+              out of register when it does, one flat magenta when it does not.
+              Three marks for four states, and the fourth — neither — wears
+              nothing, as it should.
+
+              The word rides along for a screen reader, because a shape is
+              not a label and the only other place either fact shows is the
+              order, which nobody can hear.
+            */}
+            {(project.interactive || project.featured) && (
+              <span class="mark-badge splash-mark">
+                {project.interactive ? (
+                  <Mark shape={project.featured ? 'star' : 'dot'} />
+                ) : (
+                  <span class="mark-star" aria-hidden="true">★</span>
+                )}
+                <span class="visually-hidden">
+                  {project.featured && project.interactive
+                    ? 'Featured, and interactive'
+                    : project.featured
+                      ? 'Featured'
+                      : 'Interactive'}
+                </span>
+              </span>
             )}
           </div>
           <div class="home-item-copy">
@@ -128,9 +187,11 @@ const anyInteractive = projects.some((project) => project.interactive);
               anchor, and an anchor cannot hold another — the dropdown above is
               where a tag is something you can press.
             */}
-            {project.tags.length > 0 && (
+            {/* Subjects, not kinds: "project" is on all nine at once and so
+                says nothing on any of them. */}
+            {project.tags.some((tag) => !isKind(tag)) && (
               <p class="home-item-tags">
-                {project.tags.map((tag) => (
+                {project.tags.filter((tag) => !isKind(tag)).map((tag) => (
                   <span class="home-item-tag" data-tag={tag}>{tag}</span>
                 ))}
               </p>
@@ -140,7 +201,6 @@ const anyInteractive = projects.some((project) => project.interactive);
                 <span class="visually-hidden">Last change </span>
                 {formatPostDate(project.updated)}
               </span>
-              {project.interactive && <span class="visually-hidden">Interactive</span>}
               {project.timeline.length > 0 && (
                 <span class="home-item-count">
                   {project.timeline.length === 1

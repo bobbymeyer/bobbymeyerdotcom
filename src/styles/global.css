@@ -241,13 +241,6 @@ sup {
   right: var(--page-gap);
 }
 
-@media (min-width: 1200px) {
-  .home-item[data-featured] .splash-mark {
-    --mark-box: 30px;
-    width: 46px;
-    height: 46px;
-  }
-}
 
 /* Hovering a card blows its mark out to full register — the same spread the
  * lockup performs on a navigation, asked for by the pointer rather than by
@@ -444,6 +437,37 @@ sup {
   to {
     rotate: 360deg;
   }
+}
+
+/* A star plate, set rather than cut. The typeface has the glyph, so the shape
+   is ★ in the plate's ink instead of a polygon with ten hand-placed corners.
+   Everything else about a plate is unchanged — same box, same drift, same
+   spread on hover — which is what lets a project that is both featured and
+   interactive say both with one mark.
+
+   The glyph paints smaller than its em box, so it is set larger than the
+   plate to land at the same weight as the circles it replaces. */
+.mark--star .mark-dot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border-radius: 0;
+  font-size: calc(var(--mark-dot) * 1.4);
+  line-height: 1;
+}
+
+.mark--star .mark-dot--c { color: var(--ink-cyan); }
+.mark--star .mark-dot--m { color: var(--ink-magenta); }
+.mark--star .mark-dot--y { color: var(--ink-yellow); }
+
+/* Featured and nothing else: one plate, so nothing to be out of register with
+   and no reason to drift. Magenta because it is the ink in the set that holds
+   up on white — process yellow measures 1.17:1 and would read as a smudge. */
+.mark-star {
+  color: var(--ink-magenta);
+  font-size: calc(var(--mark-dot) * 1.4);
+  line-height: 1;
 }
 
 .mark-dot {

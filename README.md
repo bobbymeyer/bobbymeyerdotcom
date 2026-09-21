@@ -70,9 +70,8 @@ latest release or tag, and its merged pull requests.
 
 The order is three bands — featured, live, archived — and inside each one the
 last commit on the repo's default branch, so a project that moves comes back to
-the top of its band on the next build. Featured projects also take two of the
-four fields, pinned to the left, and the rest pack into the two they leave; see
-**Tags**.
+the top of its band on the next build. Every card is one field wide; featuring
+is carried by the order alone. See **Tags**.
 
 A project page sets a project out in two fields: the note and the README on the
 left across three of four, and on the right the repository's own account of
@@ -112,7 +111,7 @@ either is a type error rather than a tag that quietly does nothing.
 
 | Tag | What it does |
 | --- | --- |
-| `featured` | Two fields wide on the index instead of one, and sorted above everything unfeatured however recently anything moved. Below 1200px the grid is two fields, where two of two is the whole width, so there the tag carries order alone. |
+| `featured` | Sorted above everything unfeatured on the index, however recently anything moved. Position is all it buys — it took two fields of width for a while, and a page with a double-width card in it read as lopsided rather than emphatic. |
 | `interactive` | The project runs on its own page, so its splash gets a registration target in the corner and the index prints a legend beside the heading saying what the mark means. |
 
 Archiving still beats featuring: an archived repository sorts to the bottom
@@ -203,7 +202,7 @@ indented treatment (`.marginalia-inline`).
 | --- | --- | --- | --- |
 | Phone (&lt; 640px) | 1 | Stacked | Stacked |
 | Tablet (640–1199px) | 2 | Two up, featured first | Stacked |
-| Desktop (1200–1599px) | 4 | Featured 2 fields, rest pack right | Note + readme, then the rail |
+| Desktop (1200–1599px) | 4 | Four up, featured first | Note + readme, then the rail |
 | Ultrawide (1600px+) | 4, capped width | As above | As above |
 
 Prose in the note and the README keeps a 70ch measure on the wide layouts —
@@ -214,6 +213,14 @@ figures, sketches and marginalia go on using the full width.
 
 `/about` sets out what the site is about by counting: every `tags` entry across
 every note in `src/content/posts`, tallied, in one of two orders.
+
+Every note also carries a **kind** — `project`, and `post` once there is
+writing that is not a project. Kinds live in the same list as the subjects,
+because a tag is a tag and the filter already understands them, but they are
+held apart wherever a reader meets them: off this list, since "project" is
+nobody's interest, off the cards, since it is on all nine at once and so says
+nothing on any of them, and in their own group in the filter, which is where
+they earn their place the first time there are two kinds to tell apart.
 
 *Greatest* is by how often a tag comes up — what he keeps returning to.
 *Recent* is by when a tag was last touched, dated by the last commit on the
@@ -241,6 +248,11 @@ There were briefly static pages under `/tags/` as well. They were crawlable
 and worked without script, and they were also a second URL for one idea, a
 second code path to keep in step, and a dropdown that behaved differently
 depending on which of the two you were standing on. One mechanism won.
+
+The filter offers the subjects, and — once there is more than one kind — a
+group for the kinds above them. A kind filters like any other tag whether or
+not it is offered: `?tags=project` works today, it is just not worth a
+checkbox while everything is one.
 
 **Ticking tags narrows**: a project has to carry all of them. On nine projects
 most second picks land on nothing, so an option that would take the result to

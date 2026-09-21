@@ -1,3 +1,3 @@
 ---
-tags: [generative, music, midi]
+tags: [project, generative, music, midi]
 ---
