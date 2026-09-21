@@ -1,4 +1,5 @@
 ---
+tags: [print, color, python]
 ---
 
 <figure>

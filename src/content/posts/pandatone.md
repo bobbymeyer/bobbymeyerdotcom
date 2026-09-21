@@ -1,4 +1,5 @@
 ---
+tags: [color, design-systems, rails]
 ---
 
 <figure>

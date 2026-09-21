@@ -1,34 +1,25 @@
 # todo
 
-In order. The first two are the same job twice and the rest can wait for
-them.
+In order. The second is the one that matters: the about page now introduces
+you, but nothing on this site is still written by you.
 
-## 1. Write the about page
+## 1. Say where else to find you
 
-The site can now introduce you — the index opens on your name, the line under
-it and where you are — but that line and the two sentences on `/about` are
-still every word about you on the site. Everything else a visitor reads was
-written by GitHub: a README addressed to someone installing a gem, and a list
-of pull request titles.
+`/about` now introduces you, and what it still does not do is point anywhere
+off this site. There is no link to a GitHub profile, no email address, no
+social — the contact form is the only way to reach you, and a form is a black
+box to anyone deciding whether to bother.
 
-What `/about` needs, roughly:
-
-- what you actually do, and for whom
-- the thread running through these projects, since there is one — print,
-  colour, generative systems, tools that are their own specimen
-- somewhere to go next: GitHub, email, anything else you want reachable.
-  Nothing on the site currently links off it except to the repositories
-  themselves, and the contact form is the only way to reach you.
-
-`src/pages/about.astro`. The lede and the place come from `src/site.ts` and
-are shared with the index, so change them there.
+The page has the room for it: the statement, the interests, then the two
+links, and a third line of "elsewhere" would sit naturally under them.
 
 ## 2. Write the featured notes
 
 `featured` in `src/projects.ts` buys a project twice the width on the index
 and the top of the order. What it is supposed to buy the reader is the part
 only you can write, and right now every note in `src/content/posts/` is a
-container for a sketch and nothing else — not one sentence across all six.
+container for a sketch, or for a line of tags, and nothing else — not one
+sentence across all nine.
 
 Per featured project, a few hundred words: why you built it, the constraint
 or the joke at the heart of it, what turned out to be hard, what you would do
@@ -60,8 +51,15 @@ demand — `src/scripts/albers.ts` is the shortest of them to borrow from.
 
 ## Smaller
 
-- **Outbound links.** No link to a GitHub profile, an email address or any
-  social anywhere on the site. Probably belongs with the about rewrite.
+- **Standalone posts.** A note in `src/content/posts` is matched to a project
+  by slug and does not render without one. Tags already live on the note
+  rather than on the project, so writing that is not a project would inherit
+  them — what it still needs is a route, a date of its own (there is no repo
+  to read one from), and a decision about whether it shares the index with
+  the projects or gets a list of its own.
+- **Somewhere for a tag to go.** The interests on `/about` are words, not
+  links, because there is no page to send them to. A filtered index would
+  give them one.
 - **Lockfile.** `package-lock.json` is gitignored, so CI installs with
   `npm install` and two runs can resolve different trees. Committing it and
   switching `.github/workflows/ci.yml` to `npm ci` makes builds reproducible.

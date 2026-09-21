@@ -31,3 +31,91 @@
     margin-top: var(--page-gutter);
   }
 }
+
+/* The opening statement carries the page, so it is set a size up from the
+   body and given a measure of its own. */
+.about-statement {
+  max-width: 32em;
+  font-size: var(--font-size-h4);
+  line-height: 1.35;
+}
+
+.about-interests {
+  margin-top: var(--page-gutter);
+}
+
+.about-interests-lead {
+  max-width: 32em;
+}
+
+/* The dropdown is set inside the sentence rather than beside it, so the line
+   reads as a sentence with one word you can change. Every piece of the
+   browser's own control comes off — the box, the arrow, the system font —
+   leaving text with the same hairline under it that a link here carries, and
+   `currentColor` so it takes the page's ink rather than the platform's. */
+.about-select select {
+  appearance: none;
+  margin: 0;
+  padding: 0 0.9em 0 0;
+  border: 0;
+  border-radius: 0;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  line-height: inherit;
+  cursor: pointer;
+}
+
+/* The arrow, drawn rather than inherited: a small solid triangle in the ink,
+   sitting in the padding the select leaves for it. */
+.about-select {
+  position: relative;
+  white-space: nowrap;
+}
+
+.about-select::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0.2em;
+  width: 0;
+  height: 0;
+  margin-top: -0.1em;
+  border-inline: 0.28em solid transparent;
+  border-top: 0.3em solid currentColor;
+  pointer-events: none;
+}
+
+.about-select select:focus {
+  outline: none;
+}
+
+.about-select select:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+}
+
+/* The list itself. Tags, not links: there is nowhere for a tag to go yet, and
+   a link that goes nowhere is worse than a word that never claimed to. */
+.about-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--page-gap) / 2) var(--page-gap);
+  margin: var(--page-gap) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.about-tag {
+  padding: calc(var(--page-gap) / 4) calc(var(--page-gap) / 2);
+  border: 1px solid #000;
+  font-size: 0.857em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: var(--line-height);
+}
+
+.about-copy > p + p {
+  margin-top: var(--page-gap);
+}

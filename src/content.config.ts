@@ -25,6 +25,21 @@ const posts = defineCollection({
      * `public/posts/<slug>/`; the note's body supplies the markup it drives.
      */
     sketch: z.string().optional(),
+    /**
+     * What this is about. The about page collects these across every note and
+     * sets them out as a list of interests, ordered either by how often a tag
+     * comes up or by how recently.
+     *
+     * They live on the note rather than in `src/projects.ts` because the note
+     * is the part that is not a repository: a note carries tags whether or not
+     * a project stands behind it, so writing that is not a project gets them
+     * for free when there is any.
+     *
+     * Lowercase, and reuse a tag before inventing one — a vocabulary of four
+     * tags used three times each says something, and twelve used once each
+     * says nothing.
+     */
+    tags: z.array(z.string()).default([]),
   }),
 });
 

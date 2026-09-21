@@ -35,6 +35,12 @@
   mention him — image alt text, a sentence — is ordinary prose and
   capitalises normally.
 
+  One line breaks that rule on purpose: the opening statement on
+  `/about`, which reads `Bobby Meyer. Based in Ojai, California.` That
+  is the formal statement of who this is rather than a piece of chrome,
+  so it is typed out in full and capitalised, and it is the only place
+  on the site that does so.
+
 - **Never use a shadow.** No `drop-shadow`, no `box-shadow`, no
   `text-shadow`, for any reason, including making something legible over
   an image. This site is ink on paper and ink does not cast shadows. When
