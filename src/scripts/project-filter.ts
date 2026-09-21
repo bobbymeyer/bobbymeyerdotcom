@@ -105,6 +105,13 @@ export function initProjectFilter(): void {
   const grid = document.querySelector<HTMLElement>('[data-project-grid]');
   if (!filter || !grid) return;
 
+  // The page calls this directly *and* on `astro:page-load`, which the client
+  // router fires for the first load as well as for later ones — so without
+  // this the whole thing wires itself twice per document, and the teardown
+  // below only ever unhooks one of the two pairs it leaves on `document`.
+  if (filter.dataset.wired) return;
+  filter.dataset.wired = 'true';
+
   const boxes = [...filter.querySelectorAll<HTMLInputElement>('[data-filter-tag]')];
   const badge = filter.querySelector<HTMLElement>('[data-filter-badge]');
   const clear = filter.querySelector<HTMLAnchorElement>('[data-filter-clear]');
