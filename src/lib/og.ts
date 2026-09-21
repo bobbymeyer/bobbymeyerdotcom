@@ -139,7 +139,7 @@ function dot(color: string) {
  * `display: flex` — there is no block layout to fall back on.
  */
 export async function ogImage(card: OgCard): Promise<Buffer> {
-  const bg = card.bg ?? POST_PALETTE.magenta;
+  const bg = card.bg ?? POST_PALETTE.paper;
   const field = await fieldPng(card.splash, bg);
   const title = withoutEmoji(card.title);
 
@@ -256,5 +256,5 @@ export const SITE_CARD: OgCard = {
   title: NAME,
   summary: LEDE,
   splash: '/posts/bobbymeyerdotcom/splash.svg',
-  bg: POST_PALETTE.magenta,
+  bg: POST_PALETTE.paper,
 };

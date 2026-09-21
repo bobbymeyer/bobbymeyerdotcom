@@ -5,6 +5,12 @@
     Venn. The centres sit on an equilateral triangle whose side is the dot's
     radius, which is the same geometry the header blooms to.
 
+    The ground is the sheet. Process inks are subtractive — each one is a
+    statement about what it takes out of the light the paper sends back — so
+    they are only themselves on white, and the secondaries below are only the
+    right colours there. A tinted ground would make the whole thing a picture
+    of a mark rather than the mark.
+
     The overlaps are painted rather than blended. `mix-blend-mode: multiply`
     is what the header uses and what this file used first, and librsvg — which
     is what rasterises this SVG into the social card — does not implement it,
@@ -26,7 +32,7 @@
     <clipPath id="ink-y"><circle cx="700" cy="507.7" r="200"/></clipPath>
   </defs>
 
-  <rect width="1600" height="900" fill="#E83A75"/>
+  <rect width="1600" height="900" fill="#ffffff"/>
 
   <circle cx="800" cy="334.5" r="200" fill="#00aeef"/>
   <circle cx="900" cy="507.7" r="200" fill="#ec008c"/>

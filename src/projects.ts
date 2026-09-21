@@ -114,7 +114,7 @@ export const PROJECTS: ProjectDef[] = [
     repo: 'bobbymeyer/bobbymeyerdotcom',
     title: '🪞 bobbymeyer.com',
     summary: 'a portfolio that rebuilds itself from GitHub',
-    bg_color: POST_PALETTE.magenta,
+    bg_color: POST_PALETTE.paper,
     splash: '/posts/bobbymeyerdotcom/splash.svg',
   },
 ];
