@@ -122,6 +122,19 @@ export const INTEREST_ORDERS: { value: InterestOrder; label: string }[] = [
   { value: 'recent', label: 'recent' },
 ];
 
+/**
+ * The same two orders, said the way they are said about tools.
+ *
+ * A subject is one he keeps returning to or one he is on now; a tool is one he
+ * usually reaches for or one he has lately been reaching for. Same tally, same
+ * sort, different sentence around it — so the values match and only the words
+ * change.
+ */
+export const STACK_ORDERS: { value: InterestOrder; label: string }[] = [
+  { value: 'greatest', label: 'usually' },
+  { value: 'recent', label: 'lately' },
+];
+
 export const DEFAULT_INTEREST_ORDER: InterestOrder = 'greatest';
 
 /**

@@ -1,0 +1,73 @@
+---
+/**
+ * A tally set out as a sentence with one word you can change.
+ *
+ * The about page runs two of these: what the work is about, and what it is
+ * built with. They are the same object counted out of two different
+ * vocabularies, so they are the same component rather than two near-copies of
+ * thirty lines of ranks and labels that would drift apart the first time one
+ * of them was touched.
+ *
+ * Rendered in the default order, so the list is right before a line of
+ * JavaScript has run and right if none ever does. Both positions ride along on
+ * each item and `src/scripts/interest-order.ts` reorders against them.
+ */
+import {
+  DEFAULT_INTEREST_ORDER,
+  interestRanks,
+  orderInterests,
+  tagHref,
+  type Interest,
+  type InterestOrder,
+} from '@/lib/interests';
+
+interface Props {
+  /** The select's id, which its label points at. Unique to the page. */
+  id: string;
+  /** What the select does, for somebody who cannot see the sentence. */
+  label: string;
+  /** The sentence, either side of the word the select sets. */
+  before: string;
+  after: string;
+  orders: { value: InterestOrder; label: string }[];
+  interests: Interest[];
+}
+
+const { id, label, before, after, orders, interests } = Astro.props;
+
+const ranks = interestRanks(interests);
+const listed = orderInterests(interests, DEFAULT_INTEREST_ORDER);
+---
+
+<div class="about-interests" data-interest-block>
+  <p class="about-interests-lead">
+    {before}{' '}
+    <span class="about-select">
+      <label class="visually-hidden" for={id}>{label}</label>
+      <select id={id} data-interest-order>
+        {orders.map((option) => (
+          <option value={option.value} selected={option.value === DEFAULT_INTEREST_ORDER}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </span>{' '}
+    {after}
+  </p>
+  <ul class="about-tags" data-interest-list>
+    {listed.map((interest) => (
+      <li
+        class="about-tag"
+        data-rank-greatest={ranks.greatest[interest.tag]}
+        data-rank-recent={ranks.recent[interest.tag]}
+      >
+        <a href={tagHref(interest.tag)}>
+          {interest.tag}
+          <span class="visually-hidden">
+            {interest.count === 1 ? ' — 1 project' : ` — ${interest.count} projects`}
+          </span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</div>
