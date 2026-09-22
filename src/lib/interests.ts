@@ -47,7 +47,7 @@ export function isKind(tag: string): tag is KindTag {
  * what the about page counts as interests, and a mark is neither. It is a
  * fact about a thing, not a thing the thing is about.
  */
-export const MARK_TAGS = ['featured', 'interactive'] as const;
+export const MARK_TAGS = ['featured', 'interactive', 'archived'] as const;
 
 export type MarkTag = (typeof MARK_TAGS)[number];
 
@@ -56,14 +56,29 @@ export function isMark(tag: string): tag is MarkTag {
 }
 
 /**
+ * Whether a project wears a mark.
+ *
+ * One place that knows where each of them is kept — two are set in
+ * `src/projects.ts` and the third is GitHub's answer about the repository —
+ * so the filter keys on a card and the tallies in the dropdown are read off
+ * the same question.
+ */
+export function hasMark(project: ProjectEntry, mark: MarkTag): boolean {
+  if (mark === 'featured') return project.featured;
+  if (mark === 'interactive') return project.interactive;
+  return project.repo.archived;
+}
+
+/**
  * The group above the subjects, in the order it is set in.
  *
- * Fixed rather than counted, unlike the topics: there are four of these and
- * they are always the same four, so an order that shuffled as the tallies
+ * Fixed rather than counted, unlike the topics: there are five of these and
+ * they are always the same five, so an order that shuffled as the tallies
  * moved would only make the row harder to find something in. Posts lead
- * because they are the thing this site does not have yet and will.
+ * because they are the thing this site does not have yet and will, and
+ * archived brings up the rear, which is where it sits on the page too.
  */
-export const FACET_ORDER = ['post', 'project', 'featured', 'interactive'] as const;
+export const FACET_ORDER = ['post', 'project', 'featured', 'interactive', 'archived'] as const;
 
 export function isFacet(tag: string): boolean {
   return isKind(tag) || isMark(tag);
@@ -91,7 +106,7 @@ export function filterTags(project: ProjectEntry): string[] {
   return [
     ...project.tags,
     ...project.stack,
-    ...MARK_TAGS.filter((mark) => (mark === 'featured' ? project.featured : project.interactive)),
+    ...MARK_TAGS.filter((mark) => hasMark(project, mark)),
   ];
 }
 
@@ -167,9 +182,7 @@ export function interestsFrom(projects: ProjectEntry[]): Interest[] {
       count(tag, isFacet(tag) ? 'facet' : 'topic', project.updated);
     }
     for (const mark of MARK_TAGS) {
-      if (mark === 'featured' ? project.featured : project.interactive) {
-        count(mark, 'facet', project.updated);
-      }
+      if (hasMark(project, mark)) count(mark, 'facet', project.updated);
     }
     for (const tool of project.stack) count(tool, 'stack', project.updated);
   }
@@ -221,8 +234,8 @@ export function stackOnly(interests: Interest[]): Interest[] {
  *
  * In FACET_ORDER, and only the ones something actually carries: an option
  * standing at nought is one a reader can only be disappointed by, and each of
- * these appears on its own the first time it is true of anything. Today that
- * is projects, featured and interactive; posts joins them when there is one.
+ * these appears on its own the first time it is true of anything — posts when
+ * the first one is written, archived when the first repository is.
  */
 export function facetsOnly(interests: Interest[]): Interest[] {
   return FACET_ORDER.map((tag) =>
