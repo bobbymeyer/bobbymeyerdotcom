@@ -126,7 +126,7 @@ export function projectSlug(project: ProjectDef): string {
   return project.slug ?? project.repo.split('/')[1]!;
 }
 
-/** Twice the width on the index, and sorted above everything that is not. */
+/** Wears a star on the index, and can be filtered for. Order is not its job. */
 export function isFeatured(project: ProjectDef): boolean {
   return project.tags?.includes('featured') ?? false;
 }
