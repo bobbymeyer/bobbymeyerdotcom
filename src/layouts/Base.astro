@@ -169,4 +169,22 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
 
 <script>
   import '@/scripts/site-accent';
+
+  /*
+   * The whole filter lives here rather than on the index, because half its
+   * job is to run *before* the index arrives: `initFilterPreSwap` narrows the
+   * incoming grid while a reader is still standing on the page they followed
+   * the tag link from, and the index's own script does not exist yet at that
+   * point — it comes with the page and runs after the swap.
+   *
+   * The wiring rides along in the same block instead of staying behind on the
+   * index. Split across two entry points the module becomes a shared chunk,
+   * which is one more request in front of the index's own script, and the
+   * grid gets painted unnarrowed while it is fetched. One owner, one request,
+   * and `initProjectFilter` steps aside on every page that has no grid.
+   */
+  import { initFilterPreSwap, initProjectFilter } from '@/scripts/project-filter';
+  initFilterPreSwap();
+  document.addEventListener('astro:page-load', initProjectFilter);
+  initProjectFilter();
 </script>
