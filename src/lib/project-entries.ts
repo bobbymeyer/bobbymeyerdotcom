@@ -55,6 +55,8 @@ export interface ProjectEntry {
   stack: string[];
   /** Wears a star on the index, and is a group of its own in the filter. */
   featured: boolean;
+  /** Sorted below the other live projects. See `demote` in src/projects.ts. */
+  demote: boolean;
   /** Runs on its own page; the index marks it with a registration target. */
   interactive: boolean;
   /** When the repository was created. */
@@ -140,14 +142,22 @@ async function build(): Promise<ProjectEntry[]> {
  * last commit a project gets, so a finished project would otherwise arrive at
  * the head of a list ordered by last change on the strength of being finished.
  * That is a correction for a date that lies rather than a ranking.
+ *
+ * A demoted project is the same sort of correction for the opposite problem.
+ * This site is committed to every time any of the others is published, so its
+ * date is always the newest and never means anything — left alone it would
+ * open the list forever, on the card for the page you are already reading. It
+ * goes under the live projects and above the archived, because it is neither
+ * finished nor competing.
  */
 function band(entry: ProjectEntry): number {
-  return entry.repo.archived ? 1 : 0;
+  if (entry.repo.archived) return 2;
+  return entry.demote ? 1 : 0;
 }
 
 /**
  * The order the index and the feed both use: newest change first, with the
- * archived below the live.
+ * demoted under the live and the archived under those.
  */
 function byBandThenUpdated(a: ProjectEntry, b: ProjectEntry): number {
   const bands = band(a) - band(b);
@@ -215,6 +225,7 @@ async function load(
     tags: normalizeTags(notes.get(slug)?.data.tags),
     stack: normalizeTags(notes.get(slug)?.data.stack),
     featured: isFeatured(project),
+    demote: project.demote ?? false,
     interactive: isInteractive(project),
     published: new Date(repo.created_at),
     updated: new Date(lastCommit ?? repo.pushed_at),
