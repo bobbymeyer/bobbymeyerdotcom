@@ -3,19 +3,29 @@ import Base from '@/layouts/Base.astro';
 import Mark from '@/components/Mark.astro';
 import { projectEntries } from '@/lib/project-entries';
 import { formatPostDate } from '@/utils/format-post-date';
-import { interestsFrom, isKind, kindsOnly, orderInterests, topicsOnly } from '@/lib/interests';
+import {
+  facetLabel,
+  facetsOnly,
+  filterTags,
+  interestsFrom,
+  isFacet,
+  orderInterests,
+  topicsOnly,
+} from '@/lib/interests';
 import { DESCRIPTION, LEDE, NAME, PLACE } from '@/site';
 import '@/styles/home.css';
 
 const projects = await projectEntries();
 
-// The dropdown lists tags by weight: the ones with the most behind them are
-// worth offering first, and the singles trail off the end. Kinds — "project",
-// and "post" when there are any — are held apart from the subjects, because
-// "what is this" and "what is it about" are different questions, and read as
-// one list "project 9" looks like a topic he is extremely into.
+// Two groups, because "what is this" and "what is it about" are different
+// questions, and run together as one list "project 9" reads like a topic he is
+// extremely into. Above: what a thing is and how it is marked — posts,
+// projects, featured, interactive — in a fixed order, since there are only
+// ever those four and a row that reshuffled itself would be harder to find
+// anything in. Below: the subjects, by weight, the ones with the most behind
+// them first and the singles trailing off the end.
 const interests = interestsFrom(projects);
-const kinds = orderInterests(kindsOnly(interests), 'greatest');
+const facets = facetsOnly(interests);
 const tags = orderInterests(topicsOnly(interests), 'greatest');
 
 // A legend entry only earns its place if something on the page wears the mark
@@ -80,22 +90,24 @@ const anyFeatured = projects.some((project) => project.featured);
       with scripting off every project is listed and reachable and the only
       thing missing is the narrowing.
     */}
-      {(tags.length > 0 || kinds.length > 1) && (
+      {(tags.length > 0 || facets.length > 0) && (
         <details class="home-filter" data-project-filter>
           <summary class="home-filter-summary">
             <span>filter</span>
             <span class="home-filter-badge" data-filter-badge hidden></span>
           </summary>
           <div class="home-filter-panel">
-            {/* One kind with everything in it is not worth offering. The
-                group appears the first time there are two to tell apart. */}
-            {kinds.length > 1 && (
+            {/* Posts are missing from this row until the first one exists,
+                and each of the others appears the first time it is true of
+                anything — an option standing at nought is one a reader can
+                only be disappointed by. */}
+            {facets.length > 0 && (
               <fieldset class="home-filter-set home-filter-set--kinds">
-                <legend class="home-filter-legend">kind</legend>
-                {kinds.map((interest) => (
+                <legend class="home-filter-legend">what</legend>
+                {facets.map((interest) => (
                   <label class="home-filter-option">
                     <input type="checkbox" value={interest.tag} data-filter-tag />
-                    <span class="home-filter-name">{interest.tag}</span>
+                    <span class="home-filter-name">{facetLabel(interest.tag)}</span>
                     <span class="home-filter-count" aria-hidden="true">{interest.count}</span>
                     <span class="visually-hidden">
                       {interest.count === 1 ? '1 entry' : `${interest.count} entries`}
@@ -105,8 +117,8 @@ const anyFeatured = projects.some((project) => project.featured);
               </fieldset>
             )}
             <fieldset class="home-filter-set">
-              <legend class={kinds.length > 1 ? 'home-filter-legend' : 'visually-hidden'}>
-                {kinds.length > 1 ? 'about' : 'Show projects tagged'}
+              <legend class={facets.length > 0 ? 'home-filter-legend' : 'visually-hidden'}>
+                {facets.length > 0 ? 'about' : 'Show projects tagged'}
               </legend>
               {tags.map((interest) => (
                 <label class="home-filter-option">
@@ -139,7 +151,7 @@ const anyFeatured = projects.some((project) => project.featured);
           class="home-item"
           href={project.href}
           data-archived={project.repo.archived ? '' : undefined}
-          data-tags={project.tags.join(' ')}
+          data-tags={filterTags(project).join(' ')}
         >
           <div
             class="splash"
@@ -187,11 +199,12 @@ const anyFeatured = projects.some((project) => project.featured);
               anchor, and an anchor cannot hold another — the dropdown above is
               where a tag is something you can press.
             */}
-            {/* Subjects, not kinds: "project" is on all nine at once and so
-                says nothing on any of them. */}
-            {project.tags.some((tag) => !isKind(tag)) && (
+            {/* Subjects only. "project" is on all nine at once and so says
+                nothing on any of them, and featured and interactive are
+                already said by the badge on the splash. */}
+            {project.tags.some((tag) => !isFacet(tag)) && (
               <p class="home-item-tags">
-                {project.tags.filter((tag) => !isKind(tag)).map((tag) => (
+                {project.tags.filter((tag) => !isFacet(tag)).map((tag) => (
                   <span class="home-item-tag" data-tag={tag}>{tag}</span>
                 ))}
               </p>

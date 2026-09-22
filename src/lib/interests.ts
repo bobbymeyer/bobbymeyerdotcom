@@ -25,9 +25,9 @@ import type { ProjectEntry } from '@/lib/project-entries';
  * has no business in the list on the about page, and it is on all nine cards
  * at once, so printing it on each of them says nothing.
  *
- * Where they earn their place is the filter, as a facet of their own — which
- * is worth nearly nothing today, with one kind and everything in it, and is
- * the whole point the first time a post appears next to the projects.
+ * Where they earn their place is the filter, in the group above the subjects —
+ * which is worth nearly nothing today, with one kind and everything in it, and
+ * is the whole point the first time a post appears next to the projects.
  */
 export const KIND_TAGS = ['project', 'post'] as const;
 
@@ -35,6 +35,63 @@ export type KindTag = (typeof KIND_TAGS)[number];
 
 export function isKind(tag: string): tag is KindTag {
   return (KIND_TAGS as readonly string[]).includes(tag);
+}
+
+/**
+ * Marks a thing wears rather than subjects it covers.
+ *
+ * Unlike the kinds these are not on the note at all: they are set in
+ * `src/projects.ts` and read back by `isFeatured` and `isInteractive`. They
+ * are joined onto a card's filter keys by `filterTags` below rather than
+ * folded into its `tags`, because `tags` is what the card prints as chips and
+ * what the about page counts as interests, and a mark is neither. It is a
+ * fact about a thing, not a thing the thing is about.
+ */
+export const MARK_TAGS = ['featured', 'interactive'] as const;
+
+export type MarkTag = (typeof MARK_TAGS)[number];
+
+export function isMark(tag: string): tag is MarkTag {
+  return (MARK_TAGS as readonly string[]).includes(tag);
+}
+
+/**
+ * The group above the subjects, in the order it is set in.
+ *
+ * Fixed rather than counted, unlike the topics: there are four of these and
+ * they are always the same four, so an order that shuffled as the tallies
+ * moved would only make the row harder to find something in. Posts lead
+ * because they are the thing this site does not have yet and will.
+ */
+export const FACET_ORDER = ['post', 'project', 'featured', 'interactive'] as const;
+
+export function isFacet(tag: string): boolean {
+  return isKind(tag) || isMark(tag);
+}
+
+/**
+ * How a facet is set in the dropdown.
+ *
+ * The kinds are pluralised because the option names a set of things —
+ * "projects 9" — while the marks are adjectives and stay as they are: a thing
+ * is featured, it is not a featured. Only the label moves; the value behind it
+ * stays singular, because that is the tag as the note carries it and as it
+ * goes into the address bar.
+ */
+export function facetLabel(tag: string): string {
+  return isKind(tag) ? `${tag}s` : tag;
+}
+
+/**
+ * Everything a card can be narrowed by: the tags on its note, plus whichever
+ * marks it wears. This is what goes into `data-tags`, and what the counts in
+ * the dropdown are counted from, so the two cannot drift apart.
+ */
+export function filterTags(project: ProjectEntry): string[] {
+  return [
+    ...project.tags,
+    ...MARK_TAGS.filter((mark) => (mark === 'featured' ? project.featured : project.interactive)),
+  ];
 }
 
 export interface Interest {
@@ -67,7 +124,7 @@ export function interestsFrom(projects: ProjectEntry[]): Interest[] {
   const seen = new Map<string, Interest>();
 
   for (const project of projects) {
-    for (const tag of project.tags) {
+    for (const tag of filterTags(project)) {
       const found = seen.get(tag);
       if (!found) {
         seen.set(tag, { tag, count: 1, latest: project.updated });
@@ -107,12 +164,21 @@ export function orderInterests(interests: Interest[], order: InterestOrder): Int
 
 /** The ones that describe a subject. What the about page counts. */
 export function topicsOnly(interests: Interest[]): Interest[] {
-  return interests.filter((interest) => !isKind(interest.tag));
+  return interests.filter((interest) => !isFacet(interest.tag));
 }
 
-/** The ones that describe a kind. Their own group in the filter. */
-export function kindsOnly(interests: Interest[]): Interest[] {
-  return interests.filter((interest) => isKind(interest.tag));
+/**
+ * What a thing is and how it is marked, for the group above the subjects.
+ *
+ * In FACET_ORDER, and only the ones something actually carries: an option
+ * standing at nought is one a reader can only be disappointed by, and each of
+ * these appears on its own the first time it is true of anything. Today that
+ * is projects, featured and interactive; posts joins them when there is one.
+ */
+export function facetsOnly(interests: Interest[]): Interest[] {
+  return FACET_ORDER.map((tag) => interests.find((interest) => interest.tag === tag)).filter(
+    (interest): interest is Interest => interest !== undefined,
+  );
 }
 
 /**
