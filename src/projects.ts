@@ -24,11 +24,11 @@ import { POST_PALETTE } from '@/palette';
  * error rather than a tag that silently does nothing. Adding a third is a
  * word here and whatever reads it.
  *
- * - `featured` — above everything that is not featured on the index, however
- *   recently anything moved. The projects worth stopping on, in other words,
- *   which is a judgement no commit date can make. It buys position and
- *   nothing else: it bought two fields of width for a while, and a page with
- *   a double-width card in it read as lopsided rather than emphatic.
+ * - `featured` — the projects worth stopping on, which is a judgement no
+ *   commit date can make. It wears a star and it is a group in the filter,
+ *   so a reader can ask for them; it used to sort them to the top instead,
+ *   and before that gave them two fields of width, and both of those asserted
+ *   at everyone at once what a filter lets one person ask.
  * - `interactive` — the thing runs on its own project page, so the index
  *   marks it with a registration target and says so in the legend.
  */
@@ -49,6 +49,19 @@ export interface ProjectDef {
   bg_color: PostColor;
   /** Image laid over the splash field. */
   splash?: string;
+  /**
+   * Sorted below the other live projects, whatever its last commit says.
+   *
+   * For the one project whose date cannot be compared with the rest: this
+   * site. Every change to any of the others is published by committing to it,
+   * so it holds "most recently touched" permanently and says nothing by
+   * holding it — the list would open on the same card forever, and on the one
+   * a reader is already standing in.
+   *
+   * It is still live and still worth reading, so it sits under the live
+   * projects rather than under the archived ones.
+   */
+  demote?: boolean;
   /** Kept out of the built site, still visible in dev. */
   draft?: boolean;
 }
@@ -115,6 +128,7 @@ export const PROJECTS: ProjectDef[] = [
   },
   {
     repo: 'bobbymeyer/bobbymeyerdotcom',
+    demote: true,
     title: '🪞 bobbymeyer.com',
     summary: 'a portfolio that rebuilds itself from GitHub',
     bg_color: POST_PALETTE.paper,
