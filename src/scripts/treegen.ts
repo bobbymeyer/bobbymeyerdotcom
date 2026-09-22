@@ -21,12 +21,37 @@ type TreegenModule = {
 };
 
 let loading: Promise<TreegenModule> | null = null;
+
+/**
+ * How many times the import has failed.
+ *
+ * Clearing the memo above is not enough on its own. A dynamic import is
+ * remembered by the browser's own module map, keyed on the URL and for the
+ * life of the document — and a *failed* one is remembered too, so asking for
+ * the same URL again returns the same failure without going near the network.
+ * Reloading the page was the only way out of it, which for a reader who hit
+ * one bad moment meant the piece stayed broken for the rest of their visit.
+ *
+ * A different URL is a different entry in that map, so each retry carries a
+ * count the previous attempt did not. It only ever appears after a failure.
+ */
+let attempt = 0;
+
+const retryable = (url: string) => (attempt === 0 ? url : `${url}?retry=${attempt}`);
 let live: TreegenModule | null = null;
 
 function load(): Promise<TreegenModule> {
   // Set before the import, so the module does not start itself.
   (window as any).__treegenEmbedded = true;
-  loading ??= import(/* @vite-ignore */ TREEGEN_SRC) as Promise<TreegenModule>;
+  // Memoised so two calls in one visit make one request, but *not* past a
+  // failure: a rejected promise left in here would be handed to every later
+  // attempt, so one flaky moment would follow the reader around the site
+  // until they reloaded the page themselves.
+  loading ??= (import(/* @vite-ignore */ retryable(TREEGEN_SRC)) as Promise<TreegenModule>).catch((error) => {
+    loading = null;
+    attempt += 1;
+    throw error;
+  });
   return loading;
 }
 

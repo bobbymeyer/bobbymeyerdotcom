@@ -134,6 +134,12 @@ export const PROJECTS: ProjectDef[] = [
     bg_color: POST_PALETTE.paper,
     splash: '/posts/bobbymeyerdotcom/splash.svg',
   },
+  {
+    repo: 'bobbymeyer/funcooker',
+    title: '🍳 funcooker',
+    bg_color: POST_PALETTE.orange,
+    splash: '/posts/funcooker/splash.jpg',
+  },
 ];
 
 /** The slug a project lives at: `slug` if it sets one, else the repo name. */
