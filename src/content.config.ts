@@ -60,7 +60,11 @@ const posts = defineCollection({
      * same thing. It has its own group in the filter and stays off the about
      * page's interests, which are subjects.
      *
-     * Lowercase, and set as the thing calls itself — `p5`, not `p5.js`.
+     * Lowercase, and set as the thing calls itself — `p5`, not `p5.js` — but
+     * spell a language out: `javascript` and `typescript`, never `js` or `ts`,
+     * so neither of the pair looks abbreviated beside the other.
+     *
+     * Nothing technological belongs in `tags`. See CLAUDE.md.
      */
     stack: z.array(z.string()).default([]),
   }),

@@ -47,6 +47,42 @@
   a mark has to hold up over artwork, give it its own ground — the disc
   under the mark on an interactive project's splash is how that is done.
 
+## Post metadata
+
+A note in `src/content/posts` answers three questions and keeps them
+apart, because they are not the same kind of fact and a list that ran
+them together answered none of them well.
+
+- **`tags` is what a thing is about.** Subjects and disciplines:
+  `generative`, `typography`, `print`, `color`, `music`, `games`,
+  `simulation`, `nature`, `design-systems`. Plus exactly one kind,
+  `project` or `post`, which says what the thing *is*.
+
+- **`stack` is what it is built with.** Languages, frameworks,
+  libraries, formats, the applications it came out of: `astro`,
+  `javascript`, `typescript`, `python`, `rails`, `p5`, `canvas`,
+  `midi`, `netlify`.
+
+  **A technology never goes in `tags`.** Not a language, not a
+  framework, not a library, not a file format, not a hosting platform.
+  If a new note wants to say it is a Rails app, that is `stack:
+  [rails]` and nothing else. This is settled, not a preference — the
+  two vocabularies are counted separately, set out separately on
+  `/about`, and filtered as separate groups on the index, and a tool
+  in `tags` lands in the wrong one of each.
+
+Both are lowercase. Set a thing as it calls itself — `p5`, not `p5.js`
+— but spell a language out: `javascript` and `typescript`, never `js`
+or `ts`, so neither of the pair looks abbreviated beside the other.
+Reuse a name before inventing one: four names used three times each
+say something, twelve used once each say nothing.
+
+Where they surface: `/about` runs one tally of each, the subjects under
+"This site documents my … interests" and the tools under "I have …
+been building with"; the index filter has a group for each, "about" and
+"built with", beside "what" for the kinds and marks. A card prints its
+subjects only.
+
 ## Contact
 
 - **Never publish an email address.** No `mailto:`, no address written out,
