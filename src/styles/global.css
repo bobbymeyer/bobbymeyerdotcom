@@ -248,8 +248,8 @@ sup {
  * rest position each dot already carries on `transform`: the two compose, so
  * this is the distance still to travel.
  *
- * Keyboard focus gets it too. Touch has no hover and does not need one — the
- * mark is drifting at rest, which is the thing that says the project moves.
+ * Keyboard focus gets it too, and so does a reader with no pointer at all —
+ * see the in-view rule below.
  */
 @media (hover: hover) {
   .home-item:hover .mark-dot--c {
@@ -274,6 +274,23 @@ sup {
 }
 
 .home-item:focus-visible .mark-dot--y {
+  translate: -20.1% 11.6%;
+}
+
+/* And for a reader with no pointer to hover with: scrolling a card into view
+   is the gesture that brings it to attention, so it blooms the same way and
+   settles again a moment later. Set by `src/scripts/mark-inview.ts`, which
+   only runs where `(hover: none)` — a touchscreen laptop has a pointer, and a
+   narrow window on a desktop still has one. */
+.home-item[data-inview] .mark-dot--c {
+  translate: 0 -23.2%;
+}
+
+.home-item[data-inview] .mark-dot--m {
+  translate: 20.1% 11.6%;
+}
+
+.home-item[data-inview] .mark-dot--y {
   translate: -20.1% 11.6%;
 }
 
