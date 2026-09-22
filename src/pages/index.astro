@@ -10,6 +10,7 @@ import {
   interestsFrom,
   isFacet,
   orderInterests,
+  stackOnly,
   topicsOnly,
 } from '@/lib/interests';
 import { DESCRIPTION, LEDE, NAME, PLACE } from '@/site';
@@ -17,16 +18,20 @@ import '@/styles/home.css';
 
 const projects = await projectEntries();
 
-// Two groups, because "what is this" and "what is it about" are different
-// questions, and run together as one list "project 9" reads like a topic he is
-// extremely into. Above: what a thing is and how it is marked — posts,
-// projects, featured, interactive — in a fixed order, since there are only
-// ever those four and a row that reshuffled itself would be harder to find
-// anything in. Below: the subjects, by weight, the ones with the most behind
+// Three groups, because "what is this", "what is it about" and "what is it
+// built with" are different questions, and run together as one list "project 9"
+// reads like a topic he is extremely into and "rails 2" like a thing he is
+// drawn to rather than a thing he typed in.
+//
+// First: what a thing is and how it is marked — posts, projects, featured,
+// interactive — in a fixed order, since there are only ever those four and a
+// row that reshuffled itself would be harder to find anything in. Then the
+// subjects and then the tools, both by weight, the ones with the most behind
 // them first and the singles trailing off the end.
 const interests = interestsFrom(projects);
 const facets = facetsOnly(interests);
 const tags = orderInterests(topicsOnly(interests), 'greatest');
+const stack = orderInterests(stackOnly(interests), 'greatest');
 
 // A legend entry only earns its place if something on the page wears the mark
 // it explains.
@@ -90,7 +95,7 @@ const anyFeatured = projects.some((project) => project.featured);
       with scripting off every project is listed and reachable and the only
       thing missing is the narrowing.
     */}
-      {(tags.length > 0 || facets.length > 0) && (
+      {(tags.length > 0 || facets.length > 0 || stack.length > 0) && (
         <details class="home-filter" data-project-filter>
           <summary class="home-filter-summary">
             <span>filter</span>
@@ -102,7 +107,7 @@ const anyFeatured = projects.some((project) => project.featured);
                 anything — an option standing at nought is one a reader can
                 only be disappointed by. */}
             {facets.length > 0 && (
-              <fieldset class="home-filter-set home-filter-set--kinds">
+              <fieldset class="home-filter-set home-filter-set--divided">
                 <legend class="home-filter-legend">what</legend>
                 {facets.map((interest) => (
                   <label class="home-filter-option">
@@ -116,7 +121,7 @@ const anyFeatured = projects.some((project) => project.featured);
                 ))}
               </fieldset>
             )}
-            <fieldset class="home-filter-set">
+            <fieldset class:list={['home-filter-set', stack.length > 0 && 'home-filter-set--divided']}>
               <legend class={facets.length > 0 ? 'home-filter-legend' : 'visually-hidden'}>
                 {facets.length > 0 ? 'about' : 'Show projects tagged'}
               </legend>
@@ -131,6 +136,24 @@ const anyFeatured = projects.some((project) => project.featured);
                 </label>
               ))}
             </fieldset>
+            {/* What it was made with. Held apart from the subjects because a
+                reader after the Rails projects and a reader after the
+                typography ones are not doing the same thing. */}
+            {stack.length > 0 && (
+              <fieldset class="home-filter-set">
+                <legend class="home-filter-legend">built with</legend>
+                {stack.map((interest) => (
+                  <label class="home-filter-option">
+                    <input type="checkbox" value={interest.tag} data-filter-tag />
+                    <span class="home-filter-name">{interest.tag}</span>
+                    <span class="home-filter-count" aria-hidden="true">{interest.count}</span>
+                    <span class="visually-hidden">
+                      {interest.count === 1 ? '1 project' : `${interest.count} projects`}
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+            )}
             <p class="home-filter-actions">
               <a class="home-filter-clear" href="/" data-filter-clear>show everything</a>
             </p>

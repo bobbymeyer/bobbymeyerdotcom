@@ -26,9 +26,12 @@ const posts = defineCollection({
      */
     sketch: z.string().optional(),
     /**
-     * What this is about. The about page collects these across every note and
-     * sets them out as a list of interests, ordered either by how often a tag
-     * comes up or by how recently.
+     * What this is about — subjects, not tools. What a thing is *made of*
+     * goes in `stack` below, because "generative" and "p5" are not the same
+     * kind of fact and a list that ran them together answered neither
+     * question well. The about page collects these across every note and sets
+     * them out as a list of interests, ordered either by how often a tag comes
+     * up or by how recently.
      *
      * They live on the note rather than in `src/projects.ts` because the note
      * is the part that is not a repository: a note carries tags whether or not
@@ -47,6 +50,19 @@ const posts = defineCollection({
      * different questions. See `KIND_TAGS` in `src/lib/interests.ts`.
      */
     tags: z.array(z.string()).default([]),
+    /**
+     * What it is built with: languages, frameworks, libraries, formats, the
+     * applications it came out of. `p5`, `rails`, `python`, `canvas`, `midi`.
+     *
+     * Its own field rather than more tags, because a technology answers a
+     * different question from a subject, and a reader looking for the Rails
+     * projects and a reader looking for the typography ones are not doing the
+     * same thing. It has its own group in the filter and stays off the about
+     * page's interests, which are subjects.
+     *
+     * Lowercase, and set as the thing calls itself — `p5`, not `p5.js`.
+     */
+    stack: z.array(z.string()).default([]),
   }),
 });
 

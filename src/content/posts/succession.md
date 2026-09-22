@@ -1,3 +1,4 @@
 ---
-tags: [project, games, simulation, python, print]
+tags: [project, games, simulation, print]
+stack: [python]
 ---
