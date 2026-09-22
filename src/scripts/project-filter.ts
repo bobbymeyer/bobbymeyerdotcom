@@ -22,6 +22,15 @@
  * unwind.
  */
 
+import type { TransitionBeforeSwapEvent } from 'astro:transitions/client';
+
+declare global {
+  interface Window {
+    /** Set once the before-swap narrowing below is listening. */
+    __projectFilterPreSwap?: boolean;
+  }
+}
+
 const PARAM = 'tags';
 
 /** How long a panel the address bar opened stays up before it withdraws. */
@@ -106,10 +115,82 @@ function apply(
   empty?.toggleAttribute('hidden', shownCount > 0);
 }
 
+/** The tags a `?tags=` query asks for. */
+function tagsFromSearch(search: string): string[] {
+  return (new URLSearchParams(search).get(PARAM) ?? '')
+    .split(',')
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
+interface Parts {
+  filter: HTMLDetailsElement;
+  boxes: HTMLInputElement[];
+  badge: HTMLElement | null;
+  empty: HTMLElement | null;
+  cards: HTMLElement[];
+}
+
+/**
+ * The pieces of the narrowed view, found inside whichever document is passed.
+ *
+ * It takes a root rather than reaching for the global one so that the page
+ * arriving over the client router can be narrowed before it is swapped in —
+ * see `initFilterPreSwap` below. On the live document it is the same lookup.
+ */
+function partsOf(root: ParentNode): Parts | null {
+  const filter = root.querySelector<HTMLDetailsElement>('[data-project-filter]');
+  const grid = root.querySelector<HTMLElement>('[data-project-grid]');
+  if (!filter || !grid) return null;
+
+  return {
+    filter,
+    boxes: [...filter.querySelectorAll<HTMLInputElement>('[data-filter-tag]')],
+    badge: filter.querySelector<HTMLElement>('[data-filter-badge]'),
+    empty: root.querySelector<HTMLElement>('[data-filter-empty]'),
+    cards: [...grid.querySelectorAll<HTMLElement>('.home-item')],
+  };
+}
+
+/**
+ * Narrow the page the client router is about to swap in, before it is painted.
+ *
+ * The index's own script does not exist yet while a reader is standing on
+ * /about — it arrives with the page and runs after the swap — so a tag link
+ * used to land on the whole grid and narrow it a frame or two later, and all
+ * nine cards flickered past before the four that were asked for. This runs
+ * from the layout, so it is already loaded wherever the link is pressed, and
+ * `astro:before-swap` hands it the incoming document while there is still time
+ * to set it right.
+ *
+ * It paints and nothing else. The wiring, and the panel's withdrawal, belong
+ * to `initProjectFilter`, which runs on the other side of the swap.
+ */
+export function initFilterPreSwap(): void {
+  // `document` outlives a swap, so a second registration would narrow the
+  // incoming page twice. Harmless, but the flag says what is meant.
+  if (window.__projectFilterPreSwap) return;
+  window.__projectFilterPreSwap = true;
+
+  document.addEventListener('astro:before-swap', (event) => {
+    const swap = event as TransitionBeforeSwapEvent;
+    const parts = partsOf(swap.newDocument);
+    if (!parts) return;
+
+    const tags = tagsFromSearch(swap.to?.search ?? '');
+    for (const box of parts.boxes) box.checked = tags.includes(box.value);
+    apply(parts.cards, parts.boxes, parts.badge, parts.empty, tags);
+
+    // Open it here too, so the panel is there in the first painted frame
+    // rather than appearing under the reader a moment later.
+    if (tags.length > 0) parts.filter.open = true;
+  });
+}
+
 export function initProjectFilter(): void {
-  const filter = document.querySelector<HTMLDetailsElement>('[data-project-filter]');
-  const grid = document.querySelector<HTMLElement>('[data-project-grid]');
-  if (!filter || !grid) return;
+  const found = partsOf(document);
+  if (!found) return;
+  const { filter } = found;
 
   // The page calls this directly *and* on `astro:page-load`, which the client
   // router fires for the first load as well as for later ones — so without
@@ -118,11 +199,8 @@ export function initProjectFilter(): void {
   if (filter.dataset.wired) return;
   filter.dataset.wired = 'true';
 
-  const boxes = [...filter.querySelectorAll<HTMLInputElement>('[data-filter-tag]')];
-  const badge = filter.querySelector<HTMLElement>('[data-filter-badge]');
+  const { boxes, badge, empty, cards } = found;
   const clear = filter.querySelector<HTMLAnchorElement>('[data-filter-clear]');
-  const empty = document.querySelector<HTMLElement>('[data-filter-empty]');
-  const cards = [...grid.querySelectorAll<HTMLElement>('.home-item')];
 
   /*
    * A panel the address bar opened rather than the reader: following a tag
@@ -176,10 +254,7 @@ export function initProjectFilter(): void {
 
   // Arriving with a selection already in the address bar — a shared link, a
   // reload, or a tag link from /about.
-  const fromUrl = (new URL(window.location.href).searchParams.get(PARAM) ?? '')
-    .split(',')
-    .map((tag) => tag.trim())
-    .filter(Boolean);
+  const fromUrl = tagsFromSearch(window.location.search);
 
   if (fromUrl.length > 0) {
     const wanted = new Set(fromUrl);
