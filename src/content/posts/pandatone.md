@@ -1,6 +1,6 @@
 ---
 tags: [project, color, design-systems]
-stack: [rails]
+stack: [ruby, rails]
 ---
 
 <figure>

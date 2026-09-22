@@ -1,6 +1,6 @@
 ---
 tags: [project, typography, design-systems]
-stack: [rails]
+stack: [ruby, rails]
 ---
 
 <figure class="specimen">
