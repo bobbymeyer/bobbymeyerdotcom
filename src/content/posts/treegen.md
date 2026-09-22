@@ -2,7 +2,7 @@
 sketch: treegen
 draft: false
 tags: [project, generative, nature]
-stack: [canvas]
+stack: [javascript, canvas]
 ---
 
 <div id='treegen'></div>
