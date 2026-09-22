@@ -1,4 +1,4 @@
 ---
 tags: [project, typography, design-systems, print]
-stack: [astro, typescript, netlify]
+stack: [typescript, astro, netlify]
 ---

@@ -58,10 +58,22 @@ them together answered none of them well.
   `simulation`, `nature`, `design-systems`. Plus exactly one kind,
   `project` or `post`, which says what the thing *is*.
 
-- **`stack` is what it is built with.** Languages, frameworks,
-  libraries, formats, the applications it came out of: `astro`,
-  `javascript`, `typescript`, `python`, `rails`, `p5`, `canvas`,
-  `midi`, `netlify`.
+- **`stack` is what it is built with.** Three tiers, in this order:
+  the **language**, the **framework**, and any **major library** — one
+  the project is actually built around. `[ruby, rails]`,
+  `[javascript, p5]`, `[typescript, astro, netlify]`, `[python]`.
+
+  **Every project names its language**, even when a framework already
+  implies it: `rails` without `ruby` leaves the tally unable to answer
+  "what does he write in", which is the first thing anyone asks it.
+
+  **Incidental libraries stay out.** If it is a dependency rather than
+  something the project is built around, it is not in the list — this
+  site uses satori and sharp to draw its social cards and names
+  neither. The test is whether someone reading the project would say
+  it is *a p5 sketch* or *a Rails app*; they would not say it is *a
+  satori app*. A vocabulary of a few names used several times each says
+  something; a dependency manifest says nothing.
 
   **A technology never goes in `tags`.** Not a language, not a
   framework, not a library, not a file format, not a hosting platform.
@@ -71,7 +83,8 @@ them together answered none of them well.
   `/about`, and filtered as separate groups on the index, and a tool
   in `tags` lands in the wrong one of each.
 
-Both are lowercase. Set a thing as it calls itself — `p5`, not `p5.js`
+Both are lowercase, and a stack is set language first. Set a thing as
+it calls itself — `p5`, not `p5.js`
 — but spell a language out: `javascript` and `typescript`, never `js`
 or `ts`, so neither of the pair looks abbreviated beside the other.
 Reuse a name before inventing one: four names used three times each

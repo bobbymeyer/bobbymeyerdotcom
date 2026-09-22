@@ -51,8 +51,14 @@ const posts = defineCollection({
      */
     tags: z.array(z.string()).default([]),
     /**
-     * What it is built with: languages, frameworks, libraries, formats, the
-     * applications it came out of. `p5`, `rails`, `python`, `canvas`, `midi`.
+     * What it is built with, in three tiers and in this order: the language,
+     * the framework, and any major library the project is built around.
+     * `[ruby, rails]`, `[javascript, p5]`, `[python]`.
+     *
+     * Every project names its language, even where the framework implies it.
+     * Incidental dependencies stay out — this site draws its social cards
+     * with satori and sharp and names neither, because nobody would call it a
+     * satori app.
      *
      * Its own field rather than more tags, because a technology answers a
      * different question from a subject, and a reader looking for the Rails

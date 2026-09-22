@@ -1,7 +1,7 @@
 ---
 sketch: music-for-bus-stops
 tags: [project, generative, music]
-stack: [p5]
+stack: [javascript, p5]
 ---
 
 <div id="song-container" data-base="/posts/music-for-bus-stops/">
