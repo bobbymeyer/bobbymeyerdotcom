@@ -1,0 +1,27 @@
+/* gridi — the sequencer's stage. The app itself is styled inside a shadow
+   root by its own stylesheet, loaded from its deploy; nothing in here reaches
+   it and nothing of its reaches out. This is only the box it sits in.
+
+   A height rather than an aspect ratio: gridi is a workspace with a fixed
+   chrome around a grid, so what it wants is room to work in, and a ratio would
+   give it a letterbox on a phone and a hall on a desktop. 70svh is about a
+   screenful without being the whole one — the note continues underneath, and a
+   reader should be able to tell. */
+
+#gridi {
+  height: 70svh;
+  min-height: 30rem;
+  margin: var(--page-gutter) 0;
+  border: 1px solid #000;
+}
+
+/* Before the module arrives there is nothing inside, and an empty bordered box
+   for a second reads as something broken rather than something loading. */
+#gridi:empty::after {
+  content: 'loading the sequencer…';
+  display: block;
+  padding: var(--page-gap);
+  font-size: 0.857em;
+  letter-spacing: 0.04em;
+  opacity: 0.6;
+}
