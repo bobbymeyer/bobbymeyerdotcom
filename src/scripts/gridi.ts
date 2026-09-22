@@ -35,6 +35,23 @@ type GridiModule = {
 };
 
 let loading: Promise<GridiModule> | null = null;
+
+/**
+ * How many times the import has failed.
+ *
+ * Clearing the memo above is not enough on its own. A dynamic import is
+ * remembered by the browser's own module map, keyed on the URL and for the
+ * life of the document — and a *failed* one is remembered too, so asking for
+ * the same URL again returns the same failure without going near the network.
+ * Reloading the page was the only way out of it, which for a reader who hit
+ * one bad moment meant the piece stayed broken for the rest of their visit.
+ *
+ * A different URL is a different entry in that map, so each retry carries a
+ * count the previous attempt did not. It only ever appears after a failure.
+ */
+let attempt = 0;
+
+const retryable = (url: string) => (attempt === 0 ? url : `${url}?retry=${attempt}`);
 let live: GridiModule | null = null;
 
 /**
@@ -56,8 +73,9 @@ function load(): Promise<GridiModule> {
   // failure: a rejected promise left in here would be handed to every later
   // attempt, so one flaky moment would follow the reader around the site
   // until they reloaded the page themselves.
-  loading ??= (import(/* @vite-ignore */ GRIDI_SRC) as Promise<GridiModule>).catch((error) => {
+  loading ??= (import(/* @vite-ignore */ retryable(GRIDI_SRC)) as Promise<GridiModule>).catch((error) => {
     loading = null;
+    attempt += 1;
     throw error;
   });
   return loading;

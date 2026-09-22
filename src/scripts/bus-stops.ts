@@ -23,6 +23,10 @@ let instance: any = null;
 
 function loadScript(src: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    // A tag already here means the script is loaded or on its way. That is
+    // only true because a failed one is taken out again below: left in, it
+    // would answer for the script it never managed to fetch, and every retry
+    // would resolve at once against a global that was never defined.
     if (document.querySelector(`script[src="${src}"]`)) {
       resolve();
       return;
@@ -30,14 +34,23 @@ function loadScript(src: string): Promise<void> {
     const script = document.createElement('script');
     script.src = src;
     script.addEventListener('load', () => resolve());
-    script.addEventListener('error', () => reject(new Error(`Failed to load ${src}`)));
+    script.addEventListener('error', () => {
+      script.remove();
+      reject(new Error(`Failed to load ${src}`));
+    });
     document.head.appendChild(script);
   });
 }
 
 // p5.sound augments the p5 constructor, so it has to load after core.
 function loadP5(): Promise<void> {
-  p5Loading ??= loadScript(P5_SRC).then(() => loadScript(P5_SOUND_SRC));
+    // Memoised so one visit makes one request, but *not* past a failure: a
+  // rejected promise left here would be handed to every later attempt, so one
+  // flaky moment would follow the reader around the site until they reloaded.
+  p5Loading ??= (loadScript(P5_SRC).then(() => loadScript(P5_SOUND_SRC))).catch((error) => {
+    p5Loading = null;
+    throw error;
+  });
   return p5Loading;
 }
 
