@@ -134,6 +134,15 @@ export const PROJECTS: ProjectDef[] = [
     bg_color: POST_PALETTE.paper,
     splash: '/posts/bobbymeyerdotcom/splash.svg',
   },
+  {
+    repo: 'bobbymeyer/funcooker',
+    title: '🍳 funcooker',
+    // The repository has no description yet, and without one the card is a
+    // title over nothing. Its own README's line, until GitHub has an opinion.
+    summary: 'a family food system: recipe library, lean stock, derived meal schedule',
+    bg_color: POST_PALETTE.orange,
+    splash: '/posts/funcooker/splash.jpg',
+  },
 ];
 
 /** The slug a project lives at: `slug` if it sets one, else the repo name. */
