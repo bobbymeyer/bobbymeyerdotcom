@@ -53,7 +53,7 @@ export interface ProjectEntry {
    * apart from `tags` because a tool is not a subject.
    */
   stack: string[];
-  /** Sorted above everything unfeatured. Position is all it buys. */
+  /** Wears a star on the index, and is a group of its own in the filter. */
   featured: boolean;
   /** Runs on its own page; the index marks it with a registration target. */
   interactive: boolean;
@@ -127,22 +127,27 @@ async function build(): Promise<ProjectEntry[]> {
 }
 
 /**
- * Which of the three bands a project sorts into, before dates are considered.
+ * Whether a project sorts to the bottom.
  *
- * Featured on top, because a commit date cannot tell you which projects are
- * worth stopping on and the tag can. Archived on the bottom, because
- * archiving is the last commit a project gets and that commit should not put
- * a finished project back at the head of the list — which is also why
- * archiving beats featuring rather than the other way round.
+ * Featured used to sort to the top, on the grounds that a commit date cannot
+ * tell you which projects are worth stopping on and the tag can. It is a
+ * filter of its own now, which asks the question better than an order can:
+ * an order says "these three matter" to everyone at once and cannot be turned
+ * off, and nobody reading a list sorted by date can tell which part of it is
+ * the date talking.
+ *
+ * Archived stays down, and is not the same kind of rule. Archiving is the
+ * last commit a project gets, so a finished project would otherwise arrive at
+ * the head of a list ordered by last change on the strength of being finished.
+ * That is a correction for a date that lies rather than a ranking.
  */
 function band(entry: ProjectEntry): number {
-  if (entry.repo.archived) return 2;
-  return entry.featured ? 0 : 1;
+  return entry.repo.archived ? 1 : 0;
 }
 
 /**
- * The order the index and the feed both use: featured, then live, then
- * archived, and newest change first inside each band.
+ * The order the index and the feed both use: newest change first, with the
+ * archived below the live.
  */
 function byBandThenUpdated(a: ProjectEntry, b: ProjectEntry): number {
   const bands = band(a) - band(b);

@@ -143,13 +143,15 @@
 }
 
 /*
- * One field each, in the order the entries were sorted into: featured first,
- * then live, then archived, newest change first inside each band.
+ * One field each, in the order the entries were sorted into: newest change
+ * first, with the archived below the live.
  *
  * Featured used to take two fields and pin itself to the left, with `dense`
- * letting the rest backfill around it. It read as depth and breadth at once
- * on paper and as a lopsided page in practice, so featuring is carried by the
- * order alone now — which is the part of it that was always doing the work.
+ * letting the rest backfill around it — depth and breadth at once on paper,
+ * a lopsided page in practice. Then it was carried by the order instead, and
+ * now by neither: it wears a star and it is a group in the filter, which lets
+ * a reader ask for it rather than having it asserted at them in a list whose
+ * order otherwise means one thing.
  */
 .home-index {
   display: grid;

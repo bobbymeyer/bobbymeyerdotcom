@@ -269,7 +269,17 @@ export function initProjectFilter(): void {
     writeUrl(tags);
   };
 
-  apply(cards, boxes, badge, empty, selectedTags(boxes));
+  // The query narrows the page, not the boxes it managed to tick. A tag that
+  // nothing carries — a typo, or one that has since been renamed — has no box
+  // to tick, so reading the selection back off the boxes quietly dropped it
+  // and left every project showing under an address bar still claiming a
+  // filter. Asked for something that is not here, the honest answer is the
+  // empty note, which is the same answer `?tags=ruby,python` already gave.
+  //
+  // Only on arrival. From the first change onwards the reader is driving the
+  // boxes, and `refresh` writes the query back from them, which is what drops
+  // the unknown tag out of the address bar.
+  apply(cards, boxes, badge, empty, fromUrl);
 
   for (const box of boxes) box.addEventListener('change', refresh);
 

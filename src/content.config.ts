@@ -55,6 +55,9 @@ const posts = defineCollection({
      * the framework, and any major library the project is built around.
      * `[ruby, rails]`, `[javascript, p5]`, `[python]`.
      *
+     * Those three and nothing else: a host, a CI service or a package manager
+     * is none of them, however much the project leans on it.
+     *
      * Every project names its language, even where the framework implies it.
      * Incidental dependencies stay out — this site draws its social cards
      * with satori and sharp and names neither, because nobody would call it a

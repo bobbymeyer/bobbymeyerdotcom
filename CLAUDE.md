@@ -61,7 +61,14 @@ them together answered none of them well.
 - **`stack` is what it is built with.** Three tiers, in this order:
   the **language**, the **framework**, and any **major library** — one
   the project is actually built around. `[ruby, rails]`,
-  `[javascript, p5]`, `[typescript, astro, netlify]`, `[python]`.
+  `[javascript, p5]`, `[typescript, astro]`, `[python]`.
+
+  Those three tiers and nothing else. A host, a CI service, an editor
+  or a package manager is not any of them, however much the project
+  leans on it: this site's contact form posts to Netlify Forms and the
+  stack still says `[typescript, astro]`, because "what is it built
+  with" and "where does it run" are different questions and only one
+  of them is being asked.
 
   **Every project names its language**, even when a framework already
   implies it: `rails` without `ruby` leaves the tally unable to answer
