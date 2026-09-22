@@ -96,9 +96,18 @@
   outline-offset: 2px;
 }
 
-/* The list itself. Tags, not links: there is nowhere for a tag to go yet, and
-   a link that goes nowhere is worse than a word that never claimed to. */
-.about-tags {
+/* The list itself: a row of chips, spaced by the flex gap and starting flush
+   with the sentence it belongs to.
+ *
+ * The selector carries `.about-interests` for weight rather than for style.
+ * post.css indents every list in an article — `.post-article ul` sets a
+ * padding-left so a bulleted list hangs off its bullets — and one class and
+ * two elements beats a bare `.about-tags`, so the `padding: 0` here lost and
+ * the chips started fourteen pixels inside the line above them. They are not
+ * prose and they have no bullets to hang off. Two classes settles it, the same
+ * way the chip's own link does below, and post.css keeps its rule for the
+ * lists that actually want it. */
+.about-interests .about-tags {
   display: flex;
   flex-wrap: wrap;
   gap: calc(var(--page-gap) / 2) var(--page-gap);

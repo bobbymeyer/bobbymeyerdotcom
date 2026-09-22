@@ -49,8 +49,8 @@ const stack = stackOnly(counted);
             <InterestList
               id="interest-order"
               label="Order my interests by"
-              before="This site documents my"
-              after="interests:"
+              before="This site documents my "
+              after=" interests:"
               orders={INTEREST_ORDERS}
               interests={interests}
             />
@@ -60,18 +60,19 @@ const stack = stackOnly(counted);
             The same sentence again for the toolchain, because it is the same
             fact counted out of the other vocabulary. Subjects are what he is
             drawn to; tools are what he reached for, so the orders are said as
-            "usually" and "lately" rather than "greatest" and "recent".
+            "Usually" and "Lately" rather than "greatest" and "recent".
 
-            The word sits after "have" rather than before it, because that is
-            the only place both of them read: "I have usually been building
-            with" and "I have lately been building with".
+            This one opens on the word instead of burying it mid-sentence:
+            "I have usually been building with" put an adverb between the
+            auxiliary and its participle and read like a sentence being
+            reversed into. At the front it is the thing being said.
           */}
           {stack.length > 0 && (
             <InterestList
               id="stack-order"
               label="Order what I build with by"
-              before="I have"
-              after="been building with:"
+              before=""
+              after=" I build with:"
               orders={STACK_ORDERS}
               interests={stack}
             />

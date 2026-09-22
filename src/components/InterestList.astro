@@ -26,7 +26,12 @@ interface Props {
   id: string;
   /** What the select does, for somebody who cannot see the sentence. */
   label: string;
-  /** The sentence, either side of the word the select sets. */
+  /**
+   * The sentence, either side of the word the select sets — including its
+   * spaces. Nothing is inserted between them and the control, because a
+   * select that opens the sentence is followed straight by a comma and one
+   * that sits inside it needs a space, and only the sentence knows which.
+   */
   before: string;
   after: string;
   orders: { value: InterestOrder; label: string }[];
@@ -41,8 +46,7 @@ const listed = orderInterests(interests, DEFAULT_INTEREST_ORDER);
 
 <div class="about-interests" data-interest-block>
   <p class="about-interests-lead">
-    {before}{' '}
-    <span class="about-select">
+    {before}<span class="about-select">
       <label class="visually-hidden" for={id}>{label}</label>
       <select id={id} data-interest-order>
         {orders.map((option) => (
@@ -50,9 +54,10 @@ const listed = orderInterests(interests, DEFAULT_INTEREST_ORDER);
             {option.label}
           </option>
         ))}
-      </select>
-    </span>{' '}
-    {after}
+      {/* Closed hard against the select: the newline would collapse to a
+          space inside the span, and a sentence that carries straight on into
+          a comma would show it. */}
+      </select></span>{after}
   </p>
   <ul class="about-tags" data-interest-list>
     {listed.map((interest) => (
