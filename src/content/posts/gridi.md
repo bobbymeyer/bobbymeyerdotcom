@@ -1,4 +1,4 @@
 ---
 tags: [project, generative, music]
-stack: [midi]
+stack: [javascript, midi]
 ---
