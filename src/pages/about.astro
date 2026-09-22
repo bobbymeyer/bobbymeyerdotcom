@@ -35,11 +35,19 @@ const listed = orderInterests(interests, DEFAULT_INTEREST_ORDER);
     <div class="post-layout">
       <aside class="post-aside">
         <figure class="about-portrait">
+          {/*
+            The slot, measured rather than guessed: 609px once the page stops
+            growing at 1600, 47vw of the four-column grid above 1200, and the
+            whole width of the page below it, where the aside spans the grid.
+            A `(min-width: 640px) 50vw` stop used to sit in here describing a
+            two-column split the portrait has never taken, which had a tablet
+            asking for an image half the size of the one it was about to show.
+          */}
           <Image
             src={portrait}
             alt="Black-and-white portrait of Bobby Meyer in a palm-print shirt, looking off to one side."
             widths={[600, 900, 1200]}
-            sizes="(min-width: 1600px) 609px, (min-width: 1200px) 47vw, (min-width: 640px) 50vw, 100vw"
+            sizes="(min-width: 1600px) 609px, (min-width: 1200px) 47vw, 100vw"
             loading="eager"
           />
         </figure>
