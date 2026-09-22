@@ -1,4 +1,4 @@
-/* Below 1200px: portrait above the text, the full width of the page. At
+/* Below 1200px: portrait under the text, the full width of the page. At
    1200px: portrait fills cols 3–4. */
 .about-portrait {
   margin: var(--page-gap) 0 0;

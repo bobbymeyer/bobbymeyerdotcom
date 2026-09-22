@@ -24,6 +24,12 @@
 
 const PARAM = 'tags';
 
+/** How long a panel the address bar opened stays up before it withdraws. */
+const DISMISS_AFTER_MS = 2000;
+
+/** The panel's opacity transition in home.css, which the close has to wait out. */
+const FADE_MS = 400;
+
 function selectedTags(boxes: HTMLInputElement[]): string[] {
   return boxes.filter((box) => box.checked).map((box) => box.value);
 }
@@ -118,8 +124,58 @@ export function initProjectFilter(): void {
   const empty = document.querySelector<HTMLElement>('[data-filter-empty]');
   const cards = [...grid.querySelectorAll<HTMLElement>('.home-item')];
 
+  /*
+   * A panel the address bar opened rather than the reader: following a tag
+   * link from /about lands here with the dropdown up, showing which tags came
+   * in with the link. That is the answer to "what am I looking at", and once
+   * it has been read the panel is in the way of the grid it was explaining —
+   * it is laid *over* the cards — so it withdraws on its own. A panel the
+   * reader opened stays open, as it should.
+   *
+   * Anyone who reaches for it calls the whole thing off: pointer in, focus in,
+   * a box ticked, or the summary pressed. Fading out from under somebody who
+   * is using the thing would be worse than never getting out of the way.
+   *
+   * `open` is a boolean and cannot be transitioned, so the fade and the close
+   * are two steps: CSS takes the panel to nothing, and the <details> shuts
+   * once it has, which is what FADE_MS is waiting for.
+   */
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let fadeTimer = 0;
+  let closeTimer = 0;
+
+  const cancelDismiss = () => {
+    window.clearTimeout(fadeTimer);
+    window.clearTimeout(closeTimer);
+    filter.removeAttribute('data-dismissing');
+  };
+
+  const dismissLater = () => {
+    fadeTimer = window.setTimeout(() => {
+      filter.setAttribute('data-dismissing', '');
+      closeTimer = window.setTimeout(
+        () => {
+          filter.open = false;
+          filter.removeAttribute('data-dismissing');
+        },
+        reduceMotion ? 0 : FADE_MS,
+      );
+    }, DISMISS_AFTER_MS);
+  };
+
+  for (const event of ['pointerenter', 'pointerdown', 'focusin', 'change'] as const) {
+    filter.addEventListener(event, cancelDismiss);
+  }
+
+  // Shut by hand during the wait. Opening it is a toggle too, so this only
+  // acts on the closing one — and our own close has already cleared both
+  // timers by the time it fires.
+  filter.addEventListener('toggle', () => {
+    if (!filter.open) cancelDismiss();
+  });
+
   // Arriving with a selection already in the address bar — a shared link, a
-  // reload, or a hop from a tag page.
+  // reload, or a tag link from /about.
   const fromUrl = (new URL(window.location.href).searchParams.get(PARAM) ?? '')
     .split(',')
     .map((tag) => tag.trim())
@@ -129,6 +185,7 @@ export function initProjectFilter(): void {
     const wanted = new Set(fromUrl);
     for (const box of boxes) box.checked = wanted.has(box.value);
     filter.open = true;
+    dismissLater();
   }
 
   const refresh = () => {
@@ -166,6 +223,8 @@ export function initProjectFilter(): void {
     () => {
       document.removeEventListener('click', closeOnOutside);
       document.removeEventListener('keydown', closeOnEscape);
+      // A withdrawal still on the clock would fire against a detached panel.
+      cancelDismiss();
     },
     { once: true },
   );

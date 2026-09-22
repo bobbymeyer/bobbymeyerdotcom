@@ -297,6 +297,11 @@
    and the cards would otherwise read straight through. */
 .home-filter-panel {
   position: absolute;
+  /* On the panel rather than on the withdrawing state below, so the fade runs
+     both ways: a reader who reaches for it halfway out gets it eased back in
+     instead of popped back. Opening does not touch opacity, so this costs the
+     open nothing. Duration is FADE_MS in project-filter.ts. */
+  transition: opacity 0.4s ease;
   z-index: 2;
   top: calc(100% + var(--page-gap));
   right: 0;
@@ -419,6 +424,14 @@
   color: #fff;
 }
 
+/* Withdrawing, after a tag link opened it. Only the panel goes; the badge on
+   the summary stays behind, so a reader who was not watching still sees that
+   the grid is narrowed and by how many tags. The duration is FADE_MS in
+   project-filter.ts, which waits it out before shutting the <details>. */
+.home-filter[data-dismissing] > .home-filter-panel {
+  opacity: 0;
+}
+
 /* An option that would leave nothing on the page. Dimmed rather than removed,
    so the vocabulary stays put as a reader ticks things and the panel does not
    reflow under the pointer. */
@@ -453,7 +466,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .home-filter-summary,
-  .home-filter-clear {
+  .home-filter-clear,
+  .home-filter-panel {
     transition: none;
   }
 }
