@@ -144,10 +144,21 @@ export const INTEREST_ORDERS: { value: InterestOrder; label: string }[] = [
  * usually reaches for or one he has lately been reaching for. Same tally, same
  * sort, different sentence around it — so the values match and only the words
  * change.
+ *
+ * Capitalised, unlike the subjects', because this pair opens its sentence
+ * rather than sitting inside one. Ordinary prose, not chrome — see CLAUDE.md.
+ *
+ * The comma belongs to the word rather than to the sentence after it. The
+ * select keeps a little padding on its right for the drawn triangle, so a
+ * comma set outside the control lands the far side of that and reads as
+ * "Lately , I build with". Inside, it sits tight against the word and the
+ * triangle becomes the space before "I". The cost is that the open menu lists
+ * "Usually," and "Lately," with their commas, which is a moment; the closed
+ * control is the sentence, and that is what is read.
  */
 export const STACK_ORDERS: { value: InterestOrder; label: string }[] = [
-  { value: 'greatest', label: 'usually' },
-  { value: 'recent', label: 'lately' },
+  { value: 'greatest', label: 'Usually,' },
+  { value: 'recent', label: 'Lately,' },
 ];
 
 export const DEFAULT_INTEREST_ORDER: InterestOrder = 'greatest';
