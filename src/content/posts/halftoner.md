@@ -1,5 +1,6 @@
 ---
-tags: [project, print, color, python]
+tags: [project, print, color]
+stack: [python]
 ---
 
 <figure>

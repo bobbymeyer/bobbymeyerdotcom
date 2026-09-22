@@ -83,19 +83,31 @@ export function facetLabel(tag: string): string {
 }
 
 /**
- * Everything a card can be narrowed by: the tags on its note, plus whichever
- * marks it wears. This is what goes into `data-tags`, and what the counts in
+ * Everything a card can be narrowed by: the tags on its note, what it is built
+ * with, plus whichever marks it wears. This is what goes into `data-tags`, and what the counts in
  * the dropdown are counted from, so the two cannot drift apart.
  */
 export function filterTags(project: ProjectEntry): string[] {
   return [
     ...project.tags,
+    ...project.stack,
     ...MARK_TAGS.filter((mark) => (mark === 'featured' ? project.featured : project.interactive)),
   ];
 }
 
+/**
+ * Which vocabulary an interest came out of.
+ *
+ * Three questions, kept apart: what a thing is and how it is marked, what it
+ * is about, and what it is built with. They are counted in one pass and
+ * labelled as they go, rather than sorted out afterwards by name — which
+ * would have to guess if a word ever turned up in two of them.
+ */
+export type InterestField = 'facet' | 'topic' | 'stack';
+
 export interface Interest {
   tag: string;
+  field: InterestField;
   /** How many things carry it. */
   count: number;
   /** The most recent change to anything carrying it. */
@@ -121,19 +133,32 @@ export const DEFAULT_INTEREST_ORDER: InterestOrder = 'greatest';
  * having to take a view.
  */
 export function interestsFrom(projects: ProjectEntry[]): Interest[] {
+  // Keyed by field as well as name, so a word that is both a subject and a
+  // tool somewhere would be counted as each rather than collapsed into one.
   const seen = new Map<string, Interest>();
 
-  for (const project of projects) {
-    for (const tag of filterTags(project)) {
-      const found = seen.get(tag);
-      if (!found) {
-        seen.set(tag, { tag, count: 1, latest: project.updated });
-        continue;
-      }
-
-      found.count += 1;
-      if (project.updated > found.latest) found.latest = project.updated;
+  const count = (tag: string, field: InterestField, latest: Date) => {
+    const key = `${field}\0${tag}`;
+    const found = seen.get(key);
+    if (!found) {
+      seen.set(key, { tag, field, count: 1, latest });
+      return;
     }
+
+    found.count += 1;
+    if (latest > found.latest) found.latest = latest;
+  };
+
+  for (const project of projects) {
+    for (const tag of project.tags) {
+      count(tag, isFacet(tag) ? 'facet' : 'topic', project.updated);
+    }
+    for (const mark of MARK_TAGS) {
+      if (mark === 'featured' ? project.featured : project.interactive) {
+        count(mark, 'facet', project.updated);
+      }
+    }
+    for (const tool of project.stack) count(tool, 'stack', project.updated);
   }
 
   return [...seen.values()];
@@ -164,7 +189,18 @@ export function orderInterests(interests: Interest[], order: InterestOrder): Int
 
 /** The ones that describe a subject. What the about page counts. */
 export function topicsOnly(interests: Interest[]): Interest[] {
-  return interests.filter((interest) => !isFacet(interest.tag));
+  return interests.filter((interest) => interest.field === 'topic');
+}
+
+/**
+ * The ones that name a tool: languages, frameworks, libraries, formats.
+ *
+ * Their own group in the filter, and off the about page, which is a list of
+ * interests rather than a CV. That someone reaches for Rails twice is a fact
+ * about how the work got made, not about what he is drawn to.
+ */
+export function stackOnly(interests: Interest[]): Interest[] {
+  return interests.filter((interest) => interest.field === 'stack');
 }
 
 /**
@@ -176,7 +212,9 @@ export function topicsOnly(interests: Interest[]): Interest[] {
  * is projects, featured and interactive; posts joins them when there is one.
  */
 export function facetsOnly(interests: Interest[]): Interest[] {
-  return FACET_ORDER.map((tag) => interests.find((interest) => interest.tag === tag)).filter(
+  return FACET_ORDER.map((tag) =>
+    interests.find((interest) => interest.field === 'facet' && interest.tag === tag),
+  ).filter(
     (interest): interest is Interest => interest !== undefined,
   );
 }

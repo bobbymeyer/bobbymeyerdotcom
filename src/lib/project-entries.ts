@@ -47,6 +47,12 @@ export interface ProjectEntry {
    * its own listing everything that carries it.
    */
   tags: string[];
+  /**
+   * What it is built with, from its note's frontmatter: languages,
+   * frameworks, libraries, formats. Its own group in the filter, and held
+   * apart from `tags` because a tool is not a subject.
+   */
+  stack: string[];
   /** Sorted above everything unfeatured. Position is all it buys. */
   featured: boolean;
   /** Runs on its own page; the index marks it with a registration target. */
@@ -202,6 +208,7 @@ async function load(
     bg: project.bg_color,
     splash: project.splash,
     tags: normalizeTags(notes.get(slug)?.data.tags),
+    stack: normalizeTags(notes.get(slug)?.data.stack),
     featured: isFeatured(project),
     interactive: isInteractive(project),
     published: new Date(repo.created_at),

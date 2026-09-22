@@ -1,5 +1,6 @@
 ---
-tags: [project, color, design-systems, rails]
+tags: [project, color, design-systems]
+stack: [rails]
 ---
 
 <figure>

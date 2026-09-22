@@ -317,10 +317,10 @@
   border: 0;
 }
 
-/* Two questions, two groups: what a thing is, and what it is about. The
-   kinds group only exists once there is more than one kind, so today this
-   rule is waiting for the first post. */
-.home-filter-set--kinds {
+/* The rule between one group and the next. Carried by whichever group has
+   another below it rather than by a particular one, so the last group in the
+   panel never trails a line into the actions. */
+.home-filter-set--divided {
   margin-bottom: var(--page-gap);
   padding-bottom: var(--page-gap);
   border-bottom: 1px solid #d4d4d4;
