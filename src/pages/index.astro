@@ -221,3 +221,9 @@ const anyFeatured = projects.some((project) => project.featured);
   document.addEventListener('astro:page-load', initProjectFilter);
   initProjectFilter();
 </script>
+
+<script>
+  import { initMarkInView } from '@/scripts/mark-inview';
+  document.addEventListener('astro:page-load', initMarkInView);
+  initMarkInView();
+</script>
