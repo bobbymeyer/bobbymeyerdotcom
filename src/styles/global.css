@@ -328,25 +328,25 @@ sup {
   align-items: baseline;
 }
 
+/* The slot is cut on every item, whether or not it is holding the dot.
+ *
+ * It used to open on the current page and stay shut on the other two, which
+ * meant the three labels stood in a different place on every page: `about`
+ * sat at 482 on the index and 451 on its own page, and following the nav made
+ * the words you were aiming at slide 31px out from under the pointer. A menu
+ * that moves when you use it.
+ *
+ * Reserved on all three, nothing moves and the dot has somewhere to go: the
+ * view transition carries it from one slot to the next across a navigation,
+ * which is the journey the widening box was standing in for. */
 .site-accent-slot {
   flex: none;
   display: inline-flex;
   align-items: baseline;
   justify-content: flex-end;
-  width: 0;
-  margin-right: 0;
-  overflow: hidden;
-  font-size: var(--font-size-h5);
-  transition:
-    width 0.4s ease,
-    margin-right 0.4s ease;
-}
-
-.site-lockup[data-accent-target] .site-accent-slot,
-.site-header-nav a[data-accent-target] .site-accent-slot {
   width: 1em;
   margin-right: var(--page-gap);
-  overflow: visible;
+  font-size: var(--font-size-h5);
 }
 
 /* Stacked, the lockup sits above the nav and the two share a left edge, so the
@@ -359,7 +359,7 @@ sup {
    width the lockup and the nav are in different columns, with no left edge to
    share and nothing to reconcile. */
 @media (max-width: 639.98px) {
-  .site-header-nav a[data-accent-target] .site-accent-slot {
+  .site-header-nav .site-accent-slot {
     width: var(--mark-box);
     justify-content: center;
   }
@@ -683,7 +683,6 @@ sup {
   .site-lockup,
   .site-header-nav a,
   .site-footer a,
-  .site-accent-slot,
   .site-name,
   .site-nav-label {
     transition: none;

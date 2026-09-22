@@ -18,6 +18,14 @@ import '@/styles/home.css';
 
 const projects = await projectEntries();
 
+/**
+ * How many splashes are fetched with the page rather than on approach.
+ *
+ * The grid is subgrid over `--page-cols`, which tops out at four, so four is a
+ * full first row at the widest the site goes and more than one anywhere else.
+ */
+const ABOVE_FOLD = 4;
+
 // Three groups, because "what is this", "what is it about" and "what is it
 // built with" are different questions, and run together as one list "project 9"
 // reads like a topic he is extremely into and "rails 2" like a thing he is
@@ -169,7 +177,7 @@ const anyFeatured = projects.some((project) => project.featured);
     </p>
 
     <div class="home-index" data-project-grid>
-      {projects.map((project) => (
+      {projects.map((project, position) => (
         <a
           class="home-item"
           href={project.href}
@@ -181,7 +189,23 @@ const anyFeatured = projects.some((project) => project.featured);
             style={`--post-color: ${project.bg}`}
             transition:name={`splash-${project.slug}`}
           >
-            {project.splash && <img src={project.splash} alt="" />}
+            {/*
+              The splashes are three quarters of this page's weight — 747KB
+              across ten images, every one of them fetched before the first
+              row had finished painting. The grid is four wide at its widest,
+              so the first four are the ones a reader is actually looking at
+              and the rest are somewhere below the fold on any screen; those
+              wait until they are scrolled towards. `.splash` reserves the
+              16:9 box either way, so nothing moves when one arrives.
+            */}
+            {project.splash && (
+              <img
+                src={project.splash}
+                alt=""
+                loading={position < ABOVE_FOLD ? 'eager' : 'lazy'}
+                decoding="async"
+              />
+            )}
             {/*
               One badge, two things said at once. The silhouette is whether
               the project is featured — a star, or a circle when it is not.
