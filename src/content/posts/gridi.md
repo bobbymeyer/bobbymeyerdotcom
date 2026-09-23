@@ -1,7 +1,7 @@
 ---
 sketch: gridi
 tags: [project, generative, music]
-stack: [javascript, midi]
+stack: [javascript]
 ---
 
 Place a node on the grid. Drag from its right edge onto another to patch them,

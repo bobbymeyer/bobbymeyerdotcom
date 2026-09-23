@@ -87,7 +87,7 @@ export const PROJECTS: ProjectDef[] = [
     summary: 'algorithmic ambience on the cheap',
     tags: ['featured', 'interactive'],
     bg_color: POST_PALETTE.teal,
-    splash: '/posts/music-for-bus-stops/map.png',
+    splash: '/posts/music-for-bus-stops/splash.webp',
   },
   {
     repo: 'bobbymeyer/albers-squares',
@@ -95,7 +95,7 @@ export const PROJECTS: ProjectDef[] = [
     summary: 'a homage to Homage to the Square',
     tags: ['interactive'],
     bg_color: POST_PALETTE.violet,
-    splash: '/posts/albers-squares/splash.png',
+    splash: '/posts/albers-squares/splash.webp',
   },
   {
     repo: 'bobbymeyer/treegen',
