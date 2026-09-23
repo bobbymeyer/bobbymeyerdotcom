@@ -1,7 +1,10 @@
 ---
+import { Image } from 'astro:assets';
 import Base from '@/layouts/Base.astro';
 import { NAME } from '@/site';
+import payphone from '@/assets/payphone.jpg';
 import '@/styles/post.css';
+import '@/styles/page-photo.css';
 import '@/styles/page.css';
 
 const description = `Get in touch with ${NAME}.`;
@@ -9,53 +12,84 @@ const description = `Get in touch with ${NAME}.`;
 
 <Base title="contact" description={description}>
   <main class="post">
-    <div class="post-main">
-      <header>
-        <h1>contact</h1>
-        <p class="post-summary">
-          Send a note — questions, links, collaboration, or anything else worth
-          an email back.
-        </p>
-      </header>
-      <article class="post-article">
-        <!-- Keep fields in sync with public/forms.html for Netlify registration -->
-        <form
-          class="contact-form"
-          name="contact"
-          method="POST"
-          action="/contact/success/"
-          data-netlify="true"
-          data-netlify-honeypot="bot-field"
-        >
-          <input type="hidden" name="form-name" value="contact" />
-          <p class="contact-form-error" hidden role="alert">
-            Something went wrong. Try again in a moment.
+    {/*
+      The same two columns /about stands in: the form in cols 1–2, a
+      photograph in the aside beside it. Form first in source order, so the
+      page a screen reader and an unstyled browser get opens on the thing it
+      is for rather than on a picture; above 1200px both columns are placed
+      explicitly and the desktop layout does not notice.
+    */}
+    <div class="post-layout">
+      <div class="post-main">
+        <header>
+          <h1>contact</h1>
+          <p class="post-summary">
+            Send a note — questions, links, collaboration, or anything else worth
+            an email back.
           </p>
-          <p class="visually-hidden">
+        </header>
+        <article class="post-article">
+          <!-- Keep fields in sync with public/forms.html for Netlify registration -->
+          <form
+            class="contact-form"
+            name="contact"
+            method="POST"
+            action="/contact/success/"
+            data-netlify="true"
+            data-netlify-honeypot="bot-field"
+          >
+            <input type="hidden" name="form-name" value="contact" />
+            <p class="contact-form-error" hidden role="alert">
+              Something went wrong. Try again in a moment.
+            </p>
+            <p class="visually-hidden">
+              <label>
+                Do not fill this out
+                <input name="bot-field" tabindex="-1" autocomplete="off" />
+              </label>
+            </p>
+
             <label>
-              Do not fill this out
-              <input name="bot-field" tabindex="-1" autocomplete="off" />
+              Name
+              <input type="text" name="name" autocomplete="name" required />
             </label>
-          </p>
 
-          <label>
-            Name
-            <input type="text" name="name" autocomplete="name" required />
-          </label>
+            <label>
+              Email
+              <input type="email" name="email" autocomplete="email" required />
+            </label>
 
-          <label>
-            Email
-            <input type="email" name="email" autocomplete="email" required />
-          </label>
+            <label>
+              Message
+              <textarea name="message" rows="6" required></textarea>
+            </label>
 
-          <label>
-            Message
-            <textarea name="message" rows="6" required></textarea>
-          </label>
+            <button type="submit" class="btn">Send</button>
+          </form>
+        </article>
+      </div>
 
-          <button type="submit" class="btn">Send</button>
-        </form>
-      </article>
+      <aside class="post-aside">
+        <figure class="page-photo">
+          {/*
+            Lazy where /about's portrait is eager: there the photograph is
+            what the page is, here the form is, and it is the form that should
+            be ready first. An in-viewport image is fetched straight away
+            anyway, so the desktop column does not wait for a scroll.
+
+            The slot, measured rather than guessed: 609px once the page stops
+            growing at 1600, 47vw of the four-column grid above 1200, and the
+            whole width of the page below it, where the aside spans the grid.
+          */}
+          <Image
+            src={payphone}
+            alt="Black-and-white photograph of a stripped payphone at night, handset gone and its cords hanging loose, standing in a bed of agave outside a lit storefront."
+            widths={[600, 900, 1200]}
+            sizes="(min-width: 1600px) 609px, (min-width: 1200px) 47vw, 100vw"
+            loading="lazy"
+          />
+        </figure>
+      </aside>
     </div>
   </main>
 </Base>
