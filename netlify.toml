@@ -10,32 +10,20 @@
 # so the address bar keeps saying bobbymeyer.com and the game is a page of
 # this site rather than a link off it.
 #
-# The bare path has to be sent to the trailing slash first, and that line is
-# not decoration: both apps load their files relative to their own address, so
-# opened without the slash they would ask for /main.js instead of
-# /gridi/main.js. Without the rule GitHub's own redirect answers instead and
-# sends the reader to github.io, which is the thing this is for avoiding.
+# One rule each, and no companion rule sending the bare path to the trailing
+# slash: Netlify strips a trailing slash before it matches, so `from = "/gridi"`
+# matches `/gridi/` as well and a rule pointing at `/gridi/` answers itself. The
+# preview served a 301 loop and neither game loaded. The splat matches the bare
+# path too, with an empty splat, so one rule covers both spellings.
 #
-# 301! and 200! both carry the bang: it tells Netlify to apply the rule even
-# when a file exists at that path, which is what keeps a project from being
-# shadowed the day someone adds a page with the same name.
-
-[[redirects]]
-  from = "/succession"
-  to = "/succession/"
-  status = 301
-  force = true
+# 200! carries the bang: it tells Netlify to apply the rule even when a file
+# exists at that path, which is what keeps a project from being shadowed the
+# day someone adds a page with the same name.
 
 [[redirects]]
   from = "/succession/*"
   to = "https://bobbymeyer.github.io/succession/:splat"
   status = 200
-  force = true
-
-[[redirects]]
-  from = "/gridi"
-  to = "/gridi/"
-  status = 301
   force = true
 
 [[redirects]]
