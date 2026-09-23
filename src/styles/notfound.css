@@ -23,13 +23,22 @@
 
 /*
  * Both glyphs in one grid cell, so the box is as tall as the taller of them
- * and neither is taken out of flow to sit on top of the other. `justify-items`
- * keeps them on the left edge with everything else on the page — the type is
- * enormous but it is not centred, because nothing here is.
+ * and neither is taken out of flow to sit on top of the other.
+ *
+ * The box is the width of the question mark's ink and it sits at the left
+ * margin with everything else on the page — the type is enormous but it is
+ * not centred, because nothing here is. What *is* centred is the pair: the
+ * exclamation is a third the width of the question mark, and left-aligning
+ * both put its stroke out at the edge of a space the question mark fills, so
+ * the two never looked like the same mark changing its mind. Centred in the
+ * box, one dissolves into the other on the spot.
  */
 .notfound-glyphs {
+  /* The question mark's ink, measured off the face. */
+  --glyph-box: 0.477em;
   display: grid;
   justify-items: start;
+  width: var(--glyph-box);
   margin: 0;
   font-size: clamp(9rem, 34vw, 22rem);
   font-weight: 600;
@@ -39,25 +48,29 @@
 
 .notfound-glyph {
   grid-area: 1 / 1;
-  /* The plate lands from the baseline out, not from the middle: the glyph
-     grows out of the corner it is set in rather than drifting away from it. */
-  transform-origin: 0 100%;
-  animation: 2.4s steps(1, end) infinite;
+  /* Through the turn both plates are up at once, and they meet the way ink
+     meets ink rather than the way two divs stack: subtractively, so cyan over
+     magenta is the blue the mark makes of them. Laid one on the other with
+     normal compositing it is the upper plate at half strength over a washed
+     copy of the lower one, which is a different and muddier colour. */
+  mix-blend-mode: multiply;
+  animation: 2.4s ease-in-out infinite;
 }
 
 /*
- * Hung flush, each by its own side bearing.
+ * Each glyph placed by its own ink rather than by its advance width.
  *
- * Set at three hundred pixels, the blank the font leaves to the left of a
- * glyph is no longer a typographic nicety — it is twenty pixels of indent
- * against a heading that starts at the margin, and it reads as a mistake.
- * Measured off the face rather than guessed at: the question mark carries
- * 0.065em and the exclamation 0.075em, which is why these are two values and
- * not one on the block above them.
+ * Set at three hundred pixels, the blank a font leaves either side of a glyph
+ * is no longer a typographic nicety — it is twenty pixels against a heading
+ * that starts at the margin, and it is a different twenty pixels for each of
+ * the two. So both are shifted by `(box − ink) / 2 − left bearing`, which
+ * hangs the question mark flush at the margin and stands the exclamation on
+ * its centre line. Ink widths 0.477em and 0.143em, left bearings 0.065em and
+ * 0.075em, all four measured off the rendered face.
  */
 
 /* Cyan asks and magenta answers — the same two plates the mark is printed
-   from, here unmixed and one at a time. */
+   from, here unmixed until the moment they cross. */
 .notfound-glyph--ask {
   margin-left: -0.065em;
   color: var(--ink-cyan);
@@ -65,7 +78,7 @@
 }
 
 .notfound-glyph--bang {
-  margin-left: -0.075em;
+  margin-left: 0.0925em;
   color: var(--ink-magenta);
   /* Where the cycle starts, and where it stays if there is no cycle — see the
      reduced-motion block at the foot of this file. */
@@ -74,41 +87,36 @@
 }
 
 /*
- * A cut rather than a dissolve. Two inks do not fade through one another on
- * press, they swap; the only easing is the fifth of a second each one takes to
- * settle down onto the paper after it strikes.
+ * A dissolve, held either side of it: nine tenths of a second on the question,
+ * three on the turn, nine tenths on the answer. Both plates are up through the
+ * turn, which is the one moment on this site where cyan and magenta are laid
+ * over one another rather than beside one another.
  */
 @keyframes notfound-ask {
-  0% {
+  0%,
+  37.5% {
     opacity: 1;
-    transform: scale(1.04);
-    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
-  }
-  8%,
-  49.99% {
-    opacity: 1;
-    transform: scale(1);
   }
   50%,
-  100% {
+  87.5% {
     opacity: 0;
+  }
+  100% {
+    opacity: 1;
   }
 }
 
 @keyframes notfound-bang {
   0%,
-  49.99% {
+  37.5% {
     opacity: 0;
   }
-  50% {
+  50%,
+  87.5% {
     opacity: 1;
-    transform: scale(1.04);
-    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
   }
-  58%,
   100% {
-    opacity: 1;
-    transform: scale(1);
+    opacity: 0;
   }
 }
 
