@@ -147,9 +147,20 @@ sup {
  * On the index the whole card dims; on a project page the splash does, since
  * dimming a page of text would only make it hard to read.
  */
+/*
+ * 0.6 is a floor, not a taste.
+ *
+ * At 0.45 the card's ink rendered as rgb(137,136,137) on the page's ground —
+ * 3.42:1, under the 4.5:1 a fourteen-pixel summary needs, so the one project
+ * a reader is least likely to be looking for was also the one they could
+ * least easily read. Black on white clears 4.5:1 at 0.53 and this sits above
+ * it with the gradient's own darkening allowed for. It still reads as dimmed:
+ * the strike through the title and the word under it were always doing most
+ * of that work.
+ */
 .home-item[data-archived],
 .post[data-archived] .splash {
-  opacity: 0.45;
+  opacity: 0.6;
   transition: opacity 0.4s ease;
 }
 
@@ -647,11 +658,27 @@ sup {
   }
 }
 
+/*
+ * A focus ring arrives at once.
+ *
+ * The rules these selectors mark are the same 4px rules hover draws, and
+ * hover's 0.4s ease came along with them: measured on a card, the ring was at
+ * 41% after 120ms and did not reach full black until 400. Tabbing down ten
+ * cards at any normal pace, the indicator is always somewhere behind the
+ * reader, fading in at a card they have already left. Hover is a thing the
+ * pointer does slowly and a fade suits it; focus is a statement about where
+ * you are, and it is either true now or it is not.
+ *
+ * Leaving is still a fade: the element stops matching `:focus-visible` on the
+ * way out, so the rule below stops applying and the base transition takes it.
+ */
 .site-lockup:focus-visible .site-name,
 .site-header-nav a:focus-visible .site-nav-label,
 .site-footer a:focus-visible,
 .site-footer-nav a:focus-visible {
   border-bottom-color: #000;
+  /* Focus lands, it does not arrive — see the note in global.css. */
+  transition: none;
 }
 
 .site-name,

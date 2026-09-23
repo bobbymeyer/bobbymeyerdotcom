@@ -1,0 +1,90 @@
+/*
+ * Two marks in one place, one dissolving into the other on a loop.
+ *
+ * Both of the site's terminal pages are built on it — the page that is not
+ * there asks and then exclaims, the page that has just taken a message ticks
+ * and then posts — and they are siblings, so they run the same box, the same
+ * timing and the same pair of inks rather than two near-copies that would
+ * drift the first time either was touched. What each page keeps to itself is
+ * only what is particular to it: how big, which ink, and what the marks are.
+ *
+ * The box is a one-cell grid. Both marks are laid in that cell, so neither is
+ * taken out of flow to sit on the other and the box is as tall as the taller
+ * of them. `justify-items` holds them at the left edge with everything else on
+ * the page — the marks are enormous but they are not centred, because nothing
+ * here is.
+ */
+.mark-pair {
+  display: grid;
+  justify-items: start;
+  margin: 0;
+  line-height: 0.82;
+}
+
+.mark-pair-mark {
+  grid-area: 1 / 1;
+  /* Through the turn both plates are up at once, and they meet the way ink
+     meets ink rather than the way two divs stack: subtractively, so cyan over
+     magenta is the blue the mark makes of them. Laid one on the other with
+     normal compositing it is the upper plate at half strength over a washed
+     copy of the lower one, which is a different and muddier colour. */
+  mix-blend-mode: multiply;
+  animation: 2.4s ease-in-out infinite;
+}
+
+/* Cyan asks and magenta answers — the same two plates the mark is printed
+   from, here unmixed until the moment they cross. */
+.mark-pair-mark--first {
+  color: var(--ink-cyan);
+  animation-name: mark-pair-first;
+}
+
+.mark-pair-mark--second {
+  color: var(--ink-magenta);
+  /* Where the cycle starts, and where it stays if there is no cycle — see the
+     reduced-motion block at the foot of this file. */
+  opacity: 0;
+  animation-name: mark-pair-second;
+}
+
+/*
+ * A dissolve, held either side of it: nine tenths of a second on the first,
+ * three on the turn, nine tenths on the second. Both plates are up through
+ * the turn, which is the one moment on this site where cyan and magenta are
+ * laid over one another rather than beside one another.
+ */
+@keyframes mark-pair-first {
+  0%,
+  37.5% {
+    opacity: 1;
+  }
+  50%,
+  87.5% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes mark-pair-second {
+  0%,
+  37.5% {
+    opacity: 0;
+  }
+  50%,
+  87.5% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* No cycle, so the first mark stands on its own — which is the half of it
+     that a reader arriving here is actually being told. */
+  .mark-pair-mark {
+    animation: none;
+  }
+}
