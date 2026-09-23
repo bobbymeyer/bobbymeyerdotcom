@@ -3,7 +3,7 @@ tags: [project, games, simulation, print]
 stack: [python]
 ---
 
-**[Play it in the browser](https://bobbymeyer.github.io/succession/)** — a seat
+**[Play it in the browser](/succession/)** — a seat
 at the table against the simulator's own bots. The page runs the Python package
 itself under Pyodide rather than a port of it, so the rules being played and the
 bots playing them are the ones in the repository. Twenty-four thousand simulated

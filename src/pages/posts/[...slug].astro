@@ -141,9 +141,3 @@ const sketchCss = sketch ? `/posts/${project.slug}/${sketch}.css` : null;
   initTreegen();
 </script>
 
-<script>
-  // No-op without a #gridi.
-  import { initGridi } from '@/scripts/gridi';
-  document.addEventListener('astro:page-load', initGridi);
-  initGridi();
-</script>

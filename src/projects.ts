@@ -118,7 +118,6 @@ export const PROJECTS: ProjectDef[] = [
     summary: 'route based midi generation',
     bg_color: POST_PALETTE.blue,
     splash: '/posts/gridi/splash.svg',
-    tags: ['interactive'],
   },
   {
     repo: 'bobbymeyer/succession',

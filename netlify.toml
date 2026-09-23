@@ -4,3 +4,42 @@
 
 [build.environment]
   NODE_VERSION = "22"
+
+# Two projects deploy themselves to GitHub Pages and are served from here on
+# this domain, at a path of their own. Netlify proxies rather than redirects,
+# so the address bar keeps saying bobbymeyer.com and the game is a page of
+# this site rather than a link off it.
+#
+# The bare path has to be sent to the trailing slash first, and that line is
+# not decoration: both apps load their files relative to their own address, so
+# opened without the slash they would ask for /main.js instead of
+# /gridi/main.js. Without the rule GitHub's own redirect answers instead and
+# sends the reader to github.io, which is the thing this is for avoiding.
+#
+# 301! and 200! both carry the bang: it tells Netlify to apply the rule even
+# when a file exists at that path, which is what keeps a project from being
+# shadowed the day someone adds a page with the same name.
+
+[[redirects]]
+  from = "/succession"
+  to = "/succession/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/succession/*"
+  to = "https://bobbymeyer.github.io/succession/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/gridi"
+  to = "/gridi/"
+  status = 301
+  force = true
+
+[[redirects]]
+  from = "/gridi/*"
+  to = "https://bobbymeyer.github.io/gridi/:splat"
+  status = 200
+  force = true
