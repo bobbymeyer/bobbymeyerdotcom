@@ -1,0 +1,36 @@
+/* A photograph in a page's aside, printed on the ground rather than laid over
+   it. Two pages set one now — the portrait on /about, the payphone on
+   /contact — so the treatment lives here rather than in either of them.
+
+   Below 1200px it sits under the copy at the full width of the page; at
+   1200px the aside is cols 3–4 and it fills them. */
+.page-photo {
+  margin: var(--page-gap) 0 0;
+}
+
+.page-photo img {
+  display: block;
+  /* The width of whatever column it is standing in, at the picture's own
+     ratio, with nothing about the viewport's height in it. The portrait was
+     once capped at 70svh with `width: auto`, which tied the width to the
+     height of the viewport: on a phone that height changes by the depth of
+     the URL bar as it retracts and returns, so the cap moved while the page
+     was being scrolled and the width was recomputed against it — the
+     photograph grew and shrank by about 30px as you read past it. It also
+     meant the picture never filled the column it had been given. Width taken
+     from the column cannot do either. */
+  width: 100%;
+  height: auto;
+  /* Multiply drops the photograph's white and lets the page's own ink come up
+     through it, so the picture is tinted by wherever on the gradient it
+     happens to sit. The same subtractive rule the mark is built on. It costs
+     nothing on a white ground — multiplying by white returns the image — so
+     this only shows once the page has a colour, which is the point. */
+  mix-blend-mode: multiply;
+}
+
+@media (min-width: 1200px) {
+  .page-photo {
+    margin-top: var(--page-gutter);
+  }
+}

@@ -7,6 +7,7 @@ import { projectEntries } from '@/lib/project-entries';
 import { INTEREST_ORDERS, STACK_ORDERS, interestsFrom, stackOnly, topicsOnly } from '@/lib/interests';
 import portrait from '@/assets/portrait.jpg';
 import '@/styles/post.css';
+import '@/styles/page-photo.css';
 import '@/styles/about.css';
 
 const description = `About ${NAME}.`;
@@ -96,7 +97,7 @@ const stack = stackOnly(counted);
         </article>
       </div>
       <aside class="post-aside">
-        <figure class="about-portrait">
+        <figure class="page-photo">
           {/*
             The slot, measured rather than guessed: 609px once the page stops
             growing at 1600, 47vw of the four-column grid above 1200, and the
