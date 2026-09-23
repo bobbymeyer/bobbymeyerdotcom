@@ -70,7 +70,7 @@ const anyFeatured = projects.some((project) => project.featured);
           <span class="home-legend">
             {anyInteractive && (
               <Fragment>
-                <span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = interactive preview{anyFeatured ? ',' : ''}
+                <span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = runs in the browser{anyFeatured ? ',' : ''}
               </Fragment>
             )}
             {anyInteractive && anyFeatured && ' '}
@@ -209,7 +209,8 @@ const anyFeatured = projects.some((project) => project.featured);
             {/*
               One badge, two things said at once. The silhouette is whether
               the project is featured — a star, or a circle when it is not.
-              The plates are whether it runs in the page: three inks slightly
+              The plates are whether it runs in a browser — here in the page,
+              or at a path of its own this domain serves: three inks slightly
               out of register when it does, one flat magenta when it does not.
               Three marks for four states, and the fourth — neither — wears
               nothing, as it should.

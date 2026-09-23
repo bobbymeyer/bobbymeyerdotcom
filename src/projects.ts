@@ -29,8 +29,12 @@ import { POST_PALETTE } from '@/palette';
  *   so a reader can ask for them; it used to sort them to the top instead,
  *   and before that gave them two fields of width, and both of those asserted
  *   at everyone at once what a filter lets one person ask.
- * - `interactive` — the thing runs on its own project page, so the index
- *   marks it with a registration target and says so in the legend.
+ * - `interactive` — the thing runs in a browser on this site rather than
+ *   being read about on it: in the page itself, or at a path of its own that
+ *   this domain serves. The index marks it with a registration target and
+ *   says so in the legend. Where it runs is not the question the mark
+ *   answers — a reader asking for these wants the ones they can play with,
+ *   and /gridi/ is as playable as a canvas mounted in a note.
  */
 export type ProjectTag = 'featured' | 'interactive';
 
@@ -101,7 +105,7 @@ export const PROJECTS: ProjectDef[] = [
     repo: 'bobbymeyer/treegen',
     title: '🌳 treegen',
     summary: 'get in touch with nature without touching any nature',
-    tags: ['featured', 'interactive'],
+    tags: ['interactive'],
     bg_color: POST_PALETTE.green,
     splash: '/posts/treegen/splash.svg',
   },
@@ -114,6 +118,7 @@ export const PROJECTS: ProjectDef[] = [
   },
   {
     repo: 'bobbymeyer/gridi',
+    tags: ['interactive'],
     title: '🎹 gridi',
     summary: 'route based midi generation',
     bg_color: POST_PALETTE.blue,
@@ -121,6 +126,7 @@ export const PROJECTS: ProjectDef[] = [
   },
   {
     repo: 'bobbymeyer/succession',
+    tags: ['featured', 'interactive'],
     title: '👑 succession',
     bg_color: POST_PALETTE.rust,
     splash: '/posts/succession/splash.svg',
@@ -135,6 +141,7 @@ export const PROJECTS: ProjectDef[] = [
   },
   {
     repo: 'bobbymeyer/funcooker',
+    tags: ['featured'],
     title: '🍳 funcooker',
     bg_color: POST_PALETTE.orange,
     splash: '/posts/funcooker/splash.webp',
