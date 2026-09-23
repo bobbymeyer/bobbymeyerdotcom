@@ -404,7 +404,7 @@ sup {
  * centred in flow would raise the lockup's box and take the name off it.
  */
 /* The mark is its own thing now, not the header's, because the index wears it
-   too — on the splash of any project that runs in the page. A context sets
+   too — on the splash of any project that runs in a browser. A context sets
    `--mark-box` and `--mark-dot` and positions it; everything below is the
    mark. */
 .mark {
