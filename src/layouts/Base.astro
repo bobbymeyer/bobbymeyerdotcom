@@ -53,7 +53,13 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width" />
+    {/* `initial-scale=1` so a page opens at its own scale rather than zoomed
+        out to some remembered one, and no `maximum-scale`: pinching in on a
+        line of type is somebody's way of reading, not a bug to design out. */}
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    {/* The ground this page opens on — see `--ground`. Safari paints the bar
+        above the page with it, so the chrome starts where the paper does. */}
+    <meta name="theme-color" content="#ffffff" />
     <link rel="canonical" href={canonicalURL} />
     <meta name="description" content={description} />
     <meta property="og:type" content={ogType} />
@@ -81,6 +87,11 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
       crossorigin
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    {/* iOS will not take the SVG, and a home screen has no white under it —
+        so the mark is rasterised onto its own ground at the one size Apple
+        asks for. Drawn from the same favicon at build time, in
+        `src/pages/apple-touch-icon.png.ts`, so the two cannot drift. */}
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link
       rel="alternate"
       type="application/rss+xml"

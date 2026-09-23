@@ -117,6 +117,32 @@
   line-height: 1.25;
 }
 
+/*
+ * An article's own headings, set down from the document scale.
+ *
+ * A README arrives with h2s in it, and at the global scale that is 29px —
+ * against a page title of 35px and a section label of 14px. Five of them down
+ * a project page and the imported document was the loudest thing on it, with
+ * the line that says "this is a readme" a fifth of the size of the readme's
+ * own first heading. The frame has to be louder than the thing it frames.
+ *
+ * So the article runs its own three steps, from a size up from the body to
+ * the body itself: far enough under the title to sit inside it, far enough
+ * over the text to still part it. The weight and the space above do the rest,
+ * which is what they are for.
+ */
+.post-article h2 {
+  font-size: var(--font-size-h4);
+}
+
+.post-article h3 {
+  font-size: var(--font-size-h5);
+}
+
+.post-article h4 {
+  font-size: var(--font-size-h6);
+}
+
 .post-article ul,
 .post-article ol {
   padding-left: var(--page-gap);
