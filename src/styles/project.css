@@ -1,5 +1,5 @@
 /* A project page is two zones. Below 1200px they stack in reading order —
-   splash, title, note, readme, then the merges. At 1200px the four fields
+   title, splash, facts, note, readme, then the merges. At 1200px the four fields
    split 1–3 / 4: the note and the readme take the three on the left, and the
    rail on the right is the repository's own account of itself, in the order
    a reader wants it — the splash, the facts under it, the merges under those.
@@ -28,6 +28,48 @@
 .project-timeline {
   min-width: 0;
   margin-top: var(--page-gutter);
+}
+
+/*
+ * Below the split the rail is not a rail, and the three blocks in it want the
+ * opposite of the order they are written in: stacked, the merges come *after*
+ * what has been written about the project, where beside it they belong with
+ * the repository's other facts, under the splash. Only one of those can be the
+ * source order.
+ *
+ * So below the split the rail's box goes and its three blocks become items of
+ * the layout grid in their own right, which is what lets one of them be sent
+ * past the readme while the splash and the facts stay where they are. Nothing
+ * moves in the markup, and the element is back above the split with the
+ * marginalia still measuring against it.
+ */
+@media (max-width: 1199.98px) {
+  .project-layout .post-aside {
+    display: contents;
+  }
+
+  /* Promoted, they are grid items now, and between 640 and the split the grid
+     has two fields — without this the splash and the facts would stand side by
+     side rather than one under the other. */
+  .project-layout .post-aside > * {
+    grid-column: 1 / -1;
+  }
+
+  .project-layout .project-timeline {
+    order: 1;
+  }
+
+  /* The layout's row gap now stands between them where their own margins used
+     to, so the facts drop theirs rather than adding to it. The merges keep a
+     margin, because down here they are not the last block of a rail — they are
+     the next part of the page after the readme. */
+  .project-layout .project-facts {
+    margin-top: 0;
+  }
+
+  .project-layout .project-timeline {
+    margin-top: var(--page-gap);
+  }
 }
 
 @media (min-width: 1200px) {
