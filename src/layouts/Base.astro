@@ -101,9 +101,8 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
         <a
           href="/"
           aria-current={isHome ? 'page' : isProjects ? 'true' : undefined}
-          data-accent-target={isProjects ? '' : undefined}
         >
-          <span class="site-accent-slot" aria-hidden={!isProjects}>
+          <span class="site-accent-slot" aria-hidden="true">
             {isProjects && (
               <span
                 class="site-accent site-accent--projects"
@@ -118,9 +117,8 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
         <a
           href="/about"
           aria-current={isAbout ? 'page' : undefined}
-          data-accent-target={isAbout ? '' : undefined}
         >
-          <span class="site-accent-slot" aria-hidden={!isAbout}>
+          <span class="site-accent-slot" aria-hidden="true">
             {isAbout && (
               <span
                 class="site-accent site-accent--about"
@@ -135,9 +133,8 @@ const isContact = path === '/contact' || path.startsWith('/contact/');
         <a
           href="/contact"
           aria-current={isContact ? 'page' : undefined}
-          data-accent-target={isContact ? '' : undefined}
         >
-          <span class="site-accent-slot" aria-hidden={!isContact}>
+          <span class="site-accent-slot" aria-hidden="true">
             {isContact && (
               <span
                 class="site-accent site-accent--contact"

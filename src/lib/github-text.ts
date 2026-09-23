@@ -93,8 +93,21 @@ export function cleanReadmeHtml(html: string, repo?: { nameWithOwner: string; br
   out = out.replace(/\sid="user-content-([^"]*)"/g, ' id="$1"');
   out = out.replace(/href="#user-content-([^"]*)"/g, 'href="#$1"');
 
-  // The h1 the page already carries, and only if it is the first thing.
-  out = out.replace(/^\s*<h1[^>]*>[\s\S]*?<\/h1>/, '');
+  // The h1 the page already carries.
+  //
+  // It is the README's title, and a title is the first *heading* in the file
+  // rather than the first thing in it: funcooker opens on a screenshot, so a
+  // rule that only fired on a fragment beginning `<h1>` walked straight past
+  // it and the project page set its own title with the README's stacked under
+  // it. What matters is that no other heading has been met yet — an h1 after
+  // an h2 is a section, and sections stay.
+  const title = out.search(/<h1[\s>]/i);
+  const heading = out.search(/<h[2-6][\s>]/i);
+  if (title !== -1 && (heading === -1 || title < heading)) {
+    out =
+      out.slice(0, title).replace(/\s*$/, '') +
+      out.slice(title).replace(/^<h1[^>]*>[\s\S]*?<\/h1>/i, '');
+  }
 
   if (repo) out = absolutize(out, repo.nameWithOwner, repo.branch);
 

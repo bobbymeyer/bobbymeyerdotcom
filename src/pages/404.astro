@@ -1,20 +1,22 @@
 ---
 import Base from '@/layouts/Base.astro';
-import '@/styles/post.css';
+import '@/styles/notfound.css';
 
 const description = 'Page not found.';
 ---
 
 <Base title="not found" description={description}>
-  <main class="post">
-    <div class="post-main">
-      <header>
-        <h1>404</h1>
-        <p class="post-summary">Nothing here.</p>
-      </header>
-      <article class="post-article">
-        <p><a href="/">Back to the index</a></p>
-      </article>
+  <main class="notfound">
+    <div class="notfound-main">
+      {/* Decorative: the heading underneath says the same thing in words, and
+          a screen reader meeting a lone "?!" would only be read punctuation. */}
+      <p class="notfound-glyphs" aria-hidden="true">
+        <span class="notfound-glyph notfound-glyph--ask">?</span>
+        <span class="notfound-glyph notfound-glyph--bang">!</span>
+      </p>
+      <h1>uh oh, this page is missing.</h1>
+      <h2 class="notfound-code">404 error</h2>
+      <p class="notfound-back"><a href="/">back to the index</a></p>
     </div>
   </main>
 </Base>

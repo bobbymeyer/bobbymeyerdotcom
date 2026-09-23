@@ -1,0 +1,172 @@
+/*
+ * The page that is not there.
+ *
+ * Every other page on this site is built out of something — a README, a
+ * repository, a form. This one has nothing behind it, so it is set as one
+ * piece of punctuation the height of the screen: a question that turns into
+ * an exclamation and back, which is roughly the sequence a reader goes
+ * through on arriving here.
+ */
+.notfound {
+  display: grid;
+  grid-template-columns: subgrid;
+  grid-column: 1 / -1;
+  align-content: start;
+  padding-block: var(--page-gutter) calc(var(--page-gutter) * 2);
+  color: #000;
+}
+
+.notfound-main {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+/*
+ * Both glyphs in one grid cell, so the box is as tall as the taller of them
+ * and neither is taken out of flow to sit on top of the other. `justify-items`
+ * keeps them on the left edge with everything else on the page — the type is
+ * enormous but it is not centred, because nothing here is.
+ */
+.notfound-glyphs {
+  display: grid;
+  justify-items: start;
+  margin: 0;
+  font-size: clamp(9rem, 34vw, 22rem);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 0.82;
+}
+
+.notfound-glyph {
+  grid-area: 1 / 1;
+  /* The plate lands from the baseline out, not from the middle: the glyph
+     grows out of the corner it is set in rather than drifting away from it. */
+  transform-origin: 0 100%;
+  animation: 2.4s steps(1, end) infinite;
+}
+
+/*
+ * Hung flush, each by its own side bearing.
+ *
+ * Set at three hundred pixels, the blank the font leaves to the left of a
+ * glyph is no longer a typographic nicety — it is twenty pixels of indent
+ * against a heading that starts at the margin, and it reads as a mistake.
+ * Measured off the face rather than guessed at: the question mark carries
+ * 0.065em and the exclamation 0.075em, which is why these are two values and
+ * not one on the block above them.
+ */
+
+/* Cyan asks and magenta answers — the same two plates the mark is printed
+   from, here unmixed and one at a time. */
+.notfound-glyph--ask {
+  margin-left: -0.065em;
+  color: var(--ink-cyan);
+  animation-name: notfound-ask;
+}
+
+.notfound-glyph--bang {
+  margin-left: -0.075em;
+  color: var(--ink-magenta);
+  /* Where the cycle starts, and where it stays if there is no cycle — see the
+     reduced-motion block at the foot of this file. */
+  opacity: 0;
+  animation-name: notfound-bang;
+}
+
+/*
+ * A cut rather than a dissolve. Two inks do not fade through one another on
+ * press, they swap; the only easing is the fifth of a second each one takes to
+ * settle down onto the paper after it strikes.
+ */
+@keyframes notfound-ask {
+  0% {
+    opacity: 1;
+    transform: scale(1.04);
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  8%,
+  49.99% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes notfound-bang {
+  0%,
+  49.99% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.04);
+    animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+  }
+  58%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.notfound-main h1 {
+  max-width: 18em;
+  margin: var(--page-gutter) 0 0;
+}
+
+/* The status code is a caption on the sentence above it rather than a second
+   heading competing with it, so it is set at the size the chrome is set at and
+   spaced like the nav labels: a label, which is what an error code is. */
+.notfound-code {
+  margin: calc(var(--page-gap) / 2) 0 0;
+  font-size: var(--font-size-h5);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.notfound-back {
+  margin: var(--page-gutter) 0 0;
+}
+
+/* The site's link: a hairline under it that swaps for the 4px rule on hover,
+   set here rather than borrowed from post.css — this page is not an article
+   and loading a stylesheet for one selector is how a page ends up carrying
+   the layout of something it is not. */
+.notfound-back a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 4px solid transparent;
+  background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat;
+  transition: border-color 0.4s ease, background 0.4s ease;
+}
+
+@media (hover: hover) {
+  .notfound-back a:hover {
+    border-bottom-color: currentColor;
+    background: none;
+  }
+}
+
+.notfound-back a:focus {
+  outline: none;
+}
+
+.notfound-back a:focus-visible {
+  border-bottom-color: currentColor;
+  background: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .notfound-back a {
+    transition: none;
+  }
+
+  /* No cycle, so the question stands on its own — which is the half of it
+     that a reader arriving here is actually asking. */
+  .notfound-glyph {
+    animation: none;
+  }
+}
