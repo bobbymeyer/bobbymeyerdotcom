@@ -169,6 +169,8 @@
   color: #fff;
   outline: 2px solid #000;
   outline-offset: 2px;
+  /* Focus lands, it does not arrive — see the note in global.css. */
+  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

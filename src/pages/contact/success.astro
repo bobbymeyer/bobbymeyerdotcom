@@ -1,20 +1,32 @@
 ---
 import Base from '@/layouts/Base.astro';
-import '@/styles/post.css';
+import '@/styles/mark-pair.css';
+import '@/styles/sent.css';
 
 const description = 'Message received.';
 ---
 
-<Base title="message sent" description={description}>
-  <main class="post">
-    <div class="post-main">
-      <header>
-        <h1>sent</h1>
-        <p class="post-summary">Thanks — your note is on its way. I will reply by email.</p>
-      </header>
-      <article class="post-article">
-        <p><a href="/">Back to the index</a></p>
-      </article>
+<Base title="sent" description={description}>
+  <main class="sent">
+    <div class="sent-main">
+      {/* Decorative: the sentence underneath says the same thing in words,
+          and a screen reader meeting a tick and an envelope on their own
+          would only be read two shapes. */}
+      <p class="mark-pair sent-marks" aria-hidden="true">
+        {/* Ticked. */}
+        <svg class="mark-pair-mark mark-pair-mark--first sent-mark" viewBox="0 0 100 100">
+          <rect x="5" y="5" width="90" height="90" />
+          <polyline points="26,52 43,70 76,30" />
+        </svg>
+        {/* Posted. */}
+        <svg class="mark-pair-mark mark-pair-mark--second sent-mark" viewBox="0 0 100 100">
+          <rect x="5" y="20" width="90" height="60" />
+          <polyline points="5,20 50,56 95,20" />
+        </svg>
+      </p>
+      <h1>thanks, your note is on its way.</h1>
+      <p>I will reply by email.</p>
+      <p class="sent-back"><a href="/">back to the index</a></p>
     </div>
   </main>
 </Base>

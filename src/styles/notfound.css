@@ -6,6 +6,9 @@
  * piece of punctuation the height of the screen: a question that turns into
  * an exclamation and back, which is roughly the sequence a reader goes
  * through on arriving here.
+ *
+ * The turning is `mark-pair.css`, which /contact/success runs too. What is
+ * here is what is particular to this page.
  */
 .notfound {
   display: grid;
@@ -21,40 +24,13 @@
   min-width: 0;
 }
 
-/*
- * Both glyphs in one grid cell, so the box is as tall as the taller of them
- * and neither is taken out of flow to sit on top of the other.
- *
- * The box is the width of the question mark's ink and it sits at the left
- * margin with everything else on the page — the type is enormous but it is
- * not centred, because nothing here is. What *is* centred is the pair: the
- * exclamation is a third the width of the question mark, and left-aligning
- * both put its stroke out at the edge of a space the question mark fills, so
- * the two never looked like the same mark changing its mind. Centred in the
- * box, one dissolves into the other on the spot.
- */
 .notfound-glyphs {
   /* The question mark's ink, measured off the face. */
   --glyph-box: 0.477em;
-  display: grid;
-  justify-items: start;
   width: var(--glyph-box);
-  margin: 0;
   font-size: clamp(9rem, 34vw, 22rem);
   font-weight: 600;
   letter-spacing: -0.025em;
-  line-height: 0.82;
-}
-
-.notfound-glyph {
-  grid-area: 1 / 1;
-  /* Through the turn both plates are up at once, and they meet the way ink
-     meets ink rather than the way two divs stack: subtractively, so cyan over
-     magenta is the blue the mark makes of them. Laid one on the other with
-     normal compositing it is the upper plate at half strength over a washed
-     copy of the lower one, which is a different and muddier colour. */
-  mix-blend-mode: multiply;
-  animation: 2.4s ease-in-out infinite;
 }
 
 /*
@@ -68,56 +44,12 @@
  * its centre line. Ink widths 0.477em and 0.143em, left bearings 0.065em and
  * 0.075em, all four measured off the rendered face.
  */
-
-/* Cyan asks and magenta answers — the same two plates the mark is printed
-   from, here unmixed until the moment they cross. */
 .notfound-glyph--ask {
   margin-left: -0.065em;
-  color: var(--ink-cyan);
-  animation-name: notfound-ask;
 }
 
 .notfound-glyph--bang {
   margin-left: 0.0925em;
-  color: var(--ink-magenta);
-  /* Where the cycle starts, and where it stays if there is no cycle — see the
-     reduced-motion block at the foot of this file. */
-  opacity: 0;
-  animation-name: notfound-bang;
-}
-
-/*
- * A dissolve, held either side of it: nine tenths of a second on the question,
- * three on the turn, nine tenths on the answer. Both plates are up through the
- * turn, which is the one moment on this site where cyan and magenta are laid
- * over one another rather than beside one another.
- */
-@keyframes notfound-ask {
-  0%,
-  37.5% {
-    opacity: 1;
-  }
-  50%,
-  87.5% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes notfound-bang {
-  0%,
-  37.5% {
-    opacity: 0;
-  }
-  50%,
-  87.5% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
 }
 
 .notfound-main h1 {
@@ -165,16 +97,12 @@
 .notfound-back a:focus-visible {
   border-bottom-color: currentColor;
   background: none;
+  /* Focus lands, it does not arrive — see the note in global.css. */
+  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .notfound-back a {
     transition: none;
-  }
-
-  /* No cycle, so the question stands on its own — which is the half of it
-     that a reader arriving here is actually asking. */
-  .notfound-glyph {
-    animation: none;
   }
 }

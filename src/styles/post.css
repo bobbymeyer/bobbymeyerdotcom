@@ -82,6 +82,8 @@
 .post article a:focus-visible {
   border-bottom-color: currentColor;
   background: none;
+  /* Focus lands, it does not arrive — see the note in global.css. */
+  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -430,6 +432,8 @@
 .sketch-fallback a:focus-visible {
   border-bottom-color: currentColor;
   background: none;
+  /* Focus lands, it does not arrive — see the note in global.css. */
+  transition: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

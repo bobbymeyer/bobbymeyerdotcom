@@ -68,6 +68,8 @@
 .home-place a:focus-visible {
   border-bottom-color: currentColor;
   background: none;
+  /* Focus lands, it does not arrive — see the note in global.css. */
+  transition: none;
 }
 
 /* "projects" is a section label under the introduction now, not the page's
@@ -184,6 +186,8 @@
 
 .home-item:focus-visible {
   border-bottom-color: #000;
+  /* Focus lands, it does not arrive — see the note in global.css. */
+  transition: none;
 }
 
 .home-item-copy {
@@ -273,6 +277,8 @@
   color: #fff;
   outline: 2px solid #000;
   outline-offset: 2px;
+  /* Focus lands, it does not arrive — see the note in global.css. */
+  transition: none;
 }
 
 .home-filter[open] > .home-filter-summary {
@@ -306,6 +312,29 @@
   padding: var(--page-gap);
   border: 1px solid #000;
   background: #fff;
+}
+
+/*
+ * Except in one column, where it cannot be over the grid without being over
+ * a card.
+ *
+ * Three groups of options stacked one to a line is a tall panel, and a tall
+ * panel on a narrow page reaches past the first card's splash and stops
+ * somewhere inside its last line of type — measured at 390px, the panel ended
+ * at 705 and the card's date ran 692 to 713, so the panel's own edge cut the
+ * numerals in half. Text sliced through the middle does not read as a layer,
+ * it reads as a page that has gone wrong.
+ *
+ * In flow it pushes the grid down instead. The thing it is filtering moves,
+ * which is what the absolute position was avoiding — but on a phone the grid
+ * is one card wide and mostly below the fold anyway, so there is far less to
+ * move than there is to spoil.
+ */
+@media (max-width: 639.98px) {
+  .home-filter-panel {
+    position: static;
+    margin-top: var(--page-gap);
+  }
 }
 
 
@@ -395,6 +424,8 @@
 .home-filter-clear:focus-visible {
   border-bottom-color: currentColor;
   background: none;
+  /* Focus lands, it does not arrive — see the note in global.css. */
+  transition: none;
 }
 
 /* On a card: what this one is about, set rather than linked. The card is one
