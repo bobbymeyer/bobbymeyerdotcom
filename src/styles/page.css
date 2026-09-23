@@ -33,19 +33,32 @@
 
 /*
  * The message is the field you write on rather than in, so it is ruled like
- * paper: a dotted line under every line of text. Each tile is one dot and its
- * gap wide and one line tall, with the dot sitting on the tile's bottom edge —
- * a whole-pixel mark rather than a soft sub-pixel one, which a 1x screen drops
- * altogether. The grid starts at the field's top padding so the rules land on
- * the text, and `local` keeps them there when a long message scrolls.
+ * paper: a dotted line on the baseline of every line of text. Each tile is one
+ * dot and its gap wide and one line tall, with the dot sitting on the tile's
+ * bottom edge — a whole-pixel mark rather than a soft sub-pixel one, which a
+ * 1x screen drops altogether.
+ *
+ * The rules go only where text can go. The grid is painted in the content box,
+ * not the padding around it, so no rule runs above the first line or below
+ * the last; `local` makes that box the scrolled text rather than the visible
+ * window, so the rules travel with a long message and there is always one
+ * under every line of it.
+ *
+ * The grid is lifted so each tile ends on a baseline rather than at the foot
+ * of its line. Archivo is 0.878em above the baseline and 0.210em below it, so
+ * a 1.5 line puts the baseline 0.416em up from the line's foot; it is rounded
+ * to a whole pixel to keep the dot crisp.
  */
 .contact-form textarea {
   --rule-step: calc(var(--font-size-base) * var(--line-height));
+  --rule-lift: round(nearest, calc((var(--line-height) - 0.878 - 0.21) / 2 * 1em + 0.21em), 1px);
   resize: vertical;
   min-height: 8rem;
   background-image: radial-gradient(circle at 50% 100%, rgba(0, 0, 0, 0.42) 0 1px, transparent 1px);
   background-size: 5px var(--rule-step);
-  background-position: 0 var(--field-pad);
+  background-origin: content-box;
+  background-clip: content-box;
+  background-position: 0 calc(var(--rule-lift) * -1);
   background-attachment: local;
 }
 
