@@ -110,7 +110,7 @@ export const PROJECTS: ProjectDef[] = [
     title: '🖨️ halftoner',
     summary: 'ink-first halftones from press profiles',
     bg_color: POST_PALETTE.cobalt,
-    splash: '/posts/halftoner/splash.png',
+    splash: '/posts/halftoner/splash.webp',
   },
   {
     repo: 'bobbymeyer/gridi',
