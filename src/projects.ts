@@ -138,7 +138,7 @@ export const PROJECTS: ProjectDef[] = [
     repo: 'bobbymeyer/funcooker',
     title: '🍳 funcooker',
     bg_color: POST_PALETTE.orange,
-    splash: '/posts/funcooker/splash.jpg',
+    splash: '/posts/funcooker/splash.webp',
   },
 ];
 

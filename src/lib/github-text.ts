@@ -15,6 +15,13 @@ const SESSION_URL = /^https:\/\/claude\.ai\/code\//i;
 
 const HEADING = /^#{1,6}\s+\S/;
 
+/**
+ * A row of a markdown table: a line of pipe-separated cells, or the `|:--|`
+ * rule under the header. Either way it is a grid, and the rail it would be
+ * set in is one column wide.
+ */
+const TABLE_ROW = /^\|.*\|?\s*$|^\|?[\s:|-]*-{2,}[\s:|-]*\|?\s*$/;
+
 /** The line a body stops at — see the loop in `cleanNote`. */
 const BOILERPLATE =
   /^(?:dependabot (?:will resolve|commands|compatibility)|you can trigger dependabot|<summary>|-{3,}\s*$)/i;
@@ -136,17 +143,43 @@ function unwrap(html: string, tag: string): string {
  * next to. Markdown emphasis is unwrapped rather than rendered, links keep
  * their text and lose their target — the entry already links to the pull
  * request, which is where the whole thing is.
+ *
+ * The order below is the whole of it. This used to be a pile of independent
+ * replacements over one string, and three things went wrong at once because
+ * of it: nothing knew about lists or tables, so a changelog arrived in the
+ * rail as `- item` and `| Panel | What it shows |`; and the tag strip reached
+ * inside code spans and ate what it found, so a note about an `<h1>` was
+ * published reading "asked whether a README began with an ``". Eighty-four
+ * notes on this site were carrying one of the three.
+ *
+ * So: code spans come out first and go back last, and every pass in between
+ * runs over a body that no longer contains any.
  */
 export function cleanNote(body: string | null): string | null {
   if (!body) return null;
 
   let text = body.replace(/<!--[\s\S]*?-->/g, '');
 
+  // Fenced blocks go whole, before anything counts a backtick.
+  text = text.replace(/^[ \t]*`{3,}[^\n]*\n[\s\S]*?^[ \t]*`{3,}[ \t]*$/gm, '');
+
+  // Then the inline ones, lifted out and held.
+  //
+  // Everything downstream — the tag strip, the entity decode, the emphasis
+  // unwrapping — is written for prose, and inside a code span none of it is
+  // prose. `<div>` in backticks is a word somebody typed, not markup, and the
+  // rule that deletes markup cannot tell the difference. Nor should it have
+  // to: it never sees one.
+  const spans: string[] = [];
+  text = text.replace(/`+([^`\n]+?)`+/g, (_, code: string) => {
+    spans.push(code);
+    return `\u0000${spans.length - 1}\u0000`;
+  });
+
   // Not every body is markdown. Dependabot writes HTML, and its release notes
   // go in a <details> that is collapsed on GitHub and would be several
   // screens of changelog here — so the block goes, and the tags around what
-  // is left go with it. Only tags that are actually HTML are matched: a body
-  // may well mention `<link>` or `<div>` as prose, and that is not markup.
+  // is left go with it.
   text = text.replace(/<details\b[^>]*>[\s\S]*?<\/details>/gi, '');
   text = text.replace(HTML_TAG, '');
   text = text.replace(
@@ -166,6 +199,13 @@ export function cleanNote(body: string | null): string | null {
   for (const line of text.split('\n')) {
     const trimmed = line.trim();
     if (TRAILER.test(trimmed) || TOOL_FOOTER.test(trimmed) || SESSION_URL.test(trimmed)) continue;
+
+    // A table is a shape, and this rail is one column wide. Rendering it is
+    // out of the question and printing its pipes is worse — a delimiter row
+    // is not even prose, it is punctuation holding a grid up that is not
+    // here. The whole row goes, cells and all: what a changelog table says is
+    // said again in the sentence above it, and a note is a line in a rail.
+    if (TABLE_ROW.test(trimmed)) continue;
 
     // A pull request template opens on a heading — "What this is", "Why" —
     // and the entry above already answers it with the title. Later headings
@@ -191,14 +231,30 @@ export function cleanNote(body: string | null): string | null {
   text = text.replace(/\n\s*(?:-{3,}|\*{3,}|_{3,})\s*$/, '');
 
   text = text
-    .replace(/^\s{0,3}#{1,6}\s+/gm, '')
-    .replace(/^\s{0,3}>\s?/gm, '')
+    // Spaces and tabs, not `\s`: with `m` the caret matches at the head of a
+    // blank line, and `\s` will happily eat that line's own newline on its way
+    // to the hashes — so every heading in a note used to close the paragraph
+    // above it up against itself.
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '')
+    .replace(/^[ \t]{0,3}>[ \t]?/gm, '')
+    // A bullet keeps its line and loses its marker. The marker is a shape the
+    // rail does not draw — there is no hanging indent here and no room for
+    // one — and a list of four things reads as four lines without it. The
+    // nesting goes with the indent, for the same reason.
+    .replace(/^[ \t]*[-*+][ \t]+/gm, '')
+    .replace(/^[ \t]*\d{1,3}[.)][ \t]+/gm, '')
     .replace(/\*\*([^*]+)\*\*/g, '$1')
     .replace(/__([^_]+)__/g, '$1')
-    .replace(/`{3,}[^\n]*\n[\s\S]*?`{3,}/g, '')
+    // The single-mark pair the old rule left behind, which is why a note that
+    // said a README *began* with something published the asterisks.
+    .replace(/(^|[^*\w])\*(?!\s)([^*\n]+?)(?<!\s)\*(?!\*)/g, '$1$2')
+    .replace(/(^|[^_\w])_(?!\s)([^_\n]+?)(?<!\s)_(?!_)/g, '$1$2')
     .replace(/[ \t]+$/gm, '')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
+
+  // And the code back, as the words they were.
+  text = text.replace(/\u0000(\d+)\u0000/g, (_, i: string) => spans[Number(i)] ?? '');
 
   if (!text) return null;
   return truncate(text, NOTE_MAX);
