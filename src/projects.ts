@@ -117,6 +117,12 @@ export const PROJECTS: ProjectDef[] = [
     splash: '/posts/halftoner/splash.webp',
   },
   {
+    repo: 'bobbymeyer/concert-series',
+    title: '🎫 concert-series',
+    bg_color: POST_PALETTE.yellow,
+    splash: '/posts/concert-series/splash.webp',
+  },
+  {
     repo: 'bobbymeyer/gridi',
     tags: ['interactive'],
     title: '🎹 gridi',
