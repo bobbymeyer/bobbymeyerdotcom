@@ -15,17 +15,19 @@
  * on. A drag with a mouse is the one input scroll does not already give, and it
  * is turned into scroll too.
  *
- * Shrinking pulls toward the left edge, so the column keeps the left-aligned
- * line the rest of the site sits on. The wheel's hub is the right-hand edge of
- * the page, halfway down the window, so the current card sits at the far left
- * of the rim and the rest ride round it toward the right — upright, like the
- * cars on a Ferris wheel, getting smaller as they go. A wide window makes a
- * big, gentle wheel and a phone a tight one.
+ * The wheel's hub is the right-hand edge of the page, halfway down the
+ * window, and the wheel is about a card wide: the current card hangs off the
+ * leftmost point of the rim with its right edge near the page's, and the rest
+ * ride round it toward the hub — upright, like the cars on a Ferris wheel,
+ * getting smaller as they go. Each card hangs from its left edge, which is the
+ * point on the rim, so shrinking pulls toward that edge too.
  */
 
 interface Tuning {
   /** How far the column bends: 0 a straight list, 1 the rim of the wheel. */
   arc: number;
+  /** The wheel's radius, in card widths: 1 puts the current card flush right. */
+  size: number;
   /** Scale of each step away from the centre: 0.72 makes the next card 72%. */
   shrink: number;
   /** Gap between neighbours, as a fraction of the current card's height. */
@@ -36,7 +38,14 @@ interface Tuning {
   travel: number;
 }
 
-const DEFAULTS: Tuning = { arc: 1, shrink: 0.72, spacing: 0.95, fade: 0.22, travel: 0.45 };
+const DEFAULTS: Tuning = {
+  arc: 1,
+  size: 1,
+  shrink: 0.72,
+  spacing: 1.1,
+  fade: 0.22,
+  travel: 0.35,
+};
 
 /** How long the scroll has to be still before the wheel settles on a card. */
 const SETTLE_MS = 140;
@@ -89,9 +98,15 @@ export function initWheel(): void {
     step = Math.max(window.innerHeight * tuning.travel, 1);
     stageHeight = stage.clientHeight;
     cardHeight = items[0].offsetHeight;
-    // From the hub, the right-hand edge of the page, to where the current
-    // card's left edge sits.
-    radius = Math.max(window.innerWidth - stage.getBoundingClientRect().left, 1);
+    // From the hub, the right-hand edge of the page, to the current card's
+    // left edge: a card's width and the margin the page keeps on the right,
+    // so at size 1 the card sits where a right-aligned card would. Never
+    // further left than the stage starts.
+    const box = stage.getBoundingClientRect();
+    const hub = window.innerWidth;
+    const flush = items[0].offsetWidth + (hub - box.right);
+    radius = Math.max(Math.min(flush * tuning.size, hub - box.left), 1);
+    stage.style.setProperty('--wheel-left', `${hub - radius - box.left}px`);
     track.style.height = `${stageHeight + last * step}px`;
   };
 
@@ -276,7 +291,7 @@ export function initWheel(): void {
     const p = position();
     tuning[key] = Number(input.value);
     showTuning();
-    if (key === 'travel') {
+    if (key === 'travel' || key === 'size') {
       measure();
       window.scrollTo({ top: scrollFor(p), behavior: 'auto' });
     }

@@ -50,6 +50,22 @@
   padding-top: var(--page-gap);
 }
 
+/* Words beside the picture rather than under it, wherever there is room: the
+   splash keeps its 16:9 and the words take the column to its right, so a card
+   is a wide, short strip and more of them fit on the wheel at once. */
+@media (min-width: 640px) {
+  .wheel-card {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: var(--page-gap);
+    align-items: start;
+  }
+
+  .wheel-copy {
+    padding-top: 0;
+  }
+}
+
 .wheel-copy h3 {
   font-size: var(--font-size-h4);
   line-height: 1.25;
@@ -99,10 +115,10 @@
 .wheel-track[data-wheel-on] .wheel-item {
   position: absolute;
   top: 50%;
-  left: 0;
-  width: min(100%, 34rem);
-  /* Shrinking pulls to the left edge, so the column keeps the site's left
-     line instead of closing in on the middle of the page. */
+  left: var(--wheel-left, 0);
+  width: min(100%, 44rem);
+  /* A card hangs from its left edge, which is the point on the rim, so it
+     shrinks toward that point. */
   transform-origin: left center;
   will-change: transform, opacity;
   user-select: none;
@@ -138,12 +154,12 @@
   }
 }
 
-/* The knobs, pinned to the stage's top right, above the hub, where the
-   rim does not reach. White ground and a hairline; not part of the design under test. */
+/* The knobs, pinned to the stage's top left, which the wheel leaves empty.
+   White ground and a hairline; not part of the design under test. */
 .wheel-tune {
   position: absolute;
   top: var(--page-gap);
-  right: 0;
+  left: 0;
   z-index: 2000;
   width: min(100%, 18rem);
   padding: calc(var(--page-gap) / 2) var(--page-gap);

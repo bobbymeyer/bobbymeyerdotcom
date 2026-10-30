@@ -33,9 +33,9 @@ const NEAR = 3;
     <header class="wheel-intro">
       <h1>wheel</h1>
       <p>
-        The index as a column that turns: the current project full size, the
-        rest riding round a wheel whose hub is the right-hand edge of the page,
-        shrinking with distance. Scroll, drag, or use the arrow keys.
+        The index as a wheel turning at the right-hand edge of the page: the
+        current project full size, the rest riding round the rim and shrinking
+        with distance. Scroll, drag, or use the arrow keys.
       </p>
     </header>
 
@@ -85,13 +85,18 @@ const NEAR = 3;
               <output data-tune-out="arc"></output>
             </label>
             <label>
+              <span>wheel size</span>
+              <input type="range" min="0.6" max="3" step="0.05" value="1" data-tune="size" />
+              <output data-tune-out="size"></output>
+            </label>
+            <label>
               <span>shrink</span>
               <input type="range" min="0.4" max="1" step="0.01" value="0.72" data-tune="shrink" />
               <output data-tune-out="shrink"></output>
             </label>
             <label>
               <span>spacing</span>
-              <input type="range" min="0.3" max="1.4" step="0.01" value="0.95" data-tune="spacing" />
+              <input type="range" min="0.3" max="1.4" step="0.01" value="1.1" data-tune="spacing" />
               <output data-tune-out="spacing"></output>
             </label>
             <label>
@@ -101,7 +106,7 @@ const NEAR = 3;
             </label>
             <label>
               <span>scroll per item</span>
-              <input type="range" min="0.2" max="1" step="0.05" value="0.45" data-tune="travel" />
+              <input type="range" min="0.2" max="1" step="0.05" value="0.35" data-tune="travel" />
               <output data-tune-out="travel"></output>
             </label>
             <p class="wheel-tune-readout" data-tune-readout></p>
