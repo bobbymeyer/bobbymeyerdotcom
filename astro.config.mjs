@@ -7,9 +7,8 @@ export default defineConfig({
   integrations: [
     mdx(),
     // Writes /sitemap-index.xml and /sitemap-0.xml, which public/robots.txt
-    // points at. The social cards under /og are images, not pages, and /lab
-    // is a bench that only previews build.
-    sitemap({ filter: (page) => !page.includes('/og/') && !page.includes('/lab/') }),
+    // points at. The social cards under /og are images, not pages.
+    sitemap({ filter: (page) => !page.includes('/og/') }),
   ],
   markdown: {
     syntaxHighlight: 'shiki',
