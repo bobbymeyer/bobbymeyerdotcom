@@ -28,10 +28,10 @@ its size and pushes back, and a soft one gives way and shrinks. Turn **max
 resistance** up and the packing gets tighter and more crowded. Turn it down and
 the circles settle into an even field.
 
-Type something into **shape text** and those words are packed into the field in
-the second colour. The lettering is never drawn. It is a mask, and a circle
-that ends up mostly inside a letter takes the shape colour, so the type appears
-from the packing. Circles inside the letters are set small so the edges read
+Whatever is in **shape text**, a triangle to start with, is packed into the
+field in the same red as the bar. The shape is never drawn. It is a mask, and a
+circle that ends up mostly inside it takes the accent colour, so the figure
+appears from the packing. Words work too, one line each. Circles inside the shape are set small so the edges read
 cleanly, and they grow again over the **falloff distance**. The circles never
 measure that distance themselves: one distance field is worked out per run,
 and each circle looks up its size from that.

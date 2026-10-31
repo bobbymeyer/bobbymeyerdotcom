@@ -38,10 +38,44 @@ type Shape =
  * frame as circles move and shrink. Coordinates are fractions of the box, so
  * an ellipse is `{ kind: 'ellipse', cx: .5, cy: .5, rx: .3, ry: .2, color: 1 }`.
  */
-function buildShapes(text: string): Shape[] {
+function buildShapes(text: string, w: number, h: number): Shape[] {
   const list: Shape[] = [];
-  if (text) list.push({ kind: 'text', text, margin: 0.07, lineGap: 0.38, color: 1 });
+  const glyph = text ? glyphShape(text, w, h) : null;
+  if (glyph) list.push(glyph);
+  else if (text) list.push({ kind: 'text', text, margin: 0.07, lineGap: 0.38, color: 1 });
   return list;
+}
+
+/*
+ * A geometric glyph on its own is drawn as the figure rather than set as type.
+ * Archivo has no ▲, so set as text it would come from whatever fallback face
+ * the reader's machine has, if any: a different triangle on every computer,
+ * or a box where the shape should be. Each figure is as large as the field
+ * allows inside the margin the type keeps, and centred in it.
+ */
+function glyphShape(text: string, w: number, h: number): Shape | null {
+  const margin = 0.07;
+  const aw = 1 - 2 * margin, ah = 1 - 2 * margin; // available, as fractions
+  if (text === '▲' || text === '▼') {
+    // Equilateral: height is √3/2 of the side, in pixels, so the fractions
+    // differ by the field's aspect.
+    const side = Math.min(aw * w, (ah * h) / (Math.sqrt(3) / 2));
+    const sw = side / w, sh = ((Math.sqrt(3) / 2) * side) / h;
+    const top = 0.5 - sh / 2, bottom = 0.5 + sh / 2;
+    const pts: [number, number][] =
+      text === '▲'
+        ? [[0.5, top], [0.5 + sw / 2, bottom], [0.5 - sw / 2, bottom]]
+        : [[0.5 - sw / 2, top], [0.5 + sw / 2, top], [0.5, bottom]];
+    return { kind: 'polygon', pts, color: 1 };
+  }
+  if (text === '●' || text === '■') {
+    const side = Math.min(aw * w, ah * h);
+    const fw = side / w, fh = side / h;
+    return text === '●'
+      ? { kind: 'ellipse', cx: 0.5, cy: 0.5, rx: fw / 2, ry: fh / 2, color: 1 }
+      : { kind: 'rect', x: 0.5 - fw / 2, y: 0.5 - fh / 2, w: fw, h: fh, color: 1 };
+  }
+  return null;
 }
 
 const MARKUP = `
@@ -62,13 +96,13 @@ const MARKUP = `
     </div>
     <div class="cp-field">
       <label for="cp-bar">bar text</label>
-      <input type="text" id="cp-bar" value="BOO!" maxlength="10" autocomplete="off" spellcheck="false">
+      <input type="text" id="cp-bar" value="PARAM" maxlength="10" autocomplete="off" spellcheck="false">
       <p class="cp-hint">Set one character under another. Empty takes the bar away.</p>
     </div>
     <div class="cp-field">
       <label for="cp-text">shape text</label>
-      <input type="text" id="cp-text" value="" placeholder="optional" autocomplete="off" spellcheck="false">
-      <p class="cp-hint">Words packed into the field in the shape colour, one line each. Empty leaves an even field.</p>
+      <input type="text" id="cp-text" value="▲" placeholder="optional" autocomplete="off" spellcheck="false">
+      <p class="cp-hint">Words packed into the field in the accent colour, one line each. ▲ ▼ ● or ■ on its own is drawn as that figure. Empty leaves an even field.</p>
     </div>
     <div class="cp-field">
       <label for="cp-box">sheet</label>
@@ -106,8 +140,7 @@ const MARKUP = `
     </div>
     <div class="cp-colors">
       <div class="cp-field"><label for="cp-c0">ink</label><input type="color" id="cp-c0" value="#000000"></div>
-      <div class="cp-field"><label for="cp-cb">bar</label><input type="color" id="cp-cb" value="#e03a2b"></div>
-      <div class="cp-field"><label for="cp-c1">shape</label><input type="color" id="cp-c1" value="#f15a24"></div>
+      <div class="cp-field"><label for="cp-c1">accent</label><input type="color" id="cp-c1" value="#e03a2b"></div>
     </div>
     <label class="cp-check"><input type="checkbox" id="cp-showmask"> show shape mask</label>
     <div class="cp-buttons">
@@ -187,8 +220,9 @@ function mount(root: HTMLElement): () => void {
   const ctx = canvas.getContext('2d')!;
   const statsEl = out('stats');
   const showMask = $('showmask');
-  const COLORS = [$('c0').value, $('c1').value]; // 0 = ink, 1.. = shape colours
-  let barColor = $('cb').value;
+  // 0 = ink, 1 = accent: the bar and the shape are one colour, so the shape
+  // reads as the bar's answer in the field.
+  const COLORS = [$('c0').value, $('c1').value];
 
   // ---------- state ----------
   const MAXN = 24000, NODECAP = 1500000, POP = 20, SUBS = 3;
@@ -297,7 +331,7 @@ function mount(root: HTMLElement): () => void {
     const ink = COLORS[0]!;
     if (L.bar) {
       const b = L.bar;
-      ctx.fillStyle = barColor;
+      ctx.fillStyle = COLORS[1]!;
       ctx.fillRect(b.x, b.y, b.w, b.h);
       ctx.fillStyle = ink;
       ctx.font = `${FONT_WEIGHT} ${b.size}px ${FONT}`;
@@ -793,7 +827,7 @@ function mount(root: HTMLElement): () => void {
     state = 'running';
     rng = mulberry32((Math.random() * 4294967296) >>> 0);
     const text = $('text').value.trim();
-    shapes = buildShapes(text);
+    shapes = buildShapes(text, W, H);
     const head = $('head').value.trim();
     canvas.setAttribute(
       'aria-label',
@@ -828,10 +862,6 @@ function mount(root: HTMLElement): () => void {
   // The small text moves nothing else on the sheet, so it only redraws.
   $('note').addEventListener('input', () => {
     L = { ...L, ...noteOnly() };
-    draw();
-  });
-  $('cb').addEventListener('input', (e) => {
-    barColor = (e.target as HTMLInputElement).value;
     draw();
   });
   $('box').addEventListener('change', init);
