@@ -115,7 +115,7 @@ With no repository to ask, it says in its frontmatter what GitHub would have:
 
 ```yaml
 title: ⭕ circle packer         # required
-summary: a poster packed around a word
+summary: a poster of packed circles, after Kusama Yayoi
 date: 2026-10-31                # required; the index sorts on `updated ?? date`
 updated: 2026-11-04             # optional
 color: orange                   # a name from src/palette.ts; fills the splash field

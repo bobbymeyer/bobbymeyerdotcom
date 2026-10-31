@@ -1,4 +1,7 @@
-// circle packer — a poster of circles packed around a word. Unlike the other
+// circle packer — a poster of packed circles under a heavy headline, with a
+// red bar of upright type cutting into the top of the field, after the Kusama
+// Yayoi exhibition posters. Every line of type on it is set from the controls,
+// and a word can be packed into the field in a second colour. Unlike the other
 // sketches on this site there is no repository behind it to load it from, so
 // the whole thing lives here and is bundled with the page: nothing to fetch,
 // and so nothing to fall back from.
@@ -13,10 +16,13 @@ const TAU = Math.PI * 2;
 const FONT_WEIGHT = 800;
 const FONT = 'Archivo, "Arial Black", Impact, sans-serif';
 
+import { NAME } from '@/site';
+
+/** The sheet, in poster units. The field is whatever the type leaves of it. */
 const BOXES: Record<string, [number, number]> = {
+  tall: [780, 1040],
   poster: [800, 1000],
   square: [900, 900],
-  wide: [1100, 740],
 };
 const PAPER = '#ffffff';
 
@@ -46,16 +52,30 @@ const MARKUP = `
   </div>
   <form class="cp-panel" onsubmit="return false">
     <div class="cp-field">
-      <label for="cp-text">shape text</label>
-      <input type="text" id="cp-text" value="HAPPY HALLOWEEN" autocomplete="off" spellcheck="false">
-      <p class="cp-hint">Each word gets its own line, fitted to the box width.</p>
+      <label for="cp-head">headline</label>
+      <input type="text" id="cp-head" value="${NAME.toUpperCase()}" autocomplete="off" spellcheck="false">
+      <p class="cp-hint">One line per word.</p>
     </div>
     <div class="cp-field">
-      <label for="cp-box">box</label>
+      <label for="cp-note">small text</label>
+      <input type="text" id="cp-note" value="INSPIRED BY KUSAMA YAYOI" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="cp-field">
+      <label for="cp-bar">bar text</label>
+      <input type="text" id="cp-bar" value="BOO!" maxlength="10" autocomplete="off" spellcheck="false">
+      <p class="cp-hint">Set one character under another. Empty takes the bar away.</p>
+    </div>
+    <div class="cp-field">
+      <label for="cp-text">shape text</label>
+      <input type="text" id="cp-text" value="" placeholder="optional" autocomplete="off" spellcheck="false">
+      <p class="cp-hint">Words packed into the field in the shape colour, one line each. Empty leaves an even field.</p>
+    </div>
+    <div class="cp-field">
+      <label for="cp-box">sheet</label>
       <select id="cp-box">
+        <option value="tall">poster 3:4</option>
         <option value="poster">poster 4:5</option>
         <option value="square">square 1:1</option>
-        <option value="wide">wide 3:2</option>
       </select>
     </div>
     <div class="cp-field">
@@ -74,18 +94,19 @@ const MARKUP = `
     <div class="cp-field">
       <div class="cp-label"><label for="cp-fall">falloff distance</label><output data-cp="fallV">25%</output></div>
       <input type="range" id="cp-fall" min="3" max="100" value="25">
-      <p class="cp-hint">Circle size blends between the two values over this distance from the shape, as a share of box width. Both at 100% leaves size unchanged. Changing these restarts the run.</p>
+      <p class="cp-hint">With shape text, circle size blends between the two values over this distance from the shape, as a share of field width. Both at 100% leaves size unchanged. Changing these restarts the run.</p>
     </div>
     <div class="cp-field">
-      <div class="cp-label"><label for="cp-count">final count</label><output data-cp="countV">10,000</output></div>
-      <input type="range" id="cp-count" min="1000" max="20000" step="500" value="10000">
+      <div class="cp-label"><label for="cp-count">final count</label><output data-cp="countV">900</output></div>
+      <input type="range" id="cp-count" min="200" max="20000" step="100" value="900">
     </div>
     <div class="cp-field">
       <div class="cp-label"><label for="cp-pace">pace</label><output data-cp="paceV">12</output></div>
       <input type="range" id="cp-pace" min="1" max="60" value="12">
     </div>
     <div class="cp-colors">
-      <div class="cp-field"><label for="cp-c0">circles</label><input type="color" id="cp-c0" value="#000000"></div>
+      <div class="cp-field"><label for="cp-c0">ink</label><input type="color" id="cp-c0" value="#000000"></div>
+      <div class="cp-field"><label for="cp-cb">bar</label><input type="color" id="cp-cb" value="#e03a2b"></div>
       <div class="cp-field"><label for="cp-c1">shape</label><input type="color" id="cp-c1" value="#f15a24"></div>
     </div>
     <label class="cp-check"><input type="checkbox" id="cp-showmask"> show shape mask</label>
@@ -96,6 +117,38 @@ const MARKUP = `
   </form>
 </div>
 `;
+
+interface Layout {
+  /** The side margin, which is also where the field starts. */
+  m: number;
+  lines: string[];
+  size: number;
+  baselines: number[];
+  noteText: string;
+  noteSize: number;
+  noteX: number;
+  noteY: number;
+  bar: {
+    chars: string[];
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    size: number;
+    cap: number;
+    pad: number;
+    step: number;
+  } | null;
+  fx: number;
+  fy: number;
+}
+
+function emptyLayout(): Layout {
+  return {
+    m: 0, lines: [], size: 0, baselines: [], noteText: '', noteSize: 0, noteX: 0, noteY: 0,
+    bar: null, fx: 0, fy: 0,
+  };
+}
 
 let destroy: (() => void) | null = null;
 
@@ -134,7 +187,8 @@ function mount(root: HTMLElement): () => void {
   const ctx = canvas.getContext('2d')!;
   const statsEl = out('stats');
   const showMask = $('showmask');
-  const COLORS = [$('c0').value, $('c1').value]; // 0 = circles, 1.. = shape colours
+  const COLORS = [$('c0').value, $('c1').value]; // 0 = ink, 1.. = shape colours
+  let barColor = $('cb').value;
 
   // ---------- state ----------
   const MAXN = 24000, NODECAP = 1500000, POP = 20, SUBS = 3;
@@ -153,12 +207,126 @@ function mount(root: HTMLElement): () => void {
   let mask: Uint8Array = new Uint8Array(1);
   let preview: HTMLCanvasElement | null = null;
   let shapes: Shape[] = [];
-  let pace = 12, maxRes = 0.12, nFinal = 10000;
+  let pace = 12, maxRes = 0.12, nFinal = 900;
+  // The sheet (PW × PH) and what is set on it. The simulation runs in the
+  // field's own coordinates, W × H, and is drawn at (L.fx, L.fy).
+  let PW = 780, PH = 1040;
+  let L: Layout = emptyLayout();
+  // The bar where it cuts into the field, in field coordinates, and the
+  // clearance circles keep from it.
+  let bar: { x0: number; y0: number; x1: number; y1: number } | null = null, barGap = 4;
   // Distance-to-shape sizing: D is the distance in px to the nearest shape
   // pixel, LUT the size multiplier by distance.
   let D: Float32Array = new Float32Array(1), hasShape = false, LUT: Float32Array = new Float32Array(2).fill(1), LM = 1;
   let Kmean = 1, sumRN2 = 0;
   let sIn = 0.5, sFar = 1.5, fall = 0.25;
+
+  // ---------- the sheet ----------
+  // Proportions are read off the reference poster, as fractions of the sheet's
+  // width: a margin of about 6%, a headline whose capitals are 7.8% tall, the
+  // small text's capitals level with the headline's, and a bar 7.3% wide that
+  // starts in the headline and runs down into the field.
+  function measureLayout(): Layout {
+    const m = 0.063 * PW, top = 0.06 * PW;
+    const noteX = 0.52 * PW;
+    const barW = 0.073 * PW, barX = PW - m - 0.085 * PW - barW;
+
+    const lines = $('head').value.toUpperCase().split(/\s+/).filter(Boolean);
+    ctx.font = `${FONT_WEIGHT} 100px ${FONT}`;
+    const cap100 = ctx.measureText('H').actualBoundingBoxAscent;
+    // As large as the reference sets it, and smaller only when a word would
+    // run into the small text (the first line) or the bar (the rest).
+    let size = ((0.078 * PW) / cap100) * 100;
+    lines.forEach((t, i) => {
+      const w = ctx.measureText(t).width;
+      const room = (i === 0 ? noteX - 0.025 * PW : barX - 0.03 * PW) - m;
+      size = Math.min(size, (room / w) * 100);
+    });
+    const cap = (cap100 * size) / 100, step = cap * 1.1;
+    const baselines = lines.map((_, i) => top + cap + i * step);
+    const fy = lines.length ? top + cap + (lines.length - 1) * step + 0.03 * PW : top;
+
+    const noteText = $('note').value.trim().toUpperCase();
+    ctx.font = `600 100px ${FONT}`;
+    const noteCap100 = ctx.measureText('H').actualBoundingBoxAscent;
+    let noteSize = ((0.0128 * PW) / noteCap100) * 100;
+    const noteW = ctx.measureText(noteText).width;
+    if (noteW) noteSize = Math.min(noteSize, ((PW - m - noteX) / noteW) * 100);
+
+    const chars = Array.from($('bar').value.toUpperCase().replace(/\s+/g, ''));
+    let barSet: Layout['bar'] = null;
+    if (chars.length) {
+      ctx.font = `${FONT_WEIGHT} 100px ${FONT}`;
+      const widest = Math.max(...chars.map((ch) => ctx.measureText(ch).width));
+      const barSize = Math.min(((0.62 * barW) / widest) * 100, ((0.6 * barW) / cap100) * 100);
+      const barCap = (cap100 * barSize) / 100, pad = 0.22 * barW, barStep = barCap * 1.3;
+      barSet = {
+        chars,
+        x: barX,
+        y: fy - 0.085 * PW,
+        w: barW,
+        h: 2 * pad + barCap + (chars.length - 1) * barStep,
+        size: barSize,
+        cap: barCap,
+        pad,
+        step: barStep,
+      };
+    }
+
+    return {
+      m,
+      lines,
+      size,
+      baselines,
+      noteText,
+      noteSize,
+      noteX,
+      noteY: top + (noteCap100 * noteSize) / 100,
+      bar: barSet,
+      fx: m,
+      fy,
+    };
+  }
+
+  function noteOnly(): Pick<Layout, 'noteText' | 'noteSize' | 'noteY'> {
+    const { noteText, noteSize, noteY } = measureLayout();
+    return { noteText, noteSize, noteY };
+  }
+
+  function drawSheet() {
+    const ink = COLORS[0]!;
+    if (L.bar) {
+      const b = L.bar;
+      ctx.fillStyle = barColor;
+      ctx.fillRect(b.x, b.y, b.w, b.h);
+      ctx.fillStyle = ink;
+      ctx.font = `${FONT_WEIGHT} ${b.size}px ${FONT}`;
+      ctx.textAlign = 'center';
+      b.chars.forEach((ch, i) => ctx.fillText(ch, b.x + b.w / 2, b.y + b.pad + b.cap + i * b.step));
+      ctx.textAlign = 'left';
+    }
+    ctx.fillStyle = ink;
+    ctx.textBaseline = 'alphabetic';
+    ctx.font = `${FONT_WEIGHT} ${L.size}px ${FONT}`;
+    L.lines.forEach((t, i) => {
+      // Flush to the margin by the ink, not by the advance: a heavy face sits
+      // in a little from its own origin.
+      const m = ctx.measureText(t);
+      ctx.fillText(t, L.m + m.actualBoundingBoxLeft, L.baselines[i]!);
+    });
+    if (L.noteText) {
+      ctx.font = `600 ${L.noteSize}px ${FONT}`;
+      ctx.fillText(L.noteText, L.noteX, L.noteY);
+    }
+  }
+
+  // How far (x, y) is from the bar, in field coordinates; negative inside it.
+  function barDistance(x: number, y: number): number {
+    const b = bar!;
+    const dx = Math.max(b.x0 - x, 0, x - b.x1), dy = Math.max(b.y0 - y, 0, y - b.y1);
+    if (dx === 0 && dy === 0) return -Math.min(x - b.x0, b.x1 - x, y - b.y0, b.y1 - y);
+    return Math.hypot(dx, dy);
+  }
 
   // ---------- shape mask ----------
   function paintText(c: CanvasRenderingContext2D, s: Extract<Shape, { kind: 'text' }>) {
@@ -334,6 +502,7 @@ function mount(root: HTMLElement): () => void {
   // to `floor`.
   function clearance(x: number, y: number, T: number, floor: number): number {
     let c = Math.min(T, x, W - x, y, H - y);
+    if (bar) c = Math.min(c, barDistance(x, y) - barGap);
     if (c <= floor) return c;
     const x0 = Math.max(0, Math.floor((x - T) / cs)), x1 = Math.min(gw - 1, Math.floor((x + T) / cs));
     const y0 = Math.max(0, Math.floor((y - T) / cs)), y1 = Math.min(gh - 1, Math.floor((y + T) / cs));
@@ -389,7 +558,7 @@ function mount(root: HTMLElement): () => void {
     R[i] = Math.max(Math.max(0.5, rfloor * Math.min(1, bs)), Math.min(Math.max(bc, 0) * 0.5, 0.3 * rmax * bs));
     QR[i] = q; // resistance rank, scaled by the slider
     STF[i] = 0.5 + 2 * q; // resistant circles are heavier and move less
-    WT[i] = 0.6 + 0.8 * rng(); // base share of capacity
+    WT[i] = 0.3 + 1.6 * Math.pow(rng(), 1.8); // base share of capacity: mostly small, a few large
     VX[i] = (rng() - 0.5) * 0.8;
     VY[i] = (rng() - 0.5) * 0.8;
     AGE[i] = 0;
@@ -442,7 +611,8 @@ function mount(root: HTMLElement): () => void {
         }
       }
     // Capacity per circle falls as more circles share the box.
-    const Rcap = 0.5 * Math.sqrt((W * H * Kmean) / Math.max(1, N));
+    const free = W * H - (bar ? (bar.x1 - bar.x0) * (bar.y1 - Math.max(0, bar.y0)) : 0);
+    const Rcap = 0.5 * Math.sqrt((free * Kmean) / Math.max(1, N));
     let area = 0, areaN = 0;
     for (let i = 0; i < N; i++) {
       let x = X[i]! + VX[i]!, y = Y[i]! + VY[i]!;
@@ -453,6 +623,28 @@ function mount(root: HTMLElement): () => void {
       else if (x > W - r) { P += Math.min((x - (W - r)) / (2 * r), 0.1); x = W - r; VX[i] = 0; }
       if (y < r) { P += Math.min((r - y) / (2 * r), 0.1); y = r; VY[i] = 0; }
       else if (y > H - r) { P += Math.min((y - (H - r)) / (2 * r), 0.1); y = H - r; VY[i] = 0; }
+      if (bar) {
+        // The bar is a wall like the edges: pushed out of it, a circle feels
+        // the pressure the same way.
+        const b = bar, reach = r + barGap;
+        const qx = x < b.x0 ? b.x0 : x > b.x1 ? b.x1 : x, qy = y < b.y0 ? b.y0 : y > b.y1 ? b.y1 : y;
+        const dx = x - qx, dy = y - qy, d = Math.hypot(dx, dy);
+        if (d === 0) {
+          // Centre inside: out through the nearest side.
+          const l = x - b.x0, rt = b.x1 - x, dn = b.y1 - y;
+          if (dn <= l && dn <= rt) y = b.y1 + reach;
+          else if (l <= rt) x = b.x0 - reach;
+          else x = b.x1 + reach;
+          P += 0.1;
+          VX[i] = 0;
+          VY[i] = 0;
+        } else if (d < reach) {
+          const pn = reach - d;
+          P += Math.min(pn / (2 * r), 0.1);
+          x += (dx / d) * pn;
+          y += (dy / d) * pn;
+        }
+      }
       X[i] = x;
       Y[i] = y;
       const tol = QR[i]! * maxRes;
@@ -487,10 +679,11 @@ function mount(root: HTMLElement): () => void {
   const cnt = new Int16Array(8), DR = new Float32Array(MAXN);
 
   function draw() {
-    const s = canvas.width / W;
+    const s = canvas.width / PW;
     ctx.setTransform(s, 0, 0, s, 0, 0);
     ctx.fillStyle = PAPER;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, PW, PH);
+    ctx.translate(L.fx, L.fy);
     for (let i = 0; i < N; i++) {
       const r = R[i]!, x = X[i]!, y = Y[i]!;
       cnt.fill(0);
@@ -532,12 +725,14 @@ function mount(root: HTMLElement): () => void {
       ctx.drawImage(preview, 0, 0);
       ctx.globalAlpha = 1;
     }
+    ctx.setTransform(s, 0, 0, s, 0, 0);
+    drawSheet();
   }
 
   function resize() {
     const cw = poster.clientWidth || 600, dpr = Math.min(2, window.devicePixelRatio || 1);
     canvas.width = Math.round(cw * dpr);
-    canvas.height = Math.round((cw * dpr * H) / W);
+    canvas.height = Math.round((cw * dpr * PH) / PW);
     draw();
   }
 
@@ -572,8 +767,21 @@ function mount(root: HTMLElement): () => void {
       cancelAnimationFrame(raf);
       raf = 0;
     }
-    [W, H] = BOXES[$<HTMLSelectElement>('box').value] ?? BOXES.poster!;
-    poster.style.setProperty('--ar', String(W / H));
+    [PW, PH] = BOXES[$<HTMLSelectElement>('box').value] ?? BOXES.tall!;
+    poster.style.setProperty('--ar', String(PW / PH));
+    L = measureLayout();
+    W = Math.round(PW - 2 * L.m);
+    H = Math.round(PH - L.fy - 0.045 * PH);
+    barGap = 0.006 * PW;
+    bar = null;
+    if (L.bar && L.bar.y + L.bar.h > L.fy) {
+      bar = {
+        x0: L.bar.x - L.fx,
+        y0: L.bar.y - L.fy,
+        x1: L.bar.x + L.bar.w - L.fx,
+        y1: L.bar.y + L.bar.h - L.fy,
+      };
+    }
     const a = Math.sqrt(W * H);
     rmin = 0.0035 * a;
     rmax = 0.05 * a;
@@ -586,7 +794,12 @@ function mount(root: HTMLElement): () => void {
     rng = mulberry32((Math.random() * 4294967296) >>> 0);
     const text = $('text').value.trim();
     shapes = buildShapes(text);
-    canvas.setAttribute('aria-label', 'Circle packing poster' + (text ? ` reading ${text}` : ''));
+    const head = $('head').value.trim();
+    canvas.setAttribute(
+      'aria-label',
+      `Poster of packed circles${head ? ` under the headline ${head}` : ''}` +
+        (text ? `, with ${text} picked out in the circles` : ''),
+    );
     buildMask();
     setScale();
     setGrid();
@@ -610,7 +823,17 @@ function mount(root: HTMLElement): () => void {
     };
   };
 
-  $('text').addEventListener('input', debounce(init, 400));
+  const retype = debounce(init, 400);
+  for (const id of ['text', 'head', 'bar']) $(id).addEventListener('input', retype);
+  // The small text moves nothing else on the sheet, so it only redraws.
+  $('note').addEventListener('input', () => {
+    L = { ...L, ...noteOnly() };
+    draw();
+  });
+  $('cb').addEventListener('input', (e) => {
+    barColor = (e.target as HTMLInputElement).value;
+    draw();
+  });
   $('box').addEventListener('change', init);
   $('pace').addEventListener('input', (e) => {
     pace = +(e.target as HTMLInputElement).value;
