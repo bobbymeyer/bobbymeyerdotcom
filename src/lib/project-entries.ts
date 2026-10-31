@@ -1,4 +1,5 @@
 import { getCollection, type CollectionEntry } from 'astro:content';
+import { POST_PALETTE } from '@/palette';
 import { PROJECTS, projectSlug, isFeatured, isInteractive, type ProjectDef } from '@/projects';
 import { cleanReadmeHtml, cleanNote } from '@/lib/github-text';
 import {
@@ -33,6 +34,12 @@ export interface TimelineEntry {
 }
 
 export interface ProjectEntry {
+  /**
+   * A project is a repository in `src/projects.ts`, and may have a note. A
+   * post is a note tagged `post` with no repository behind it: it has no
+   * README, no merges and no version, and says its own title and dates.
+   */
+  kind: 'project' | 'post';
   slug: string;
   href: string;
   title: string;
@@ -66,6 +73,7 @@ export interface ProjectEntry {
    * within its half of the list.
    */
   updated: Date;
+  /** Null for a post, which has no repository behind it. */
   repo: {
     nameWithOwner: string;
     url: string;
@@ -78,7 +86,7 @@ export interface ProjectEntry {
      * project sorts below the live ones.
      */
     archived: boolean;
-  };
+  } | null;
   readmeHtml: string | null;
   timeline: TimelineEntry[];
   note: CollectionEntry<'posts'> | null;
@@ -87,7 +95,7 @@ export interface ProjectEntry {
 let cached: Promise<ProjectEntry[]> | null = null;
 
 /**
- * Every project on the site, newest change first, archived ones last. Memoised:
+ * Every project and post on the site, newest change first, archived ones last. Memoised:
  * the index, each project page and the feed all ask for this during one build,
  * and they should agree with each other and cost one read of GitHub between
  * them.
@@ -119,9 +127,16 @@ async function build(): Promise<ProjectEntry[]> {
   const loaded = await Promise.all(visible.map((project) => guard(project, notes)));
   const entries = loaded.filter((entry): entry is ProjectEntry => entry !== null);
 
-  for (const slug of notes.keys()) {
-    if (!entries.some((entry) => entry.slug === slug)) {
-      console.warn(`[projects] src/content/posts/${slug}.md has no project in src/projects.ts.`);
+  for (const [slug, note] of notes) {
+    if (entries.some((entry) => entry.slug === slug)) continue;
+
+    if (normalizeTags(note.data.tags).includes('post')) {
+      entries.push(postEntry(slug, note));
+    } else {
+      console.warn(
+        `[projects] src/content/posts/${slug}.md has no project in src/projects.ts ` +
+          'and is not tagged `post`.',
+      );
     }
   }
 
@@ -151,7 +166,7 @@ async function build(): Promise<ProjectEntry[]> {
  * finished nor competing.
  */
 function band(entry: ProjectEntry): number {
-  if (entry.repo.archived) return 2;
+  if (entry.repo?.archived) return 2;
   return entry.demote ? 1 : 0;
 }
 
@@ -214,6 +229,7 @@ async function load(
   const version = versionOf(repo, release, tags?.[0] ?? null);
 
   return {
+    kind: 'project',
     slug,
     href: `/posts/${slug}`,
     title: project.title ?? repo.name,
@@ -243,6 +259,49 @@ async function load(
       : null,
     timeline,
     note: notes.get(slug) ?? null,
+  };
+}
+
+/**
+ * A standalone post: a note with no repository behind it.
+ *
+ * Everything a project reads from GitHub, a post says in its frontmatter or
+ * goes without — no README, no merges, no version. It is interactive when it
+ * runs a sketch, which is the same thing the mark means on a project: the
+ * thing is here to be played with, not only read about.
+ *
+ * A post missing its title or its date is a page with a hole in it, so the
+ * build stops, the way it does for a repository it cannot read.
+ */
+function postEntry(slug: string, note: CollectionEntry<'posts'>): ProjectEntry {
+  const { title, summary, date, updated, color, splash, sketch } = note.data;
+  if (!title || !date) {
+    throw new Error(
+      `[projects] src/content/posts/${slug}.md is a post and needs a \`title\` and a \`date\`.`,
+    );
+  }
+
+  return {
+    kind: 'post',
+    slug,
+    href: `/posts/${slug}`,
+    title,
+    summary: summary ?? '',
+    version: null,
+    versionUrl: null,
+    bg: POST_PALETTE[color],
+    splash,
+    tags: normalizeTags(note.data.tags),
+    stack: normalizeTags(note.data.stack),
+    featured: false,
+    demote: false,
+    interactive: Boolean(sketch),
+    published: date,
+    updated: updated ?? date,
+    repo: null,
+    readmeHtml: null,
+    timeline: [],
+    note,
   };
 }
 

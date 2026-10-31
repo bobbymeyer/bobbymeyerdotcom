@@ -181,7 +181,7 @@ const anyFeatured = projects.some((project) => project.featured);
         <a
           class="home-item"
           href={project.href}
-          data-archived={project.repo.archived ? '' : undefined}
+          data-archived={project.repo?.archived ? '' : undefined}
           data-tags={filterTags(project).join(' ')}
         >
           <div
@@ -240,7 +240,7 @@ const anyFeatured = projects.some((project) => project.featured);
             <h3 transition:name={`title-${project.slug}`}>
               {project.title}{project.version && <sup>v{project.version}</sup>}
             </h3>
-            {project.repo.archived && <p class="archived-note">archived</p>}
+            {project.repo?.archived && <p class="archived-note">archived</p>}
             <p class="home-item-summary" transition:name={`summary-${project.slug}`}>{project.summary}</p>
             {/*
               Tags are set here, not linked. The whole card is already one
