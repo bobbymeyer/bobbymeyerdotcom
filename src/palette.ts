@@ -22,3 +22,6 @@ export const POST_PALETTE = {
 } as const;
 
 export type PostColor = (typeof POST_PALETTE)[keyof typeof POST_PALETTE];
+
+/** A colour by name, as a standalone post's frontmatter gives it. */
+export type PostColorName = keyof typeof POST_PALETTE;

@@ -104,6 +104,30 @@ One entry in `src/projects.ts`:
 The build **fails** on a repo it cannot read, rather than quietly shipping a page
 with nothing on it. `npm run dev` warns and carries on without it.
 
+### Adding a post
+
+A post is a note with no repository behind it: `src/content/posts/<slug>.md`,
+tagged `post`, with no entry in `src/projects.ts`. It lives at
+`/posts/<slug>` beside the projects, sorts among them by date, and is
+counted in the same filter, where "posts" appears under "what".
+
+With no repository to ask, it says in its frontmatter what GitHub would have:
+
+```yaml
+title: ⭕ circle packer         # required
+summary: a poster of packed circles, after Kusama Yayoi
+date: 2026-10-31                # required; the index sorts on `updated ?? date`
+updated: 2026-11-04             # optional
+color: orange                   # a name from src/palette.ts; fills the splash field
+splash: /posts/circle-packer/splash.png
+sketch: circle-packer           # optional; makes it interactive
+tags: [post, generative, typography]
+stack: [typescript]
+```
+
+It has no README, no merges and no version, and its page has the splash and no
+facts under it. A post missing its title or its date stops the build.
+
 ### Tags
 
 Two, both declared in `src/projects.ts`, both acted on by the index. A typo in
