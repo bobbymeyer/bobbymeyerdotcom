@@ -1,0 +1,19 @@
+{
+  "name": "encounter",
+  "private": true,
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "test": "node --test --experimental-strip-types --disable-warning=ExperimentalWarning src/*.test.ts",
+    "play": "node --experimental-strip-types --disable-warning=ExperimentalWarning cli/play.ts",
+    "sim": "node --experimental-strip-types --disable-warning=ExperimentalWarning cli/sim.ts",
+    "check": "tsc -p ."
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}
