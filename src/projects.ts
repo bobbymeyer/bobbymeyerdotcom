@@ -138,6 +138,14 @@ export const PROJECTS: ProjectDef[] = [
     splash: '/posts/succession/splash.svg',
   },
   {
+    repo: 'bobbymeyer/privateer',
+    tags: ['interactive'],
+    title: '⚓ privateer',
+    summary: 'a card-based privateering roguelike, round the world in 16XX',
+    bg_color: POST_PALETTE.cobalt,
+    splash: '/posts/privateer/splash.svg',
+  },
+  {
     repo: 'bobbymeyer/bobbymeyerdotcom',
     demote: true,
     title: '🪞 bobbymeyer.com',

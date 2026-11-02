@@ -5,7 +5,7 @@
 [build.environment]
   NODE_VERSION = "22"
 
-# Two projects deploy themselves to GitHub Pages and are served from here on
+# Three projects deploy themselves to GitHub Pages and are served from here on
 # this domain, at a path of their own. Netlify proxies rather than redirects,
 # so the address bar keeps saying bobbymeyer.com and the game is a page of
 # this site rather than a link off it.
@@ -29,5 +29,11 @@
 [[redirects]]
   from = "/gridi/*"
   to = "https://bobbymeyer.github.io/gridi/:splat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/privateer/*"
+  to = "https://bobbymeyer.github.io/privateer/:splat"
   status = 200
   force = true
