@@ -6,31 +6,31 @@ stack: [typescript, svelte]
 **[Play it in the browser](/privateer/)**: an alpha, best on a desktop. The run
 saves as you go, so you can close the tab and come back to it.
 
-It is 16XX, a century rather than a year. You sail out of Plymouth with a
-pinnace and 20 gold, and the run is won when you bring 150 home to London. If
-you sink, it's over.
+Plymouth, autumn 1580. Drake is home with a hold full of Spanish silver, and
+every gentleman with a ship thinks the same thing: I could do that too. You are
+one of them. Fit out a pinnace with twenty hands and 80 gold, sail round the
+world the way Drake did, or a way of your own, take what Spain leaves lying
+about, and come home to Plymouth rich, or not at all.
 
-The sea is the whole world, built from coastlines. There are about a hundred and
-twenty ports of the period, and the open ocean is a grid of nodes filled in
-behind them, with each node one day's sail. Currents and the seasonal winds,
-monsoons included, push ships into the sea lanes, so the treasure fleets, the
-Manila galleon and the merchants follow the routes they really sailed. You don't
-see them. You hear about them in a port's bar, as rumors that fade, and the chart
-draws where a ship could be by now. The more of the current and wind you've
-seen, the tighter that guess.
+It borrows its bones from Oregon Trail. The voyage is a chain of landmarks on a
+chart built from real coastlines, with forks where the captains of the time
+chose: the Strait of Magellan or round the Horn, on across the Pacific or back
+the way you came, the Moluccas or Manila. Each leg sails itself along the sea
+lanes a day at a time. Every day the hands eat and drink, faster in the tropics
+and slower on short rations; six weeks without fresh food and the scurvy starts
+to kill. Water, forage and careen where there's a shore, buy what the chandler
+has where they'll deal with you, and meet what the way brings: calms in the
+doldrums, williwaws in the Strait, fever, foul water, weevils in the bread.
 
 Every fight is cards. Your ship, crew and refits make up your deck, and the
 other ship's go into the same deck. Each round three are dealt and you keep two,
-which play in the order you pick them; the third goes to the bottom. Shot can
-leave a leak, a fire or shot-away sails on top of the deck. A ship gets away by
-making way, and the chase and hold cards take it back.
+which play in the order you pick them; played in the order of a boarding
+action, sail then shot then board, each card hits harder than the last. A fight
+spends powder and kills hands, and a prize's hold restocks yours. Off Cape San
+Francisco the treasure ship from Callao comes alongside, taking you for a
+Spaniard, unless your raids on the coast have warned her.
 
-Around that is a war table that shifts with the seasons. England's enemies are
-fair game. Anyone else's ships, the Crown hears about, and enough of that starts
-a war. Fire on an English ship and you are a pirate: London will hang you, but
-Port Royal and the Barbary coast will let you retire there, rich. Along the way
-there are storms, mutinies, islanders who sometimes trade and sometimes put out
-war canoes, and a sea monster in each sea.
-
-Drake's voyage round the world, re-enacted, is meant to be the hardest way to
-win. It isn't in yet.
+Come home and the voyage is scored, treasure and hands and ship, against the
+voyages of the time: Drake's, round the world, rich, with most of the crew;
+Cavendish's, rich and dear in men; Fenton's, home and poorer; or Oxenham's,
+lost.
