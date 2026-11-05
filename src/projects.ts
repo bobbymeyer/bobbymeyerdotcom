@@ -141,7 +141,7 @@ export const PROJECTS: ProjectDef[] = [
     repo: 'bobbymeyer/privateer',
     tags: ['interactive'],
     title: '⚓ privateer',
-    summary: 'a card-based voyage roguelike: round the world after Drake, in 1580',
+    summary: 'raid the Spanish Main, inspired by the Oregon Trail with roguelike elements',
     bg_color: POST_PALETTE.cobalt,
     splash: '/posts/privateer/splash.svg',
   },
