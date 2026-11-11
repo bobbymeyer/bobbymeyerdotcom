@@ -131,6 +131,13 @@ export const PROJECTS: ProjectDef[] = [
     splash: '/posts/gridi/splash.svg',
   },
   {
+    repo: 'bobbymeyer/poser',
+    tags: ['interactive'],
+    title: '🎼 poser',
+    bg_color: POST_PALETTE.magenta,
+    splash: '/posts/poser/splash.svg',
+  },
+  {
     repo: 'bobbymeyer/succession',
     tags: ['featured', 'interactive'],
     title: '👑 succession',
