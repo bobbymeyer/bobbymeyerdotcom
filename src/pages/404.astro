@@ -19,5 +19,23 @@ const description = 'Page not found.';
       <h2 class="notfound-code">404 error</h2>
       <p class="notfound-back"><a href="/">back to the index</a></p>
     </div>
+    {/* Hidden until the script runs: without it there is nothing to drag, and
+        the page above already says everything it needs to. */}
+    <figure class="misprint" data-misprint hidden>
+      <canvas
+        tabindex="0"
+        role="img"
+        aria-label="The address you asked for, printed in cyan, magenta and yellow plates. Drag it, or use the arrow keys, to pull the plates out of register."
+      ></canvas>
+      <figcaption>
+        the address you asked for, in three plates. drag them apart.
+      </figcaption>
+    </figure>
   </main>
 </Base>
+
+<script>
+  import { initMisprint } from '@/scripts/misprint';
+
+  document.addEventListener('astro:page-load', initMisprint);
+</script>
