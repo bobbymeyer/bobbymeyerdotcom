@@ -66,20 +66,16 @@ const anyFeatured = projects.some((project) => project.featured);
     <div class="home-head">
       <h2 class="home-title">
         projects
+        {/* The legend is written tight against its own edges, because
+            whitespace there is a space inside the brackets and, on a narrow
+            phone, a place to break before the closing one. Each entry holds
+            together, so the only wrap left is between the two. */}
         {(anyInteractive || anyFeatured) && (
-          <span class="home-legend">
-            {anyInteractive && (
-              <Fragment>
-                <span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = runs in the browser{anyFeatured ? ',' : ''}
-              </Fragment>
-            )}
-            {anyInteractive && anyFeatured && ' '}
-            {anyFeatured && (
-              <Fragment>
-                <span class="mark-badge home-legend-mark"><span class="mark-star">★</span></span> = featured
-              </Fragment>
-            )}
-          </span>
+          <span class="home-legend">{anyInteractive && (
+            <span class="home-legend-entry"><span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = runs in the browser{anyFeatured ? ',' : ''}</span>
+          )}{anyInteractive && anyFeatured && ' '}{anyFeatured && (
+            <span class="home-legend-entry"><span class="mark-badge home-legend-mark"><span class="mark-star">★</span></span> = featured</span>
+          )}</span>
         )}
       </h2>
 

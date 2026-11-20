@@ -89,7 +89,9 @@
   gap: var(--page-gap);
   grid-column: 1 / -1;
   margin-top: var(--page-gutter);
-  margin-bottom: var(--page-gap);
+  /* A gap and a half: the rule opens a section, and at one gap the first row
+     of splashes sat so close under it they read as hanging off the line. */
+  margin-bottom: calc(var(--page-gap) * 1.5);
   padding-bottom: calc(var(--page-gap) / 2);
   border-bottom: 1px solid #000;
 }
@@ -116,6 +118,10 @@
   opacity: 0.6;
 }
 
+.home-legend-entry {
+  white-space: nowrap;
+}
+
 .home-legend::before {
   content: '(';
 }
@@ -139,6 +145,25 @@
      parent's x-height, which is exactly where a mark set in running text
      wants to sit — no hand-tuned offset to re-measure if the size changes. */
   vertical-align: middle;
+}
+
+/* On a phone the label, the legend and the button filled the line to within
+   about 15px, and a narrower phone than the one it was measured on would
+   have pushed the button under the legend's last word. The legend takes a
+   line of its own under "projects" instead, and the button keeps its place
+   beside the word it belongs to. */
+@media (max-width: 639.98px) {
+  /* Free to shrink, so at 320 it is the legend that wraps, inside the title,
+     rather than the button that drops onto a line of its own. */
+  .home-title {
+    flex: 1 1 0;
+    min-width: 0;
+    row-gap: calc(var(--page-gap) / 4);
+  }
+
+  .home-legend {
+    flex-basis: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -246,8 +271,13 @@
   margin-top: calc(var(--page-gap) * 0.75);
 }
 
+/* The size lives here and not on `.home-item-meta` for the same reason: on
+   the class alone it lost to `.home-item-copy p`, and the date ran at the
+   summary's 14px, wider and louder than the 11px subjects above it — the
+   least important line on the card set ahead of them. */
 .home-item-copy .home-item-meta {
   margin-top: calc(var(--page-gap) / 2);
+  font-size: 0.857em;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -262,10 +292,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--page-gap);
-  /* The tags' size and nearly none of the tracking. At 0.857em and 0.04em
-     the date came out wider and louder than the boxed subjects above it,
-     which put the least important line on the card ahead of them. */
-  font-size: 0.786em;
   font-weight: 400;
   line-height: var(--line-height);
   letter-spacing: 0.02em;
