@@ -423,6 +423,10 @@
   order: 3;
   align-items: baseline;
   gap: calc(var(--page-gap) / 3);
+  /* Closer to the label it qualifies than the row gap would put it, and the
+     difference given to the rule below, which it otherwise sat 7px above. */
+  margin-top: calc(var(--page-gap) / -2);
+  margin-bottom: calc(var(--page-gap) / 4);
   font-size: 0.857em;
   line-height: var(--line-height);
 }
@@ -432,11 +436,11 @@
   display: none;
 }
 
+/* In ink: it is the answer to what the reader just asked, not a caption. */
 .home-filter-state-count {
   margin-right: calc(var(--page-gap) / 3);
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
-  opacity: 0.6;
 }
 
 .home-filter-state-tag {
@@ -570,11 +574,10 @@
  * The widths follow the vocabularies: four kinds, a dozen subjects, half as
  * many tools. The rules between groups turn on their side to match.
  *
- * The note on how picks combine sits under the kinds, in the room "what"
- * leaves below its single line while the long groups run to two. A row of
- * its own would have cost the 45px that, at 1200, took the panel's edge back
- * down onto the titles, and a fourth column of its own left it stranded at
- * the far edge reading as nobody's.
+ * The note on how picks combine runs the full width under the groups, since
+ * it is about all of them: tucked under "what" it read as a footnote to the
+ * kinds, and in a fourth column of its own it was stranded at the far edge.
+ * The panel is short enough now to afford the row.
  */
 @media (min-width: 900px) {
   .home-filter-panel {
@@ -596,23 +599,14 @@
 
   .home-filter-set {
     align-content: start;
-    grid-row: 1 / span 2;
   }
 
-  /* Carries the panel so it outranks the stacked layout's rule further down.
-     The kinds give up their second row to it; it is as wide as they are. */
-  .home-filter-panel .home-filter-set:first-of-type {
-    grid-row: 1;
-  }
-
-  .home-filter-panel .home-filter-hint {
-    grid-column: 1;
-    grid-row: 2;
-    max-width: 0;
-    min-width: 100%;
+  /* Half the stacked layout's air: one line of small type needs less than
+     a group does, and every pixel here is a pixel more of picture covered. */
+  .home-filter-hint {
+    grid-column: 1 / -1;
     margin-top: calc(var(--page-gap) / 2);
-    padding-top: 0;
-    border-top: 0;
+    padding-top: calc(var(--page-gap) / 2);
   }
 }
 

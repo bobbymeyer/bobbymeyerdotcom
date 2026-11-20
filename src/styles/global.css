@@ -157,14 +157,19 @@ sup {
  * it with the gradient's own darkening allowed for. It still reads as dimmed:
  * the strike through the title and the word under it were always doing most
  * of that work.
+ *
+ * On the index it is each part of the card that fades, not the card: a tag
+ * the filter has drawn in black is the one mark that says "this is why it is
+ * here", and inside a faded card it came out a muddy grey that was neither
+ * picked nor not.
  */
-.home-item[data-archived],
+.home-item[data-archived] :is(.splash, h3, .home-item-summary, .home-item-tag:not([data-active])),
 .post[data-archived] .splash {
   opacity: 0.6;
   transition: opacity 0.4s ease;
 }
 
-.home-item[data-archived]:hover,
+.home-item[data-archived]:hover :is(.splash, h3, .home-item-summary, .home-item-tag),
 .post[data-archived] .splash:hover {
   opacity: 1;
 }
@@ -191,7 +196,7 @@ sup {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-item[data-archived],
+  .home-item[data-archived] :is(.splash, h3, .home-item-summary, .home-item-tag),
   .post[data-archived] .splash {
     transition: none;
   }
