@@ -166,11 +166,30 @@
   align-items: start;
 }
 
+/* The page's own column gap is a single `--page-gap`, which is right for
+   prose that spans columns and wrong for pictures that sit in them: at 16px
+   four splashes edge to edge read as one strip of colour rather than four
+   things, against a gap twice that between the rows.
+
+   Not by setting a gap on the subgrid. A subgrid's wider gap comes out of the
+   tracks either side of each line, so the two inner columns lose it twice and
+   the outer two once, and the middle splashes came out shorter than the ones
+   at the ends with their titles out of line. Its own equal columns, as many
+   as the page has, keep every card the same width. */
+@media (min-width: 640px) {
+  .home-index {
+    grid-template-columns: repeat(var(--page-cols), minmax(0, 1fr));
+    column-gap: var(--page-gutter);
+  }
+}
+
 .home-item {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding-bottom: var(--page-gap);
+  /* Half a gap, so the hover rule sits under its own card's date rather than
+     out in the space between rows, where it could as well be the next one's. */
+  padding-bottom: calc(var(--page-gap) / 2);
   border-bottom: 4px solid transparent;
   color: inherit;
   text-decoration: none;
@@ -243,10 +262,13 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--page-gap);
-  font-size: 0.857em;
+  /* The tags' size and nearly none of the tracking. At 0.857em and 0.04em
+     the date came out wider and louder than the boxed subjects above it,
+     which put the least important line on the card ahead of them. */
+  font-size: 0.786em;
   font-weight: 400;
   line-height: var(--line-height);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   /* Dates down a column of cards line their digits up. */
   font-variant-numeric: tabular-nums;
   opacity: 0.6;
