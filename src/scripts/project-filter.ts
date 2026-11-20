@@ -108,6 +108,17 @@ function renderState(
     chip.append(cross);
     state.append(chip);
   }
+
+  // One chip is its own way out. From two, taking them off one at a time is
+  // a chore, so the row offers the lot.
+  if (tags.length > 1) {
+    const clear = doc.createElement('button');
+    clear.type = 'button';
+    clear.className = 'home-filter-clear';
+    clear.dataset.filterClear = '';
+    clear.textContent = 'clear';
+    state.append(clear);
+  }
 }
 
 function apply(
@@ -247,7 +258,6 @@ export function initProjectFilter(): void {
   filter.dataset.wired = 'true';
 
   const { boxes, state, empty, cards } = found;
-  const clear = filter.querySelector<HTMLAnchorElement>('[data-filter-clear]');
 
   /*
    * A panel the address bar opened rather than the reader: following a tag
@@ -334,6 +344,13 @@ export function initProjectFilter(): void {
   // along, or back to the button once there are none, so a keyboard reader
   // clearing several in a row is not dropped at the top of the page.
   state?.addEventListener('click', (event) => {
+    if ((event.target as Element).closest('[data-filter-clear]')) {
+      for (const box of boxes) box.checked = false;
+      refresh();
+      filter.querySelector<HTMLElement>('summary')?.focus();
+      return;
+    }
+
     const chip = (event.target as Element).closest<HTMLElement>('[data-filter-remove]');
     if (!chip) return;
     const tag = chip.dataset.filterRemove;
@@ -381,12 +398,5 @@ export function initProjectFilter(): void {
     { once: true },
   );
 
-  // Clearing is a link to the index so that it works with no script at all.
-  // Here there is nothing to navigate to — this *is* the index — so it unticks
-  // in place and leaves the reader where they were, with the panel still open.
-  clear?.addEventListener('click', (event) => {
-    event.preventDefault();
-    for (const box of boxes) box.checked = false;
-    refresh();
-  });
+
 }

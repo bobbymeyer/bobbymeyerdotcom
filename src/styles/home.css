@@ -172,6 +172,29 @@
     order: 3;
     margin-left: 0;
   }
+
+  /*
+   * The button stays where the thumb left it. The panel is in flow down
+   * here, and an open <details> is as wide as what it holds, so opening it
+   * used to carry the button down off the title's line onto one of its own,
+   * out from under the finger that pressed it. Pinned to the row's corner
+   * instead, with the title kept clear of it, and the open panel takes a
+   * line of its own below the picks it changes.
+   */
+  .home-title {
+    padding-right: 5em;
+  }
+
+  .home-filter-summary {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+
+  .home-filter[open] {
+    flex-basis: 100%;
+    order: 4;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -424,6 +447,19 @@
   opacity: 0.7;
 }
 
+/* A finger needs more than the line of type a pointer is happy with. The
+   chips grow in height only, so the panel keeps its shape. */
+@media (pointer: coarse) {
+  .home-filter-option,
+  .home-filter-state-tag {
+    padding-block: 0.35em;
+  }
+
+  .home-filter-summary {
+    padding-block: calc(var(--page-gap) / 2);
+  }
+}
+
 @media (hover: hover) {
   .home-filter-state-tag:hover {
     background: #fff;
@@ -444,10 +480,12 @@
 /* Over the grid, not above it. Opening a filter should not move the thing
    you are about to filter. Needs its own ground — the page's is a gradient
    and the cards would otherwise read straight through. */
+/* Hung from the rule, its top border laid over it, so the rule and the
+   panel are one line rather than two a gap apart. */
 .home-filter-panel {
   position: absolute;
   z-index: 2;
-  top: calc(100% + var(--page-gap));
+  top: 100%;
   right: 0;
   left: 0;
   padding: var(--page-gap);
@@ -512,9 +550,9 @@
  *
  * The widths follow the vocabularies: four kinds, a dozen subjects, half as
  * many tools. The rules between groups turn on their side to match, and
- * "show everything" takes a narrow column at the end rather than a row of its
- * own: at 1200, where the four-up splashes are shortest, that row was the
- * 45px that took the panel's edge back down onto the titles.
+ * the note on how picks combine takes a narrow column at the end rather than
+ * a row of its own: at 1200, where the four-up splashes are shortest, a row
+ * there was the 45px that took the panel's edge back down onto the titles.
  */
 @media (min-width: 900px) {
   .home-filter-panel {
@@ -536,23 +574,24 @@
   }
 
   /* Carries the panel so it outranks the stacked layout's rule further down. */
-  .home-filter-panel .home-filter-actions {
+  .home-filter-panel .home-filter-hint {
+    max-width: 12em;
     margin-top: 0;
     padding-top: 0;
     padding-left: var(--page-gutter);
     border-top: 0;
     border-left: 1px solid #d4d4d4;
-    white-space: nowrap;
   }
 }
 
+/* Full ink. At 60% the group names were quieter than the options under them
+   and only the rules between columns said where one group ended. */
 .home-filter-legend {
   padding: 0 0 calc(var(--page-gap) / 3);
   font-size: 0.857em;
   font-weight: 600;
   letter-spacing: 0.04em;
   line-height: var(--line-height);
-  opacity: 0.6;
 }
 
 /*
@@ -609,16 +648,27 @@
   opacity: 0.6;
 }
 
-.home-filter-actions {
+.home-filter-hint {
   margin-top: var(--page-gap);
   padding-top: var(--page-gap);
   border-top: 1px solid #d4d4d4;
   font-size: 0.857em;
-  font-weight: 600;
+  line-height: var(--line-height);
+  opacity: 0.6;
 }
 
+/* Clears every pick at once, at the end of the chips in the row. Set as the
+   site sets a link — a hairline under the word that thickens on hover — since
+   it acts in place rather than being one more thing to pick. */
 .home-filter-clear {
+  margin: 0 0 0 calc(var(--page-gap) / 3);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   color: inherit;
+  font: inherit;
+  letter-spacing: 0.02em;
+  cursor: pointer;
   text-decoration: none;
   border-bottom: 4px solid transparent;
   background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat;

@@ -37,7 +37,10 @@ const ABOVE_FOLD = 4;
 // subjects and then the tools, both by weight, the ones with the most behind
 // them first and the singles trailing off the end.
 const interests = interestsFrom(projects);
-const facets = facetsOnly(interests);
+// A kind every entry is narrows nothing — "projects 10" on an index of ten
+// projects is an option that can only repeat the count — so a facet only
+// earns a place once something on the page is not it.
+const facets = facetsOnly(interests).filter((interest) => interest.count < projects.length);
 const tags = orderInterests(topicsOnly(interests), 'greatest');
 const stack = orderInterests(stackOnly(interests), 'greatest');
 
@@ -166,9 +169,11 @@ const anyFeatured = projects.some((project) => project.featured);
                 ))}
               </fieldset>
             )}
-            <p class="home-filter-actions">
-              <a class="home-filter-clear" href="/" data-filter-clear>show everything</a>
-            </p>
+            {/* The one rule a reader cannot see from the chips: picks narrow
+                together rather than adding up. Said once, where the picking
+                happens. Clearing lives in the projects row now, beside what
+                it clears. */}
+            <p class="home-filter-hint">A project has to carry every tag you pick.</p>
           </div>
         </details>
       )}
