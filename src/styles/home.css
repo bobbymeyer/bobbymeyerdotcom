@@ -566,7 +566,10 @@
 @media (min-width: 900px) {
   .home-filter-panel {
     display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 4fr) minmax(0, 3fr) auto;
+    /* "what" is three short words and takes only their width; the room
+       left goes to the two long vocabularies, so neither wraps a single
+       chip onto a line of its own while the first column stands empty. */
+    grid-template-columns: max-content minmax(0, 3fr) minmax(0, 2fr) auto;
     column-gap: var(--page-gutter);
   }
 
@@ -783,10 +786,16 @@
 
 /* An option that would leave nothing on the page. Dimmed rather than removed,
    so the vocabulary stays put as a reader ticks things and the panel does not
-   reflow under the pointer. */
+   reflow under the pointer.
+
+   Said by the box as well as the tone: a dashed rule is a chip that is not
+   there to press. At 35% opacity the tone alone took the word down to about
+   1.7:1, past reading, and with two tags picked most of the panel looked
+   switched off rather than merely unavailable. */
 .home-filter-option:has(input:disabled),
 .home-filter-option[data-empty] {
-  opacity: 0.35;
+  border-style: dashed;
+  color: rgba(0, 0, 0, 0.45);
   cursor: not-allowed;
 }
 
