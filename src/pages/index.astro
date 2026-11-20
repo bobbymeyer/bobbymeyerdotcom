@@ -88,7 +88,11 @@ const anyFeatured = projects.some((project) => project.featured);
 
       A disclosure rather than a row of every tag — fifteen chips above the
       grid is a wall, and this is a thing a reader reaches for occasionally.
-      Closed it is one word and, when something is ticked, a count.
+      Closed it is one word, and what is ticked is said beside it.
+
+      The options are drawn as the chips the cards wear, and each one counts
+      what there would be with it added rather than what carries it overall,
+      so a reader can see where a pick goes before making it.
 
       Ticking tags narrows: a project has to carry all of them. On nine
       projects most second picks land on nothing, so an option that would take
@@ -99,12 +103,22 @@ const anyFeatured = projects.some((project) => project.featured);
       with scripting off every project is listed and reachable and the only
       thing missing is the narrowing.
     */}
+      {/*
+        What the grid is narrowed to, said in the row rather than behind the
+        button: how many of how many, and each tag picked as the same black
+        chip the cards draw it in, with a way to drop it. It used to be a
+        magenta count on the button, which told a reader that something was
+        on and not what — and the panel a tag link from /about opens shuts
+        itself, so after two seconds that number was all they had.
+
+        Empty and hidden until the script fills it; with no script there is
+        no narrowing to describe.
+      */}
+      <p class="home-filter-state" data-filter-state aria-live="polite" hidden></p>
+
       {(tags.length > 0 || facets.length > 0 || stack.length > 0) && (
         <details class="home-filter" data-project-filter>
-          <summary class="home-filter-summary">
-            <span>filter</span>
-            <span class="home-filter-badge" data-filter-badge hidden></span>
-          </summary>
+          <summary class="home-filter-summary">filter</summary>
           <div class="home-filter-panel">
             {/* Posts are missing from this row until the first one exists,
                 and each of the others appears the first time it is true of
@@ -115,12 +129,10 @@ const anyFeatured = projects.some((project) => project.featured);
                 <legend class="home-filter-legend">what</legend>
                 {facets.map((interest) => (
                   <label class="home-filter-option">
-                    <input type="checkbox" value={interest.tag} data-filter-tag />
+                    <input class="visually-hidden" type="checkbox" value={interest.tag} data-filter-tag />
                     <span class="home-filter-name">{facetLabel(interest.tag)}</span>
-                    <span class="home-filter-count" aria-hidden="true">{interest.count}</span>
-                    <span class="visually-hidden">
-                      {interest.count === 1 ? '1 entry' : `${interest.count} entries`}
-                    </span>
+                    <span class="home-filter-count" aria-hidden="true" data-filter-count>{interest.count}</span>
+                    <span class="visually-hidden" data-filter-count-said>{interest.count === 1 ? '1 to show' : `${interest.count} to show`}</span>
                   </label>
                 ))}
               </fieldset>
@@ -131,12 +143,10 @@ const anyFeatured = projects.some((project) => project.featured);
               </legend>
               {tags.map((interest) => (
                 <label class="home-filter-option">
-                  <input type="checkbox" value={interest.tag} data-filter-tag />
+                  <input class="visually-hidden" type="checkbox" value={interest.tag} data-filter-tag />
                   <span class="home-filter-name">{interest.tag}</span>
-                  <span class="home-filter-count" aria-hidden="true">{interest.count}</span>
-                  <span class="visually-hidden">
-                    {interest.count === 1 ? '1 project' : `${interest.count} projects`}
-                  </span>
+                  <span class="home-filter-count" aria-hidden="true" data-filter-count>{interest.count}</span>
+                  <span class="visually-hidden" data-filter-count-said>{interest.count === 1 ? '1 to show' : `${interest.count} to show`}</span>
                 </label>
               ))}
             </fieldset>
@@ -148,12 +158,10 @@ const anyFeatured = projects.some((project) => project.featured);
                 <legend class="home-filter-legend">built with</legend>
                 {stack.map((interest) => (
                   <label class="home-filter-option">
-                    <input type="checkbox" value={interest.tag} data-filter-tag />
+                    <input class="visually-hidden" type="checkbox" value={interest.tag} data-filter-tag />
                     <span class="home-filter-name">{interest.tag}</span>
-                    <span class="home-filter-count" aria-hidden="true">{interest.count}</span>
-                    <span class="visually-hidden">
-                      {interest.count === 1 ? '1 project' : `${interest.count} projects`}
-                    </span>
+                    <span class="home-filter-count" aria-hidden="true" data-filter-count>{interest.count}</span>
+                    <span class="visually-hidden" data-filter-count-said>{interest.count === 1 ? '1 to show' : `${interest.count} to show`}</span>
                   </label>
                 ))}
               </fieldset>

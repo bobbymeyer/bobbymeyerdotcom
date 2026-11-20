@@ -65,10 +65,55 @@ function matches(card: HTMLElement, wanted: string[]): boolean {
   return wanted.every((tag) => own.includes(tag));
 }
 
+/** What a tag is called in the panel — the kinds are worded there, not raw. */
+function labelOf(boxes: HTMLInputElement[], tag: string): string {
+  const box = boxes.find((candidate) => candidate.value === tag);
+  return box?.closest('.home-filter-option')?.querySelector('.home-filter-name')?.textContent?.trim() || tag;
+}
+
+/**
+ * The line in the projects row that says what the grid is narrowed to: how
+ * many of how many, then each tag as a chip that takes itself off when
+ * pressed. Rebuilt whole on every change — it is a handful of elements.
+ */
+function renderState(
+  state: HTMLElement,
+  boxes: HTMLInputElement[],
+  tags: string[],
+  shown: number,
+  total: number,
+): void {
+  const doc = state.ownerDocument;
+  state.replaceChildren();
+  state.toggleAttribute('hidden', tags.length === 0);
+  if (tags.length === 0) return;
+
+  const count = doc.createElement('span');
+  count.className = 'home-filter-state-count';
+  count.textContent = `${shown} of ${total}`;
+  state.append(count);
+
+  for (const tag of tags) {
+    const label = labelOf(boxes, tag);
+    const chip = doc.createElement('button');
+    chip.type = 'button';
+    chip.className = 'home-filter-state-tag';
+    chip.dataset.filterRemove = tag;
+    chip.setAttribute('aria-label', `Stop filtering by ${label}`);
+    chip.textContent = label;
+    const cross = doc.createElement('span');
+    cross.className = 'home-filter-state-x';
+    cross.setAttribute('aria-hidden', 'true');
+    cross.textContent = '×';
+    chip.append(cross);
+    state.append(chip);
+  }
+}
+
 function apply(
   cards: HTMLElement[],
   boxes: HTMLInputElement[],
-  badge: HTMLElement | null,
+  state: HTMLElement | null,
   empty: HTMLElement | null,
   tags: string[],
 ): void {
@@ -93,24 +138,26 @@ function apply(
     }
   }
 
-  // An option that would take the result to nothing is not worth offering.
-  // Recomputed on every change, because what is a dead end depends entirely
-  // on what is already ticked.
+  // Each option says how many projects there would be with it added, not how
+  // many carry it on the whole site: a count that never moves cannot tell a
+  // reader what ticking it will do. A ticked option's number is the grid as it
+  // stands. One that would take the result to nothing is not worth offering,
+  // and is disabled rather than removed so the panel does not reflow.
   for (const box of boxes) {
-    if (box.checked) {
-      box.disabled = false;
-      continue;
-    }
+    const asked = box.checked ? tags : [...tags, box.value];
+    const would = cards.filter((card) => matches(card, asked)).length;
+    const option = box.closest('.home-filter-option');
 
-    const wouldMatch = cards.some((card) => matches(card, [...tags, box.value]));
-    box.disabled = !wouldMatch;
-    box.closest('.home-filter-option')?.toggleAttribute('data-empty', !wouldMatch);
+    box.disabled = !box.checked && would === 0;
+    option?.toggleAttribute('data-empty', box.disabled);
+
+    const count = option?.querySelector<HTMLElement>('[data-filter-count]');
+    const said = option?.querySelector<HTMLElement>('[data-filter-count-said]');
+    if (count) count.textContent = String(would);
+    if (said) said.textContent = would === 1 ? '1 to show' : `${would} to show`;
   }
 
-  if (badge) {
-    badge.textContent = tags.length ? String(tags.length) : '';
-    badge.toggleAttribute('hidden', tags.length === 0);
-  }
+  if (state) renderState(state, boxes, tags, shownCount, cards.length);
 
   empty?.toggleAttribute('hidden', shownCount > 0);
 }
@@ -126,7 +173,7 @@ function tagsFromSearch(search: string): string[] {
 interface Parts {
   filter: HTMLDetailsElement;
   boxes: HTMLInputElement[];
-  badge: HTMLElement | null;
+  state: HTMLElement | null;
   empty: HTMLElement | null;
   cards: HTMLElement[];
 }
@@ -146,7 +193,7 @@ function partsOf(root: ParentNode): Parts | null {
   return {
     filter,
     boxes: [...filter.querySelectorAll<HTMLInputElement>('[data-filter-tag]')],
-    badge: filter.querySelector<HTMLElement>('[data-filter-badge]'),
+    state: root.querySelector<HTMLElement>('[data-filter-state]'),
     empty: root.querySelector<HTMLElement>('[data-filter-empty]'),
     cards: [...grid.querySelectorAll<HTMLElement>('.home-item')],
   };
@@ -179,7 +226,7 @@ export function initFilterPreSwap(): void {
 
     const tags = tagsFromSearch(swap.to?.search ?? '');
     for (const box of parts.boxes) box.checked = tags.includes(box.value);
-    apply(parts.cards, parts.boxes, parts.badge, parts.empty, tags);
+    apply(parts.cards, parts.boxes, parts.state, parts.empty, tags);
 
     // Open it here too, so the panel is there in the first painted frame
     // rather than appearing under the reader a moment later.
@@ -199,7 +246,7 @@ export function initProjectFilter(): void {
   if (filter.dataset.wired) return;
   filter.dataset.wired = 'true';
 
-  const { boxes, badge, empty, cards } = found;
+  const { boxes, state, empty, cards } = found;
   const clear = filter.querySelector<HTMLAnchorElement>('[data-filter-clear]');
 
   /*
@@ -265,7 +312,7 @@ export function initProjectFilter(): void {
 
   const refresh = () => {
     const tags = selectedTags(boxes);
-    apply(cards, boxes, badge, empty, tags);
+    apply(cards, boxes, state, empty, tags);
     writeUrl(tags);
   };
 
@@ -279,15 +326,35 @@ export function initProjectFilter(): void {
   // Only on arrival. From the first change onwards the reader is driving the
   // boxes, and `refresh` writes the query back from them, which is what drops
   // the unknown tag out of the address bar.
-  apply(cards, boxes, badge, empty, fromUrl);
+  apply(cards, boxes, state, empty, fromUrl);
 
   for (const box of boxes) box.addEventListener('change', refresh);
+
+  // A chip in the row takes its own tag off. Focus goes to the next chip
+  // along, or back to the button once there are none, so a keyboard reader
+  // clearing several in a row is not dropped at the top of the page.
+  state?.addEventListener('click', (event) => {
+    const chip = (event.target as Element).closest<HTMLElement>('[data-filter-remove]');
+    if (!chip) return;
+    const tag = chip.dataset.filterRemove;
+    const at = [...state.querySelectorAll('[data-filter-remove]')].indexOf(chip);
+    for (const box of boxes) if (box.value === tag) box.checked = false;
+    refresh();
+    const left = state.querySelectorAll<HTMLElement>('[data-filter-remove]');
+    (left[Math.min(at, left.length - 1)] ?? filter.querySelector<HTMLElement>('summary'))?.focus();
+  });
 
   // The panel is laid over the grid, so it has to be dismissable the way
   // anything laid over a page is: click away from it, or press Escape. A
   // <details> does neither on its own.
+  // The chips in the row are part of the filter too: taking a tag off there
+  // with the panel up should not also shut it. Asked of the event's path, not
+  // of `contains`, because by the time the click reaches the document the
+  // chip pressed has already been rebuilt away and is in nothing at all.
   const closeOnOutside = (event: MouseEvent) => {
-    if (filter.open && !filter.contains(event.target as Node)) filter.open = false;
+    const path = event.composedPath();
+    if (!filter.open || path.includes(filter) || (state && path.includes(state))) return;
+    filter.open = false;
   };
 
   const closeOnEscape = (event: KeyboardEvent) => {

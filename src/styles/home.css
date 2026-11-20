@@ -164,6 +164,14 @@
   .home-legend {
     flex-basis: 100%;
   }
+
+  /* Its own line, under the legend and over the rule. Beside the title it
+     took the room the title had and "projects" printed over "2 of 10". */
+  .home-filter-state {
+    flex-basis: 100%;
+    order: 3;
+    margin-left: 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -364,18 +372,73 @@
   color: #fff;
 }
 
-/* How many tags are ticked, so a narrowed grid is never a mystery with the
-   dropdown shut. */
-.home-filter-badge {
-  padding: 0 0.4em;
-  background: var(--ink-magenta);
-  color: #fff;
-  font-weight: 600;
+/*
+ * What the grid is narrowed to, in the row: "4 of 10", then each tag picked
+ * as the black chip a card draws a matching tag in. Pressing one takes it
+ * off, and under the pointer it lifts to an empty box — the chip it will
+ * become in the panel once it is no longer picked.
+ *
+ * Pushed to the right with the button, so the row reads label, legend, then
+ * the state of the filter beside the thing that changes it.
+ */
+.home-filter-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: calc(var(--page-gap) / 3);
+  margin-left: auto;
+  font-size: 0.857em;
+  line-height: var(--line-height);
 }
 
-.home-filter[open] > .home-filter-summary .home-filter-badge {
-  background: #fff;
-  color: #000;
+/* `display: flex` outranks the user agent's `[hidden]`, as on the cards. */
+.home-filter-state[hidden] {
+  display: none;
+}
+
+.home-filter-state-count {
+  margin-right: calc(var(--page-gap) / 3);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
+.home-filter-state-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  margin: 0;
+  padding: 0 0.5em;
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  font: inherit;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+  cursor: pointer;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+.home-filter-state-x {
+  opacity: 0.7;
+}
+
+@media (hover: hover) {
+  .home-filter-state-tag:hover {
+    background: #fff;
+    color: #000;
+  }
+}
+
+.home-filter-state-tag:focus {
+  outline: none;
+}
+
+.home-filter-state-tag:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+  transition: none;
 }
 
 /* Over the grid, not above it. Opening a filter should not move the thing
@@ -422,7 +485,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: calc(var(--page-gap) / 2) var(--page-gap);
+  /* Set as the card's chips are, a third of a gap apart. */
+  gap: calc(var(--page-gap) / 3);
   margin: 0;
   padding: 0;
   border: 0;
@@ -483,7 +547,7 @@
 }
 
 .home-filter-legend {
-  padding: 0;
+  padding: 0 0 calc(var(--page-gap) / 3);
   font-size: 0.857em;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -491,52 +555,57 @@
   opacity: 0.6;
 }
 
+/*
+ * An option is the chip a card wears for the same tag, not a checkbox with a
+ * label. The panel and the cards were two vocabularies for one set of words —
+ * bold labels beside ticked boxes up here, hairline boxes down there — so
+ * picking "print" did not look like anything on the page it was picking from.
+ * Now an option is drawn as the card's chip and, once picked, fills black,
+ * which is exactly how the matching chip on each card below is drawn in.
+ *
+ * The checkbox is still there, out of sight, so the keyboard and a screen
+ * reader get a real one; the chip shows its focus for it.
+ */
 .home-filter-option {
   display: inline-flex;
   align-items: baseline;
   gap: 0.4em;
+  padding: 0 0.5em;
+  border: 1px solid rgba(0, 0, 0, 0.35);
   font-size: 0.857em;
-  line-height: var(--line-height);
+  line-height: 1.6;
   cursor: pointer;
+  transition: border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
 }
 
-/* Drawn rather than left to the platform: a native box is a rounded,
-   bevelled thing in a system grey, the one control on the page not set in
-   the page's own ink. A square of rule that fills solid when ticked is the
-   same mark as the filter button beside it, open and shut. */
-.home-filter-option input {
-  flex: none;
-  appearance: none;
-  align-self: center;
-  width: 0.8em;
-  height: 0.8em;
-  margin: 0;
-  border: 1px solid #000;
-  border-radius: 0;
-  background: #fff;
-  cursor: pointer;
+@media (hover: hover) {
+  .home-filter-option:hover {
+    border-color: #000;
+  }
 }
 
-.home-filter-option input:checked {
+.home-filter-option:has(input:checked) {
+  border-color: #000;
   background: #000;
+  color: #fff;
 }
 
-.home-filter-option input:focus {
-  outline: none;
-}
-
-.home-filter-option input:focus-visible {
+.home-filter-option:has(input:focus-visible) {
   outline: 2px solid #000;
   outline-offset: 2px;
+  transition: none;
 }
 
 .home-filter-name {
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.02em;
 }
 
+/* How many there would be with this one added — it moves as the selection
+   does. Figures in a fixed width, so a chip does not twitch when 10 becomes 4. */
 .home-filter-count {
   font-weight: 400;
+  font-variant-numeric: tabular-nums;
   opacity: 0.6;
 }
 
@@ -598,9 +667,9 @@
   color: #fff;
 }
 
-/* Withdrawing, after a tag link opened it. Only the panel goes; the badge on
-   the summary stays behind, so a reader who was not watching still sees that
-   the grid is narrowed and by how many tags. The duration is FADE_MS in
+/* Withdrawing, after a tag link opened it. Only the panel goes; the chips in
+   the row stay behind, so a reader who was not watching still sees what the
+   grid is narrowed to. The duration is FADE_MS in
    project-filter.ts, which waits it out before shutting the <details>. */
 /* The transition belongs to the withdrawal and to nothing else. Putting it on
    the panel itself, so that the fade ran both ways, looked tidier and was
@@ -651,6 +720,8 @@
 @media (prefers-reduced-motion: reduce) {
   .home-filter-summary,
   .home-filter-clear,
+  .home-filter-option,
+  .home-filter-state-tag,
   .home-filter[data-dismissing] > .home-filter-panel {
     transition: none;
   }
