@@ -55,6 +55,13 @@ const anyFeatured = projects.some((project) => project.featured);
       learn whose they were.
     */}
     <header class="home-intro">
+      {/* The mark again, at the size of the page rather than the size of a
+          nav label: the same three plates the header wears, so the first
+          thing on the index says how everything under it is printed. It is
+          the Mark component, not a copy of it, so it blooms with the header
+          on arrival and settles into the same drift. Decorative — the name
+          beside it is the thing with a name. */}
+      <div class="home-hero-mark" data-hero-mark aria-hidden="true"><Mark /></div>
       <h1>{NAME}</h1>
       <p class="home-lede">{LEDE}</p>
       <p class="home-place">{PLACE} — <a href="/contact">say hello</a></p>
@@ -281,4 +288,10 @@ const anyFeatured = projects.some((project) => project.featured);
   import { initMarkInView } from '@/scripts/mark-inview';
   document.addEventListener('astro:page-load', initMarkInView);
   initMarkInView();
+</script>
+
+<script>
+  import { initHeroMark } from '@/scripts/hero-mark';
+
+  document.addEventListener('astro:page-load', initHeroMark);
 </script>
