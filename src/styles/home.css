@@ -602,8 +602,9 @@
   }
 
   /* Half the stacked layout's air: one line of small type needs less than
-     a group does, and every pixel here is a pixel more of picture covered. */
-  .home-filter-hint {
+     a group does, and every pixel here is a pixel more of picture covered.
+     Carries the panel so it outranks the stacked layout's rule further down. */
+  .home-filter-panel .home-filter-hint {
     grid-column: 1 / -1;
     margin-top: calc(var(--page-gap) / 2);
     padding-top: calc(var(--page-gap) / 2);
