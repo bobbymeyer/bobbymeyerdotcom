@@ -129,9 +129,12 @@
    the legend has to show is the mark. */
 .home-legend-mark {
   --mark-box: 1.15em;
-  width: 1.75em;
-  height: 1.75em;
-  margin: 0 0.1em;
+  /* The size of the mark and no larger. The disc is invisible on white, so
+     the air it would leave round the mark reads as a stray space inside the
+     brackets — `( ◎ =` rather than `(◎ =`. */
+  width: var(--mark-box);
+  height: var(--mark-box);
+  margin: 0 0.15em 0 0;
   /* `middle` is defined as the box's midpoint on the baseline plus half the
      parent's x-height, which is exactly where a mark set in running text
      wants to sit — no hand-tuned offset to re-measure if the size changes. */
@@ -200,10 +203,32 @@
 }
 
 .home-item-copy p {
-  margin-top: var(--page-gap);
   font-size: var(--font-size-h6);
   font-weight: 400;
   line-height: var(--line-height);
+}
+
+/*
+ * Two pairs, not four equal steps. The summary belongs to the name, so it
+ * sits close under it; the tags and the date are about the project rather
+ * than part of what it is called, so they follow as a second group.
+ *
+ * These used to be one `margin-top: var(--page-gap)` on every paragraph here,
+ * and the half-gaps the tags and the meta asked for never took: `.home-item-copy
+ * p` outranks a single class, so all four lines stood a full gap apart and the
+ * name floated off its own summary. The selectors below carry the container so
+ * they win on their own terms.
+ */
+.home-item-copy .home-item-summary {
+  margin-top: calc(var(--page-gap) / 4);
+}
+
+.home-item-copy .home-item-tags {
+  margin-top: calc(var(--page-gap) * 0.75);
+}
+
+.home-item-copy .home-item-meta {
+  margin-top: calc(var(--page-gap) / 2);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -218,12 +243,17 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--page-gap);
-  margin-top: calc(var(--page-gap) / 2);
   font-size: 0.857em;
   font-weight: 400;
   line-height: var(--line-height);
   letter-spacing: 0.04em;
+  /* Dates down a column of cards line their digits up. */
+  font-variant-numeric: tabular-nums;
   opacity: 0.6;
+}
+
+.home-item-archived {
+  font-weight: 600;
 }
 
 /*
@@ -315,8 +345,10 @@
 }
 
 /*
- * Except in one column, where it cannot be over the grid without being over
- * a card.
+ * Except below 900, where it cannot be over the grid without being over a
+ * card's type. Up there the groups sit side by side and the panel is short
+ * enough to end inside the first row's splashes; down here they stack, and
+ * at 640 to 899 the stack ran 90px past two-up splashes into the titles.
  *
  * Three groups of options stacked one to a line is a tall panel, and a tall
  * panel on a narrow page reaches past the first card's splash and stops
@@ -326,11 +358,11 @@
  * it reads as a page that has gone wrong.
  *
  * In flow it pushes the grid down instead. The thing it is filtering moves,
- * which is what the absolute position was avoiding — but on a phone the grid
- * is one card wide and mostly below the fold anyway, so there is far less to
- * move than there is to spoil.
+ * which is what the absolute position was avoiding — but at these widths the
+ * grid is one or two cards wide and mostly below the fold anyway, so there is
+ * far less to move than there is to spoil.
  */
-@media (max-width: 639.98px) {
+@media (max-width: 899.98px) {
   .home-filter-panel {
     position: static;
     margin-top: var(--page-gap);
@@ -357,6 +389,51 @@
   border-bottom: 1px solid #d4d4d4;
 }
 
+/*
+ * Side by side wherever there is room, so the panel is short.
+ *
+ * Stacked, the three groups made a panel about 330px tall at 1440, which ran
+ * past the first row's splashes and stopped a few pixels above their summaries
+ * — a box edge drawn along the top of a line of type reads as the type having
+ * been cut, not as a layer over it. Laid out in columns it is a third of that
+ * and ends inside the pictures, where a layer over artwork looks like one.
+ *
+ * The widths follow the vocabularies: four kinds, a dozen subjects, half as
+ * many tools. The rules between groups turn on their side to match, and
+ * "show everything" takes a narrow column at the end rather than a row of its
+ * own: at 1200, where the four-up splashes are shortest, that row was the
+ * 45px that took the panel's edge back down onto the titles.
+ */
+@media (min-width: 900px) {
+  .home-filter-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 4fr) minmax(0, 3fr) auto;
+    column-gap: var(--page-gutter);
+  }
+
+  .home-filter-set--divided {
+    margin-bottom: 0;
+    padding-right: var(--page-gutter);
+    padding-bottom: 0;
+    border-right: 1px solid #d4d4d4;
+    border-bottom: 0;
+  }
+
+  .home-filter-set {
+    align-content: start;
+  }
+
+  /* Carries the panel so it outranks the stacked layout's rule further down. */
+  .home-filter-panel .home-filter-actions {
+    margin-top: 0;
+    padding-top: 0;
+    padding-left: var(--page-gutter);
+    border-top: 0;
+    border-left: 1px solid #d4d4d4;
+    white-space: nowrap;
+  }
+}
+
 .home-filter-legend {
   padding: 0;
   font-size: 0.857em;
@@ -375,13 +452,34 @@
   cursor: pointer;
 }
 
+/* Drawn rather than left to the platform: a native box is a rounded,
+   bevelled thing in a system grey, the one control on the page not set in
+   the page's own ink. A square of rule that fills solid when ticked is the
+   same mark as the filter button beside it, open and shut. */
 .home-filter-option input {
   flex: none;
-  width: 0.85em;
-  height: 0.85em;
+  appearance: none;
+  align-self: center;
+  width: 0.8em;
+  height: 0.8em;
   margin: 0;
-  accent-color: #000;
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #fff;
   cursor: pointer;
+}
+
+.home-filter-option input:checked {
+  background: #000;
+}
+
+.home-filter-option input:focus {
+  outline: none;
+}
+
+.home-filter-option input:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
 }
 
 .home-filter-name {
@@ -435,7 +533,6 @@
   display: flex;
   flex-wrap: wrap;
   gap: calc(var(--page-gap) / 3);
-  margin-top: calc(var(--page-gap) / 2);
 }
 
 .home-item-tag {

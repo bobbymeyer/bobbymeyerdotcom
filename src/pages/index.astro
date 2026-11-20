@@ -240,7 +240,6 @@ const anyFeatured = projects.some((project) => project.featured);
             <h3 transition:name={`title-${project.slug}`}>
               {project.title}{project.version && <sup>v{project.version}</sup>}
             </h3>
-            {project.repo.archived && <p class="archived-note">archived</p>}
             <p class="home-item-summary" transition:name={`summary-${project.slug}`}>{project.summary}</p>
             {/*
               Tags are set here, not linked. The whole card is already one
@@ -257,7 +256,12 @@ const anyFeatured = projects.some((project) => project.featured);
                 ))}
               </p>
             )}
+            {/* Archived is a status, like the date beside it, so it is said
+                on the same line rather than as a paragraph of its own between
+                the name and the summary — where it pushed one card's summary
+                a line lower than every other in the row. */}
             <p class="home-item-meta">
+              {project.repo.archived && <span class="home-item-archived">archived</span>}
               <span class="home-item-date">
                 <span class="visually-hidden">Last change </span>
                 {formatPostDate(project.updated)}
