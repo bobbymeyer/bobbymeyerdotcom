@@ -431,6 +431,28 @@
   line-height: var(--line-height);
 }
 
+/*
+ * Where there is room, on the label's own line, straight after the legend.
+ *
+ * A line of its own appears on the first pick, and at these widths the panel
+ * hangs from the bottom of this row, so the panel used to drop 28px under the
+ * pointer that had just picked — the box moved out from under the thing being
+ * clicked. Set beside the legend it changes nothing's height, and it is still
+ * next to the word it qualifies. Below 900 the panel is in flow and pushes the
+ * grid regardless, and the line keeps the row to itself.
+ */
+@media (min-width: 900px) {
+  .home-filter-state {
+    flex-basis: auto;
+    order: 0;
+    margin: 0 0 0 var(--page-gap);
+  }
+
+  .home-filter {
+    margin-left: auto;
+  }
+}
+
 /* `display: flex` outranks the user agent's `[hidden]`, as on the cards. */
 .home-filter-state[hidden] {
   display: none;
@@ -467,9 +489,12 @@
 /* A finger needs more than the line of type a pointer is happy with. The
    chips grow in height only, so the panel keeps its shape. */
 @media (pointer: coarse) {
-  .home-filter-option,
-  .home-filter-state-tag {
-    padding-block: 0.35em;
+  /* Scoped to their containers to outrank the base rules further down, which
+     would otherwise keep the words on the baseline at the top of the box. */
+  .home-filter-panel .home-filter-option,
+  .home-filter-state .home-filter-state-tag {
+    align-items: center;
+    min-height: 36px;
   }
 
   /* 44px, the size a fingertip is drawn at. */
