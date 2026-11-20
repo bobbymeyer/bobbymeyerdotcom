@@ -170,6 +170,9 @@ function apply(
 
   if (state) renderState(state, boxes, tags, shownCount, cards.length);
 
+  const done = state?.ownerDocument.querySelector<HTMLElement>('[data-filter-done]');
+  if (done) done.textContent = shownCount === 1 ? 'show 1 project' : `show ${shownCount} projects`;
+
   empty?.toggleAttribute('hidden', shownCount > 0);
 }
 
@@ -339,6 +342,20 @@ export function initProjectFilter(): void {
   apply(cards, boxes, state, empty, fromUrl);
 
   for (const box of boxes) box.addEventListener('change', refresh);
+
+  // Shut the panel and bring the row back to the top of the screen: on a
+  // phone the reader is somewhere down inside the panel, and shutting it
+  // alone would leave them looking at whatever the grid has scrolled to.
+  const done = filter.querySelector<HTMLButtonElement>('[data-filter-done]');
+  if (done) {
+    done.hidden = false;
+    done.addEventListener('click', () => {
+      filter.open = false;
+      const summary = filter.querySelector<HTMLElement>('summary');
+      summary?.closest('.home-head')?.scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+      summary?.focus({ preventScroll: true });
+    });
+  }
 
   // A chip in the row takes its own tag off. Focus goes to the next chip
   // along, or back to the button once there are none, so a keyboard reader

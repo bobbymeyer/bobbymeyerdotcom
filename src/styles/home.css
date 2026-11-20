@@ -94,6 +94,9 @@
   margin-bottom: calc(var(--page-gap) * 1.5);
   padding-bottom: calc(var(--page-gap) / 2);
   border-bottom: 1px solid #000;
+  /* Where "show N projects" brings the row to: a gap below the top of the
+     screen rather than with the button against it. */
+  scroll-margin-top: var(--page-gap);
 }
 
 .home-title {
@@ -194,6 +197,12 @@
   .home-filter[open] {
     flex-basis: 100%;
     order: 4;
+  }
+
+  /* Its bottom edge and the rule under the row are both black hairlines;
+     a few pixels apart they read as one line drawn twice. */
+  .home-filter-panel {
+    margin-bottom: var(--page-gap);
   }
 }
 
@@ -655,6 +664,42 @@
   font-size: 0.857em;
   line-height: var(--line-height);
   opacity: 0.6;
+}
+
+/* The way out of the panel on a phone, under everything in it: full width,
+   in the ink the filter button wears when it is open, so it reads as the
+   other end of the same control. Wider screens lay the panel over the grid
+   and see the result change under it, so they do without. */
+.home-filter-done {
+  display: none;
+}
+
+@media (max-width: 639.98px) {
+  .home-filter-done:not([hidden]) {
+    display: block;
+    width: 100%;
+    margin-top: var(--page-gap);
+    padding: calc(var(--page-gap) / 2) var(--page-gap);
+    border: 1px solid #000;
+    border-radius: 0;
+    background: #000;
+    color: #fff;
+    font: inherit;
+    font-size: 0.857em;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .home-filter-done:focus {
+    outline: none;
+  }
+
+  .home-filter-done:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: 2px;
+  }
 }
 
 /* Clears every pick at once, at the end of the chips in the row. Set as the
