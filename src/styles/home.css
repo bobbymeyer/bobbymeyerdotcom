@@ -666,7 +666,8 @@
   opacity: 0.6;
 }
 
-/* The way out of the panel on a phone, under everything in it: full width,
+/* The way out of the panel wherever it pushes the grid down rather than
+   lying over it — a phone, and a tablet below 900 — under everything in it: full width,
    in the ink the filter button wears when it is open, so it reads as the
    other end of the same control. Wider screens lay the panel over the grid
    and see the result change under it, so they do without. */
@@ -674,7 +675,7 @@
   display: none;
 }
 
-@media (max-width: 639.98px) {
+@media (max-width: 899.98px) {
   .home-filter-done:not([hidden]) {
     display: block;
     width: 100%;
