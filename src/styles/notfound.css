@@ -106,3 +106,55 @@
     transition: none;
   }
 }
+
+/*
+ * The misprint: the address that missed, in three plates.
+ *
+ * Process inks are a statement about what ink takes out of white paper, so the
+ * figure prints on its own sheet of it rather than on the page's wash — see
+ * `paper` in palette.ts. It runs the full column, the same left edge as
+ * everything else, and its caption is set like the status code: a label.
+ */
+.misprint {
+  grid-column: 1 / -1;
+  margin: calc(var(--page-gutter) * 2) 0 0;
+  min-width: 0;
+  font-family: Archivo, sans-serif;
+}
+
+.misprint[hidden] {
+  display: none;
+}
+
+/* The canvas prints its plates on white and is multiplied onto the page, so the
+   white drops out and the inks land on the wash the way they would on a tinted
+   sheet. The script makes it wider than the column by the room a plate can be
+   pulled, and pulls it back out by the same, so the type starts at the margin. */
+.misprint canvas {
+  display: block;
+  width: 100%;
+  mix-blend-mode: multiply;
+  cursor: grab;
+  /* A finger moving up or down is scrolling the page, not pulling a plate:
+     only a sideways drag is taken, and the plates still part three ways. */
+  touch-action: pan-y;
+}
+
+.misprint[data-dragging] canvas {
+  cursor: grabbing;
+}
+
+.misprint canvas:focus {
+  outline: none;
+}
+
+.misprint canvas:focus-visible {
+  outline: 1px solid #000;
+  outline-offset: 4px;
+}
+
+/* The canvas's own margin of empty sheet is the gap above the caption, so a
+   plate pulled down lands on that and never on the words under it. */
+.misprint figcaption {
+  margin: 0;
+}
