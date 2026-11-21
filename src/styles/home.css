@@ -497,19 +497,47 @@
 /* A finger needs more than the line of type a pointer is happy with. The
    chips grow in height only, so the panel keeps its shape. */
 @media (pointer: coarse) {
-  /* Scoped to their containers to outrank the base rules further down, which
-     would otherwise keep the words on the baseline at the top of the box. */
-  .home-filter-panel .home-filter-option,
-  .home-filter-state .home-filter-state-tag,
-  .home-filter-state .home-filter-clear {
-    align-items: center;
-    min-height: 36px;
+  /*
+   * The chips stay the size they are drawn at everywhere — the size of the
+   * chips on the cards they match — and a finger gets an invisible margin of
+   * hit area around each instead. Drawn at 36px they were twice the height
+   * of their words, and black slabs in the picked line rather than chips.
+   *
+   * In the panel the margin is no taller than half the gap between rows, so
+   * one chip's reach never lands on the chip below it; the gap is widened a
+   * little here to give it room.
+   */
+  .home-filter-option,
+  .home-filter-state-tag {
+    position: relative;
   }
 
-  /* A word with a line under it, given the chips' height to be pressed by. */
-  .home-filter-state .home-filter-clear {
-    display: inline-flex;
-    padding-inline: calc(var(--page-gap) / 3);
+  .home-filter-option::before,
+  .home-filter-state-tag::before {
+    content: '';
+    position: absolute;
+    inset: -5px -3px;
+  }
+
+  .home-filter-state-tag::before {
+    inset: -10px -3px;
+  }
+
+  .home-filter-panel .home-filter-set {
+    row-gap: 10px;
+  }
+
+  /* A word with a line under it keeps its line under the word, and is
+     pressed by an invisible margin as tall as the chips beside it. Grown to
+     36px itself, the line went to the foot of the box, 13px below the word. */
+  .home-filter-clear {
+    position: relative;
+  }
+
+  .home-filter-clear::before {
+    content: '';
+    position: absolute;
+    inset: -10px -6px;
   }
 
   /* 44px, the size a fingertip is drawn at. */
@@ -748,6 +776,20 @@
   /* Held to the bottom of the screen while the panel runs past it, so the
      way out is in reach from the first group down, not only once a reader
      has scrolled to the last. */
+  /* A strip of the panel's own ground above it, so whatever the bar is held
+     over is cut off at a clean edge rather than showing the tops of a row of
+     chips in the sliver between. Drawn with a pseudo-element: a shadow is
+     not the way this site separates one thing from another. */
+  .home-filter-done:not([hidden])::before {
+    content: '';
+    position: absolute;
+    right: calc(var(--page-gap) * -1 - 1px);
+    bottom: 100%;
+    left: calc(var(--page-gap) * -1 - 1px);
+    height: var(--page-gap);
+    background: #fff;
+  }
+
   .home-filter-done:not([hidden]) {
     position: sticky;
     bottom: calc(var(--page-gap) / 2);
