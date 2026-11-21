@@ -48,6 +48,18 @@ const stack = orderInterests(stackOnly(interests), 'greatest');
 // it explains.
 const anyInteractive = projects.some((project) => project.interactive);
 const anyFeatured = projects.some((project) => project.featured);
+
+/**
+ * A title's leading emoji, split from the name after it, so the card can set
+ * the mark in a slot of its own width. Emoji are not one width — the ticket is
+ * twice the crown — and run together with the name they started each card's
+ * words at a different distance from the edge, so names down a column did not
+ * line up. A title with no mark comes back whole.
+ */
+function splitMark(title: string): { mark: string | null; name: string } {
+  const match = title.match(/^(\p{Extended_Pictographic}\uFE0F?|\p{Regional_Indicator}{2})\s+(.*)$/u);
+  return match ? { mark: match[1], name: match[2] } : { mark: null, name: title };
+}
 ---
 
 <Base description={DESCRIPTION}>
@@ -253,7 +265,10 @@ const anyFeatured = projects.some((project) => project.featured);
           </div>
           <div class="home-item-copy">
             <h3 transition:name={`title-${project.slug}`}>
-              {project.title}{project.version && <sup>v{project.version}</sup>}
+              {(() => {
+                const { mark, name } = splitMark(project.title);
+                return mark ? <Fragment><span class="home-item-mark">{mark}</span>{name}</Fragment> : name;
+              })()}{project.version && <sup>v{project.version}</sup>}
             </h3>
             <p class="home-item-summary" transition:name={`summary-${project.slug}`}>{project.summary}</p>
             {/*

@@ -3,7 +3,9 @@
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
   align-content: start;
-  padding-block: 0 var(--page-gutter);
+  /* Two gutters under the last row, so the footer reads as the page's foot
+     rather than one more line of the last card. */
+  padding-block: 0 calc(var(--page-gutter) * 2);
   background: transparent;
 }
 
@@ -335,6 +337,18 @@
 .home-item-meta > * + *::before {
   content: '·' / '';
   margin-right: calc(var(--page-gap) / 2);
+}
+
+/* The emoji a title opens with, in a slot of one width, so every name in a
+   column starts at the same distance from the card's edge. */
+.home-item-mark {
+  display: inline-block;
+  width: 1.35em;
+}
+
+/* Breaks a long summary where it reads, not wherever the column runs out. */
+.home-item-summary {
+  text-wrap: pretty;
 }
 
 /* Room between a name and the version riding on it; on an archived card
