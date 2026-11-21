@@ -27,6 +27,184 @@
   }
 }
 
+/*
+ * The hero mark. The introduction is a column of type that stops halfway
+ * across the page, and the mark takes the other end of that row: the name and
+ * lede on the left where they have always been, the three plates on the
+ * right, their top on the name's cap line and their right edge on the grid's.
+ *
+ * Out of flow, so the introduction is exactly as tall as its type and the
+ * projects start where they always have; the type reserves the mark's width
+ * on the right, so a long lede wraps before it reaches the plates. Its size is
+ * set the way every other mark's is, by `--mark-dot`, and the box follows.
+ * On a phone it moves up beside the name and is sized to it.
+ *
+ * Held part-spread. A resting mark at this size is a black disc with a
+ * coloured rim, and nobody reads three plates in that; the full spread is the
+ * legend's glyph for "runs in the browser", and the biggest mark on the page
+ * cannot also mean that. Two-thirds of the way, it is a sheet printed out of register: the
+ * three inks and every overlap show, and it is plainly the mark, not the key.
+ */
+.home-intro {
+  position: relative;
+}
+
+.home-hero-mark {
+  /* As tall as the type it stands beside — cap line of the name to the foot
+     of the place line — so it never reaches down to the projects row, even
+     spread further under the pointer. */
+  --mark-dot: clamp(4.5rem, 6vw, 5.75rem);
+  --mark-box: calc(var(--mark-dot) * 1.58);
+  position: absolute;
+  /* The intro's padding, then the gap between the h1's box and its caps. */
+  top: calc(var(--page-gap) + var(--font-size-h1) * 0.2);
+  right: 0;
+}
+
+@media (min-width: 1200px) {
+  .home-hero-mark {
+    top: calc(var(--page-gutter) + var(--font-size-h1) * 0.2);
+  }
+}
+
+@media (min-width: 700px) {
+  .home-intro > :not(.home-hero-mark) {
+    margin-right: calc(var(--mark-box) + var(--page-gutter));
+  }
+}
+
+/* On a phone the mark shares the name's line and nothing else, centred on it;
+   the lede and the place line run the full width under both. */
+@media (max-width: 699px) {
+  .home-intro h1 {
+    margin-right: calc(var(--mark-box) + var(--page-gap));
+  }
+
+  .home-hero-mark {
+    --mark-dot: calc(var(--font-size-h1) * 1.15);
+    top: calc(var(--page-gap) + var(--font-size-h1) * var(--line-height) / 2 - var(--mark-box) / 2);
+  }
+}
+
+/* The component is a span; a context that sizes it makes it a box. */
+.home-hero-mark .mark {
+  display: block;
+}
+
+/* Each offset carries the plate's lean toward the pointer, set by
+   `src/scripts/hero-mark.ts` and nothing without it. */
+.home-hero-mark .mark-dot--c {
+  translate: var(--lean-x-c, 0px) calc(-15.5% + var(--lean-y-c, 0px));
+}
+
+.home-hero-mark .mark-dot--m {
+  translate: calc(13.4% + var(--lean-x-m, 0px)) calc(7.75% + var(--lean-y-m, 0px));
+}
+
+.home-hero-mark .mark-dot--y {
+  translate: calc(-13.4% + var(--lean-x-y, 0px)) calc(7.75% + var(--lean-y-y, 0px));
+}
+
+/*
+ * Arriving, it blooms with the header: out to the full Venn, held a
+ * moment, and back, while the mark makes the lockup's single turn, on
+ * the bloom's own curve. Then it drifts like every other mark. The bloom runs
+ * on `translate` and the drift on `transform`, so the two compose; `backwards`
+ * holds the start through the stagger and lets go at the end, so hover is
+ * free to move the plates afterwards.
+ */
+.home-hero-mark .mark {
+  animation:
+    mark-spin 120s linear infinite,
+    mark-turn 1.8s cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+  /* `rotate` is free once the arrival's turn ends (`backwards`, not `both`),
+     so hover and tap can turn the mark on it — see below. */
+  transition: rotate 0.9s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.home-hero-mark .mark-dot--c {
+  animation:
+    home-hero-open-c 1.8s cubic-bezier(0.22, 0.61, 0.36, 1) backwards,
+    mark-drift-c 7s 1.8s ease-in-out infinite;
+}
+
+.home-hero-mark .mark-dot--m {
+  animation:
+    home-hero-open-m 1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 80ms backwards,
+    mark-drift-m 8.5s 1.88s ease-in-out infinite;
+}
+
+.home-hero-mark .mark-dot--y {
+  animation:
+    home-hero-open-y 1.8s cubic-bezier(0.22, 0.61, 0.36, 1) 160ms backwards,
+    mark-drift-y 9.5s 1.96s ease-in-out infinite;
+}
+
+@keyframes home-hero-open-c {
+  0%, 100% { translate: 0 -15.5%; }
+  32%, 54% { translate: 0 -23.2%; }
+}
+
+@keyframes home-hero-open-m {
+  0%, 100% { translate: 13.4% 7.75%; }
+  32%, 54% { translate: 20.1% 11.6%; }
+}
+
+@keyframes home-hero-open-y {
+  0%, 100% { translate: -13.4% 7.75%; }
+  32%, 54% { translate: -20.1% 11.6%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-hero-mark .mark,
+  .home-hero-mark .mark-dot {
+    animation: none;
+    transition: none;
+  }
+}
+
+/* Pointing at it does what pointing at a card does to that card's mark: the
+   plates blow out to full register — the Venn, the same offsets as the cards
+   — and settle back when the pointer leaves. Full spread is what the
+   mark's box is sized for, so it stays on the grid edge. As they open the
+   mark turns a third: the plates sit on an equilateral triangle, so a third
+   of a turn lands every ink where another one was, and the colours swap
+   places in front of the reader. With no pointer, a tap does the same and
+   the script lets it settle a moment later. */
+@media (hover: hover) {
+  .home-hero-mark:hover .mark {
+    rotate: 120deg;
+  }
+
+  .home-hero-mark:hover .mark-dot--c {
+    translate: 0 -23.2%;
+  }
+
+  .home-hero-mark:hover .mark-dot--m {
+    translate: 20.1% 11.6%;
+  }
+
+  .home-hero-mark:hover .mark-dot--y {
+    translate: -20.1% 11.6%;
+  }
+}
+
+.home-hero-mark[data-bloom] .mark {
+  rotate: 120deg;
+}
+
+.home-hero-mark[data-bloom] .mark-dot--c {
+  translate: 0 -23.2%;
+}
+
+.home-hero-mark[data-bloom] .mark-dot--m {
+  translate: 20.1% 11.6%;
+}
+
+.home-hero-mark[data-bloom] .mark-dot--y {
+  translate: -20.1% 11.6%;
+}
+
 /* The name, set the way he sets it: lowercase, and tracked tighter than the
    -0.025em every other heading takes. At this size the default leaves the
    letters standing apart as separate things rather than reading as one word. */
