@@ -63,7 +63,13 @@ html {
   font-size: var(--font-size-base);
   min-height: 100%;
   width: 100%;
+  /* `clip`, not `hidden`, here and on body. Both stop a page scrolling
+     sideways, but `hidden` on html and body together turns body into a
+     scroll container that never scrolls, and anything `position: sticky`
+     inside it — the filter's "show N projects" bar — then never sticks.
+     `hidden` stays first for a browser that does not know `clip`. */
   overflow-x: hidden;
+  overflow-x: clip;
   background: var(--ground);
 }
 
@@ -84,6 +90,7 @@ body {
   min-width: 0;
   padding-inline: var(--page-inline);
   overflow-x: hidden;
+  overflow-x: clip;
   background: transparent;
   color: #000;
   font-family: Archivo, sans-serif;

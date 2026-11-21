@@ -180,7 +180,8 @@
     padding-right: 5em;
   }
 
-  .home-filter-summary {
+  /* Carries the row so it outranks the touch rule's `relative` below. */
+  .home-head .home-filter-summary {
     position: absolute;
     top: 0;
     right: 0;
@@ -498,13 +499,22 @@
   }
 
   /* 44px, the size a fingertip is drawn at. */
-  .home-filter-summary,
   .home-filter-done:not([hidden]) {
     min-height: 44px;
   }
 
+  /* The button keeps the size it is drawn at, one line of "projects" tall,
+     and reaches 44px with an invisible margin of hit area around it instead.
+     Drawn at 44px its box ran on past "projects" and down beside the legend,
+     a control the height of two lines of type for a one-word label. */
   .home-filter-summary {
-    align-items: center;
+    position: relative;
+  }
+
+  .home-filter-summary::before {
+    content: '';
+    position: absolute;
+    inset: -8px -6px;
   }
 }
 
@@ -719,7 +729,12 @@
 }
 
 @media (max-width: 899.98px) {
+  /* Held to the bottom of the screen while the panel runs past it, so the
+     way out is in reach from the first group down, not only once a reader
+     has scrolled to the last. */
   .home-filter-done:not([hidden]) {
+    position: sticky;
+    bottom: calc(var(--page-gap) / 2);
     display: block;
     width: 100%;
     margin-top: var(--page-gap);
