@@ -256,11 +256,23 @@
   }
 }
 
-/* Three across on a tablet, where the page has two columns and the grid
-   used to follow it. Two cards to a row at 900 made each splash 420px wide,
-   so a screen held a card and a half; three is the grid's own call, and the
-   page's two columns are left as they are for everything else on it. */
-@media (min-width: 900px) and (max-width: 1199.98px) {
+/*
+ * The grid's own steps, not the page's: one card to a row on a phone held
+ * upright, two from 480 — a phone on its side, a narrow window — three from
+ * 1024, and the page's four from 1200. The page has one column below 640
+ * and two up to 1200, and following it put one 600px-wide card to a row on
+ * a phone turned sideways, and two 420px-wide ones on a tablet in landscape,
+ * a card and a half to a screen either way. The page's columns are left as
+ * they are for everything else on it.
+ */
+@media (min-width: 480px) and (max-width: 1023.98px) {
+  .home-index {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--page-gutter);
+  }
+}
+
+@media (min-width: 1024px) and (max-width: 1199.98px) {
   .home-index {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -348,7 +360,10 @@
    space between them, "2026.10.30   20 merged pull requests" read at a
    glance as two numbers of the same kind. Set as generated content with
    empty alternative text, so a screen reader does not say "dot". */
-.home-item-meta > * + *::before {
+/* Carried by the part before it, not the part after, so where a narrow card
+   wraps the line the point ends the first line rather than opening the
+   second: "2026.10.30 ·" over "20 merged pull requests". */
+.home-item-meta > *:not(:last-child)::after {
   content: '·' / '';
 }
 
@@ -501,10 +516,10 @@
  * hangs from the bottom of this row, so the panel used to drop 28px under the
  * pointer that had just picked — the box moved out from under the thing being
  * clicked. Set beside the legend it changes nothing's height, and it is still
- * next to the word it qualifies. Below 980 the panel is in flow and pushes the
+ * next to the word it qualifies. Below 900 the panel is in flow and pushes the
  * grid regardless, and the line keeps the row to itself.
  */
-@media (min-width: 980px) {
+@media (min-width: 900px) {
   .home-filter-state {
     flex-basis: auto;
     order: 0;
@@ -656,13 +671,10 @@
 }
 
 /*
- * Except below 980, where it cannot be over the grid without being over a
+ * Except below 900, where it cannot be over the grid without being over a
  * card's type. Up there the groups sit side by side and the panel is short
  * enough to end inside the first row's splashes; down here they stack, and
- * at 640 to 899 the stack ran 90px past two-up splashes into the titles. From
- * 900 the grid is three across and its splashes shorter, and with "posts"
- * among the kinds the side-by-side panel still ran 10px onto the titles
- * until 980.
+ * at 640 to 899 the stack ran 90px past two-up splashes into the titles.
  *
  * Three groups of options stacked one to a line is a tall panel, and a tall
  * panel on a narrow page reaches past the first card's splash and stops
@@ -676,7 +688,7 @@
  * grid is one or two cards wide and mostly below the fold anyway, so there is
  * far less to move than there is to spoil.
  */
-@media (max-width: 979.98px) {
+@media (max-width: 899.98px) {
   .home-filter-panel {
     position: static;
     margin-top: var(--page-gap);
@@ -725,7 +737,7 @@
  * kinds, and in a fourth column of its own it was stranded at the far edge.
  * The panel is short enough now to afford the row.
  */
-@media (min-width: 980px) {
+@media (min-width: 900px) {
   .home-filter-panel {
     display: grid;
     /* "what" is three short words and takes only their width; the room
@@ -829,7 +841,7 @@
 }
 
 /* The way out of the panel wherever it pushes the grid down rather than
-   lying over it — a phone, and a tablet below 980 — under everything in it: full width,
+   lying over it — a phone, and a tablet below 900 — under everything in it: full width,
    in the ink the filter button wears when it is open, so it reads as the
    other end of the same control. Wider screens lay the panel over the grid
    and see the result change under it, so they do without. */
@@ -837,7 +849,7 @@
   display: none;
 }
 
-@media (max-width: 979.98px) {
+@media (max-width: 899.98px) {
   /* Held to the bottom of the screen while the panel runs past it, so the
      way out is in reach from the first group down, not only once a reader
      has scrolled to the last. */
