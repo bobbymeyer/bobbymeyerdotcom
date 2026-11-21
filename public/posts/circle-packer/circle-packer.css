@@ -1,0 +1,147 @@
+/* circle packer — the poster and its controls. Scoped to #circle-packer, which
+   the script fills. One column until the note is wide enough to set the
+   controls beside the poster, the way a sheet sits beside its spec. */
+
+#circle-packer {
+  container-type: inline-size;
+  margin: var(--page-gutter) 0;
+}
+
+/* A container cannot query its own width, so the grid is one level in. */
+#circle-packer .cp-layout {
+  display: grid;
+  gap: var(--page-gutter);
+  align-items: start;
+}
+
+@container (min-width: 44rem) {
+  #circle-packer .cp-layout {
+    grid-template-columns: minmax(0, 1fr) 17rem;
+  }
+}
+
+/* The sheet. Its ratio is the box the run is set in; its width is whatever
+   keeps the whole sheet on one screen, so the poster is never read in parts. */
+#circle-packer .cp-stage {
+  display: grid;
+  gap: calc(var(--page-gap) / 2);
+  min-width: 0;
+}
+
+#circle-packer .cp-poster {
+  aspect-ratio: var(--ar, 0.8);
+  width: min(100%, max(18rem, calc((100svh - 8rem) * var(--ar, 0.8))));
+  background: #fff;
+  border: 1px solid #000;
+}
+
+#circle-packer canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+#circle-packer .cp-stats {
+  margin: 0;
+  font-size: 0.857em;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
+/* The controls, ruled like the contact form: a field is a label over a line. */
+#circle-packer .cp-panel {
+  display: grid;
+  gap: var(--page-gutter);
+  min-width: 0;
+}
+
+#circle-packer .cp-field {
+  display: grid;
+  gap: calc(var(--page-gap) / 2);
+  min-width: 0;
+}
+
+#circle-packer .cp-field > label,
+#circle-packer .cp-label {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--page-gap);
+  font-weight: 600;
+}
+
+#circle-packer output {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+#circle-packer .cp-hint {
+  margin: 0;
+  font-size: 0.857em;
+  line-height: 1.45;
+  opacity: 0.6;
+}
+
+#circle-packer input[type='text'],
+#circle-packer select {
+  width: 100%;
+  min-width: 0;
+  padding: calc(var(--page-gap) / 2) 0;
+  border: 0;
+  border-bottom: 1px solid #000;
+  border-radius: 0;
+  background: transparent;
+  color: #000;
+  font: inherit;
+  line-height: var(--line-height);
+}
+
+#circle-packer input[type='text']:focus,
+#circle-packer select:focus {
+  outline: none;
+  border-bottom-width: 2px;
+}
+
+#circle-packer input[type='range'],
+#circle-packer input[type='checkbox'] {
+  accent-color: #000;
+}
+
+#circle-packer input[type='range'] {
+  width: 100%;
+  margin: 0;
+}
+
+#circle-packer .cp-colors {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--page-gap);
+}
+
+#circle-packer input[type='color'] {
+  width: 100%;
+  height: 2.5rem;
+  padding: 2px;
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #fff;
+  cursor: pointer;
+}
+
+#circle-packer .cp-check {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--page-gap) / 2);
+}
+
+#circle-packer .cp-check input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+}
+
+#circle-packer .cp-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--page-gap);
+}

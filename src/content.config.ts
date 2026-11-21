@@ -1,6 +1,7 @@
 import { defineCollection, z } from 'astro:content';
 import { glob } from 'astro/loaders';
 import { fileURLToPath } from 'node:url';
+import { POST_PALETTE, type PostColorName } from './palette';
 
 /**
  * A note on a project: `src/content/posts/<slug>.md`, matched to the entry in
@@ -10,6 +11,11 @@ import { fileURLToPath } from 'node:url';
  * to say. The title, the summary, the colour and the splash are declared once
  * in the manifest; the version, the dates and the README come from GitHub. A
  * note is the part of a project that only a person can write.
+ *
+ * A note tagged `post` with no project behind it is a standalone post, and
+ * stands on its own at the same address. With no repository to read, it
+ * carries the few facts a repository would have supplied — see the fields at
+ * the end.
  */
 const posts = defineCollection({
   loader: glob({
@@ -76,6 +82,29 @@ const posts = defineCollection({
      * Nothing technological belongs in `tags`. See CLAUDE.md.
      */
     stack: z.array(z.string()).default([]),
+
+    /*
+     * The rest is for a standalone post: a note tagged `post` with no project
+     * in `src/projects.ts` behind it. A project's note leaves these alone,
+     * because a repository already answers each of them; a post has no
+     * repository to ask, so it says them here. `src/lib/project-entries.ts`
+     * refuses a post that is missing its title or its date.
+     */
+
+    /** Lowercase, like every title on the site. Emoji are fine. */
+    title: z.string().optional(),
+    /** The one line under the title, and on the card. */
+    summary: z.string().optional(),
+    /** When it went up. */
+    date: z.coerce.date().optional(),
+    /** When it last changed, if it has since. The index sorts on this. */
+    updated: z.coerce.date().optional(),
+    /** Fills the 16:9 splash field. A name from `src/palette.ts`. */
+    color: z
+      .enum(Object.keys(POST_PALETTE) as [PostColorName, ...PostColorName[]])
+      .default('paper'),
+    /** Image laid over the splash field. */
+    splash: z.string().optional(),
   }),
 });
 

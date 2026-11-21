@@ -66,7 +66,7 @@ export function isMark(tag: string): tag is MarkTag {
 export function hasMark(project: ProjectEntry, mark: MarkTag): boolean {
   if (mark === 'featured') return project.featured;
   if (mark === 'interactive') return project.interactive;
-  return project.repo.archived;
+  return project.repo?.archived ?? false;
 }
 
 /**

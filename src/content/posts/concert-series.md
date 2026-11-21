@@ -1,5 +1,5 @@
 ---
-tags: [project, design-systems, typography, print]
+tags: [post, design-systems, typography, print]
 stack: [python]
 ---
 

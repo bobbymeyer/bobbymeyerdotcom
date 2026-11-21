@@ -186,7 +186,7 @@ function splitMark(title: string): { mark: string | null; name: string } {
                 happens. Clearing lives in the projects row now, beside what
                 it clears. */}
             <p class="home-filter-hint">A project has to carry every tag you pick.</p>
-            {/* Below 900 only, where the panel pushes the grid off the
+            {/* Below 980 only, where the panel pushes the grid off the
                 screen, and a reader who has just picked a tag at the bottom
                 of it can see neither the result nor the count. This says
                 what they will get and takes them to it. Hidden until the
@@ -208,7 +208,7 @@ function splitMark(title: string): { mark: string | null; name: string } {
         <a
           class="home-item"
           href={project.href}
-          data-archived={project.repo.archived ? '' : undefined}
+          data-archived={project.repo?.archived ? '' : undefined}
           data-tags={filterTags(project).join(' ')}
         >
           <div
@@ -291,7 +291,7 @@ function splitMark(title: string): { mark: string | null; name: string } {
                 the name and the summary — where it pushed one card's summary
                 a line lower than every other in the row. */}
             <p class="home-item-meta">
-              {project.repo.archived && <span class="home-item-archived">archived</span>}
+              {project.repo?.archived && <span class="home-item-archived">archived</span>}
               <span class="home-item-date">
                 <span class="visually-hidden">Last change </span>
                 {formatPostDate(project.updated)}

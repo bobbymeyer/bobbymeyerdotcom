@@ -131,11 +131,26 @@ export const PROJECTS: ProjectDef[] = [
     splash: '/posts/gridi/splash.svg',
   },
   {
+    repo: 'bobbymeyer/poser',
+    tags: ['interactive'],
+    title: '🎼 poser',
+    bg_color: POST_PALETTE.magenta,
+    splash: '/posts/poser/splash.svg',
+  },
+  {
     repo: 'bobbymeyer/succession',
     tags: ['featured', 'interactive'],
     title: '👑 succession',
     bg_color: POST_PALETTE.rust,
     splash: '/posts/succession/splash.svg',
+  },
+  {
+    repo: 'bobbymeyer/privateer',
+    tags: ['interactive'],
+    title: '⚓ privateer',
+    summary: 'raid the Spanish Main, inspired by the Oregon Trail with roguelike elements',
+    bg_color: POST_PALETTE.cobalt,
+    splash: '/posts/privateer/splash.svg',
   },
   {
     repo: 'bobbymeyer/bobbymeyerdotcom',
