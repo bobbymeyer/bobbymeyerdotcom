@@ -360,6 +360,11 @@ function withoutEchoOf(note: string | null, title: string): string | null {
  * never cut one — a gem push is the release, and GitHub's Releases tab stays
  * empty — so the newest tag answers for those. GitHub returns tags newest
  * first, and a tag page renders whether or not a release was made from it.
+ *
+ * Only a name that reads as a version counts. A tag is sometimes a bookmark
+ * rather than a number — succession tags its printed decks, and
+ * `print-deck-2026-10-01-09884ab` set as a superscript ran off the end of its
+ * card — so a name that does not start with digits says nothing here.
  */
 function versionOf(
   repo: Repo,
@@ -367,7 +372,7 @@ function versionOf(
   tag: Tag | null,
 ): { label: string; url: string } | null {
   const name = release?.tag_name ?? tag?.name;
-  if (!name) return null;
+  if (!name || !/^v?\d+(\.\d+)*([-+.][\w.-]+)?$/.test(name)) return null;
 
   return {
     label: name.replace(/^v/, ''),

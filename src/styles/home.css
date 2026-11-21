@@ -3,7 +3,9 @@
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
   align-content: start;
-  padding-block: 0 var(--page-gutter);
+  /* Two gutters under the last row, so the footer reads as the page's foot
+     rather than one more line of the last card. */
+  padding-block: 0 calc(var(--page-gutter) * 2);
   background: transparent;
 }
 
@@ -89,9 +91,14 @@
   gap: var(--page-gap);
   grid-column: 1 / -1;
   margin-top: var(--page-gutter);
-  margin-bottom: var(--page-gap);
+  /* A gap and a half: the rule opens a section, and at one gap the first row
+     of splashes sat so close under it they read as hanging off the line. */
+  margin-bottom: calc(var(--page-gap) * 1.5);
   padding-bottom: calc(var(--page-gap) / 2);
   border-bottom: 1px solid #000;
+  /* Where "show N projects" brings the row to: a gap below the top of the
+     screen rather than with the button against it. */
+  scroll-margin-top: var(--page-gap);
 }
 
 .home-title {
@@ -116,6 +123,10 @@
   opacity: 0.6;
 }
 
+.home-legend-entry {
+  white-space: nowrap;
+}
+
 .home-legend::before {
   content: '(';
 }
@@ -129,13 +140,65 @@
    the legend has to show is the mark. */
 .home-legend-mark {
   --mark-box: 1.15em;
-  width: 1.75em;
-  height: 1.75em;
-  margin: 0 0.1em;
+  /* The size of the mark and no larger. The disc is invisible on white, so
+     the air it would leave round the mark reads as a stray space inside the
+     brackets — `( ◎ =` rather than `(◎ =`. */
+  width: var(--mark-box);
+  height: var(--mark-box);
+  margin: 0 0.15em 0 0;
   /* `middle` is defined as the box's midpoint on the baseline plus half the
      parent's x-height, which is exactly where a mark set in running text
      wants to sit — no hand-tuned offset to re-measure if the size changes. */
   vertical-align: middle;
+}
+
+/* On a phone the label, the legend and the button filled the line to within
+   about 15px, and a narrower phone than the one it was measured on would
+   have pushed the button under the legend's last word. The legend takes a
+   line of its own under "projects" instead, and the button keeps its place
+   beside the word it belongs to. */
+@media (max-width: 639.98px) {
+  /* Free to shrink, so at 320 it is the legend that wraps, inside the title,
+     rather than the button that drops onto a line of its own. */
+  .home-title {
+    flex: 1 1 0;
+    min-width: 0;
+    row-gap: calc(var(--page-gap) / 4);
+  }
+
+  .home-legend {
+    flex-basis: 100%;
+  }
+
+  /*
+   * The button stays where the thumb left it. The panel is in flow down
+   * here, and an open <details> is as wide as what it holds, so opening it
+   * used to carry the button down off the title's line onto one of its own,
+   * out from under the finger that pressed it. Pinned to the row's corner
+   * instead, with the title kept clear of it, and the open panel takes a
+   * line of its own below the picks it changes.
+   */
+  .home-title {
+    padding-right: 5em;
+  }
+
+  /* Carries the row so it outranks the touch rule's `relative` below. */
+  .home-head .home-filter-summary {
+    position: absolute;
+    top: 0;
+    right: 0;
+  }
+
+  .home-filter[open] {
+    flex-basis: 100%;
+    order: 4;
+  }
+
+  /* Its bottom edge and the rule under the row are both black hairlines;
+     a few pixels apart they read as one line drawn twice. */
+  .home-filter-panel {
+    margin-bottom: var(--page-gap);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -155,19 +218,61 @@
  * a reader ask for it rather than having it asserted at them in a list whose
  * order otherwise means one thing.
  */
+/* A hairline inside every splash. Laid on with an outline, which takes no
+   room and casts nothing: on a coloured splash it disappears, and on a white
+   one — this site's own — it is the card's top edge, which on a near-white
+   page there was otherwise none of. */
+.home-item .splash {
+  outline: 1px solid rgba(0, 0, 0, 0.08);
+  outline-offset: -1px;
+}
+
 .home-index {
   display: grid;
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
-  row-gap: var(--page-gutter);
+  /* A gutter and a half, so the break between rows reads as a different
+     kind of space from the gaps inside a card. At one gutter the last line
+     of a card stood 39px from the next picture, under three times the 14px
+     above a title, and rows ran together down the page. */
+  row-gap: calc(var(--page-gutter) * 1.5);
   align-items: start;
+}
+
+/* The page's own column gap is a single `--page-gap`, which is right for
+   prose that spans columns and wrong for pictures that sit in them: at 16px
+   four splashes edge to edge read as one strip of colour rather than four
+   things, against a gap twice that between the rows.
+
+   Not by setting a gap on the subgrid. A subgrid's wider gap comes out of the
+   tracks either side of each line, so the two inner columns lose it twice and
+   the outer two once, and the middle splashes came out shorter than the ones
+   at the ends with their titles out of line. Its own equal columns, as many
+   as the page has, keep every card the same width. */
+@media (min-width: 640px) {
+  .home-index {
+    grid-template-columns: repeat(var(--page-cols), minmax(0, 1fr));
+    column-gap: var(--page-gutter);
+  }
+}
+
+/* Three across on a tablet, where the page has two columns and the grid
+   used to follow it. Two cards to a row at 900 made each splash 420px wide,
+   so a screen held a card and a half; three is the grid's own call, and the
+   page's two columns are left as they are for everything else on it. */
+@media (min-width: 900px) and (max-width: 1199.98px) {
+  .home-index {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .home-item {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  padding-bottom: var(--page-gap);
+  /* Half a gap, so the hover rule sits under its own card's date rather than
+     out in the space between rows, where it could as well be the next one's. */
+  padding-bottom: calc(var(--page-gap) / 2);
   border-bottom: 4px solid transparent;
   color: inherit;
   text-decoration: none;
@@ -200,10 +305,37 @@
 }
 
 .home-item-copy p {
-  margin-top: var(--page-gap);
   font-size: var(--font-size-h6);
   font-weight: 400;
   line-height: var(--line-height);
+}
+
+/*
+ * Two pairs, not four equal steps. The summary belongs to the name, so it
+ * sits close under it; the tags and the date are about the project rather
+ * than part of what it is called, so they follow as a second group.
+ *
+ * These used to be one `margin-top: var(--page-gap)` on every paragraph here,
+ * and the half-gaps the tags and the meta asked for never took: `.home-item-copy
+ * p` outranks a single class, so all four lines stood a full gap apart and the
+ * name floated off its own summary. The selectors below carry the container so
+ * they win on their own terms.
+ */
+.home-item-copy .home-item-summary {
+  margin-top: calc(var(--page-gap) / 4);
+}
+
+.home-item-copy .home-item-tags {
+  margin-top: calc(var(--page-gap) * 0.75);
+}
+
+/* The size lives here and not on `.home-item-meta` for the same reason: on
+   the class alone it lost to `.home-item-copy p`, and the date ran at the
+   summary's 14px, wider and louder than the 11px subjects above it — the
+   least important line on the card set ahead of them. */
+.home-item-copy .home-item-meta {
+  margin-top: calc(var(--page-gap) / 2);
+  font-size: 0.857em;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -212,18 +344,68 @@
   }
 }
 
+/* A point between the date and the count, and after "archived". With only
+   space between them, "2026.10.30   20 merged pull requests" read at a
+   glance as two numbers of the same kind. Set as generated content with
+   empty alternative text, so a screen reader does not say "dot". */
+.home-item-meta > * + *::before {
+  content: '·' / '';
+}
+
+/* Each part a little row of its own, so the dot sits a half-gap from both
+   neighbours. Laid out inline, the space the markup leaves at the start of
+   the count survived after the dot, and it sat 9px from the date and 12px
+   from the count. A flex row drops the stray space. */
+.home-item-meta > * {
+  display: inline-flex;
+  gap: calc(var(--page-gap) / 2);
+}
+
+/* The emoji a title opens with, in a slot of one width, so every name in a
+   column starts at the same distance from the card's edge. */
+.home-item-mark {
+  display: inline-block;
+  width: 1.35em;
+}
+
+/* Hung in the margin where the page has one wide enough to take it, so the
+   name starts on the card's edge with the summary, tags and date under it —
+   one left edge instead of two. Below 1600 the page's side margin is
+   barely wider than the mark — at 1440 it hung 1px from the window's edge —
+   and it stays inside. */
+@media (min-width: 1600px) {
+  .home-item-mark {
+    margin-left: -1.35em;
+  }
+}
+
+/* Breaks a long summary where it reads, not wherever the column runs out. */
+.home-item-summary {
+  text-wrap: pretty;
+}
+
+/* Room between a name and the version riding on it; on an archived card
+   the strike through the name otherwise ran straight into the "v". */
+.home-item-copy h3 sup {
+  margin-left: 0.15em;
+}
+
 /* Under the caption: when the project last changed, and how much of it is on
    the timeline. The date is the thing the list is ordered by, so it is said. */
 .home-item-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--page-gap);
-  margin-top: calc(var(--page-gap) / 2);
-  font-size: 0.857em;
+  gap: 0 calc(var(--page-gap) / 2);
   font-weight: 400;
   line-height: var(--line-height);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  /* Dates down a column of cards line their digits up. */
+  font-variant-numeric: tabular-nums;
   opacity: 0.6;
+}
+
+.home-item-archived {
+  font-weight: 600;
 }
 
 /*
@@ -286,27 +468,186 @@
   color: #fff;
 }
 
-/* How many tags are ticked, so a narrowed grid is never a mystery with the
-   dropdown shut. */
-.home-filter-badge {
-  padding: 0 0.4em;
-  background: var(--ink-magenta);
-  color: #fff;
-  font-weight: 600;
+/*
+ * What the grid is narrowed to, in the row: "4 of 10", then each tag picked
+ * as the black chip a card draws a matching tag in. Pressing one takes it
+ * off, and under the pointer it lifts to an empty box — the chip it will
+ * become in the panel once it is no longer picked.
+ *
+ * A line of its own under the label and legend, at every width. Pushed
+ * right beside the button it sat most of a page's width from "projects", the
+ * word it qualifies, and read as toolbar rather than as what is showing; and
+ * a phone had to give it its own line anyway, so now one layout says it.
+ */
+.home-filter-state {
+  display: flex;
+  flex-wrap: wrap;
+  flex-basis: 100%;
+  order: 3;
+  align-items: baseline;
+  gap: calc(var(--page-gap) / 3);
+  /* Closer to the label it qualifies than the row gap would put it, and the
+     difference given to the rule below, which it otherwise sat 7px above. */
+  margin-top: calc(var(--page-gap) / -2);
+  margin-bottom: calc(var(--page-gap) / 4);
+  font-size: 0.857em;
+  line-height: var(--line-height);
 }
 
-.home-filter[open] > .home-filter-summary .home-filter-badge {
-  background: #fff;
-  color: #000;
+/*
+ * Where there is room, on the label's own line, straight after the legend.
+ *
+ * A line of its own appears on the first pick, and at these widths the panel
+ * hangs from the bottom of this row, so the panel used to drop 28px under the
+ * pointer that had just picked — the box moved out from under the thing being
+ * clicked. Set beside the legend it changes nothing's height, and it is still
+ * next to the word it qualifies. Below 980 the panel is in flow and pushes the
+ * grid regardless, and the line keeps the row to itself.
+ */
+@media (min-width: 980px) {
+  .home-filter-state {
+    flex-basis: auto;
+    order: 0;
+    /* A gutter, not a gap, after the legend, so the two do not run together. */
+    margin: 0 0 0 var(--page-gutter);
+  }
+
+  .home-filter {
+    margin-left: auto;
+  }
+}
+
+/* `display: flex` outranks the user agent's `[hidden]`, as on the cards. */
+.home-filter-state[hidden] {
+  display: none;
+}
+
+/* In ink: it is the answer to what the reader just asked, not a caption. */
+/* Semibold, so it reads as the answer and not as a third entry in the grey
+   legend it now follows on a wide screen. */
+.home-filter-state-count {
+  margin-right: calc(var(--page-gap) / 3);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-filter-state-tag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4em;
+  margin: 0;
+  padding: 0 0.5em;
+  border: 1px solid #000;
+  border-radius: 0;
+  background: #000;
+  color: #fff;
+  font: inherit;
+  letter-spacing: 0.02em;
+  line-height: 1.6;
+  cursor: pointer;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* Full white. At 70% it was a small grey mark on black, the faintest thing
+   in the row and the one that says pressing removes the tag. */
+.home-filter-state-x {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* A finger needs more than the line of type a pointer is happy with. The
+   chips grow in height only, so the panel keeps its shape. */
+@media (pointer: coarse) {
+  /*
+   * The chips stay the size they are drawn at everywhere — the size of the
+   * chips on the cards they match — and a finger gets an invisible margin of
+   * hit area around each instead. Drawn at 36px they were twice the height
+   * of their words, and black slabs in the picked line rather than chips.
+   *
+   * In the panel the margin is no taller than half the gap between rows, so
+   * one chip's reach never lands on the chip below it; the gap is widened a
+   * little here to give it room.
+   */
+  .home-filter-option,
+  .home-filter-state-tag {
+    position: relative;
+  }
+
+  .home-filter-option::before,
+  .home-filter-state-tag::before {
+    content: '';
+    position: absolute;
+    inset: -5px -3px;
+  }
+
+  .home-filter-state-tag::before {
+    inset: -10px -3px;
+  }
+
+  .home-filter-panel .home-filter-set {
+    row-gap: 10px;
+  }
+
+  /* A word with a line under it keeps its line under the word, and is
+     pressed by an invisible margin as tall as the chips beside it. Grown to
+     36px itself, the line went to the foot of the box, 13px below the word. */
+  .home-filter-clear {
+    position: relative;
+  }
+
+  .home-filter-clear::before {
+    content: '';
+    position: absolute;
+    inset: -10px -6px;
+  }
+
+  /* 44px, the size a fingertip is drawn at. */
+  .home-filter-done:not([hidden]) {
+    min-height: 44px;
+  }
+
+  /* The button keeps the size it is drawn at, one line of "projects" tall,
+     and reaches 44px with an invisible margin of hit area around it instead.
+     Drawn at 44px its box ran on past "projects" and down beside the legend,
+     a control the height of two lines of type for a one-word label. */
+  .home-filter-summary {
+    position: relative;
+  }
+
+  .home-filter-summary::before {
+    content: '';
+    position: absolute;
+    inset: -8px -6px;
+  }
+}
+
+@media (hover: hover) {
+  .home-filter-state-tag:hover {
+    background: #fff;
+    color: #000;
+  }
+}
+
+.home-filter-state-tag:focus {
+  outline: none;
+}
+
+.home-filter-state-tag:focus-visible {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+  transition: none;
 }
 
 /* Over the grid, not above it. Opening a filter should not move the thing
    you are about to filter. Needs its own ground — the page's is a gradient
    and the cards would otherwise read straight through. */
+/* Hung from the rule, its top border laid over it, so the rule and the
+   panel are one line rather than two a gap apart. */
 .home-filter-panel {
   position: absolute;
   z-index: 2;
-  top: calc(100% + var(--page-gap));
+  top: 100%;
   right: 0;
   left: 0;
   padding: var(--page-gap);
@@ -315,8 +656,13 @@
 }
 
 /*
- * Except in one column, where it cannot be over the grid without being over
- * a card.
+ * Except below 980, where it cannot be over the grid without being over a
+ * card's type. Up there the groups sit side by side and the panel is short
+ * enough to end inside the first row's splashes; down here they stack, and
+ * at 640 to 899 the stack ran 90px past two-up splashes into the titles. From
+ * 900 the grid is three across and its splashes shorter, and with "posts"
+ * among the kinds the side-by-side panel still ran 10px onto the titles
+ * until 980.
  *
  * Three groups of options stacked one to a line is a tall panel, and a tall
  * panel on a narrow page reaches past the first card's splash and stops
@@ -326,11 +672,11 @@
  * it reads as a page that has gone wrong.
  *
  * In flow it pushes the grid down instead. The thing it is filtering moves,
- * which is what the absolute position was avoiding — but on a phone the grid
- * is one card wide and mostly below the fold anyway, so there is far less to
- * move than there is to spoil.
+ * which is what the absolute position was avoiding — but at these widths the
+ * grid is one or two cards wide and mostly below the fold anyway, so there is
+ * far less to move than there is to spoil.
  */
-@media (max-width: 639.98px) {
+@media (max-width: 979.98px) {
   .home-filter-panel {
     position: static;
     margin-top: var(--page-gap);
@@ -342,7 +688,8 @@
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: calc(var(--page-gap) / 2) var(--page-gap);
+  /* Set as the card's chips are, a third of a gap apart. */
+  gap: calc(var(--page-gap) / 3);
   margin: 0;
   padding: 0;
   border: 0;
@@ -357,53 +704,198 @@
   border-bottom: 1px solid #d4d4d4;
 }
 
+/*
+ * Side by side wherever there is room, so the panel is short.
+ *
+ * Stacked, the three groups made a panel about 330px tall at 1440, which ran
+ * past the first row's splashes and stopped a few pixels above their summaries
+ * — a box edge drawn along the top of a line of type reads as the type having
+ * been cut, not as a layer over it. Laid out in columns it is a third of that
+ * and ends inside the pictures, where a layer over artwork looks like one.
+ *
+ * The widths follow the vocabularies: four kinds, a dozen subjects, half as
+ * many tools. No rules between them: a column is as wide as its share,
+ * not as its chips, so the slack lands on one side of a rule and not the
+ * other — 29px before one, 90px after the next — and the rule makes the
+ * difference look like a mistake. A wider gap and the group names do the
+ * dividing, and the slack is just paper.
+ *
+ * The note on how picks combine runs the full width under the groups, since
+ * it is about all of them: tucked under "what" it read as a footnote to the
+ * kinds, and in a fourth column of its own it was stranded at the far edge.
+ * The panel is short enough now to afford the row.
+ */
+@media (min-width: 980px) {
+  .home-filter-panel {
+    display: grid;
+    /* "what" is three short words and takes only their width; the room
+       left goes to the two long vocabularies, so neither wraps a single
+       chip onto a line of its own while the first column stands empty. */
+    grid-template-columns: max-content minmax(0, 3fr) minmax(0, 2fr);
+    column-gap: calc(var(--page-gutter) * 1.5);
+  }
+
+  .home-filter-set--divided {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .home-filter-set {
+    align-content: start;
+  }
+
+  /* Half the stacked layout's air: one line of small type needs less than
+     a group does, and every pixel here is a pixel more of picture covered.
+     Carries the panel so it outranks the stacked layout's rule further down. */
+  .home-filter-panel .home-filter-hint {
+    grid-column: 1 / -1;
+    margin-top: calc(var(--page-gap) / 2);
+    padding-top: calc(var(--page-gap) / 2);
+  }
+}
+
+/* Full ink. At 60% the group names were quieter than the options under them
+   and only the rules between columns said where one group ended. */
 .home-filter-legend {
-  padding: 0;
+  padding: 0 0 calc(var(--page-gap) / 3);
   font-size: 0.857em;
   font-weight: 600;
   letter-spacing: 0.04em;
   line-height: var(--line-height);
-  opacity: 0.6;
 }
 
+/*
+ * An option is the chip a card wears for the same tag, not a checkbox with a
+ * label. The panel and the cards were two vocabularies for one set of words —
+ * bold labels beside ticked boxes up here, hairline boxes down there — so
+ * picking "print" did not look like anything on the page it was picking from.
+ * Now an option is drawn as the card's chip and, once picked, fills black,
+ * which is exactly how the matching chip on each card below is drawn in.
+ *
+ * The checkbox is still there, out of sight, so the keyboard and a screen
+ * reader get a real one; the chip shows its focus for it.
+ */
 .home-filter-option {
   display: inline-flex;
   align-items: baseline;
   gap: 0.4em;
+  padding: 0 0.5em;
+  border: 1px solid rgba(0, 0, 0, 0.35);
   font-size: 0.857em;
-  line-height: var(--line-height);
+  line-height: 1.6;
   cursor: pointer;
+  transition: border-color 0.25s ease, background-color 0.25s ease, color 0.25s ease;
 }
 
-.home-filter-option input {
-  flex: none;
-  width: 0.85em;
-  height: 0.85em;
-  margin: 0;
-  accent-color: #000;
-  cursor: pointer;
+@media (hover: hover) {
+  .home-filter-option:hover {
+    border-color: #000;
+  }
+}
+
+.home-filter-option:has(input:checked) {
+  border-color: #000;
+  background: #000;
+  color: #fff;
+}
+
+.home-filter-option:has(input:focus-visible) {
+  outline: 2px solid #000;
+  outline-offset: 2px;
+  transition: none;
 }
 
 .home-filter-name {
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.02em;
 }
 
+/* How many there would be with this one added — it moves as the selection
+   does. Figures in a fixed width, so a chip does not twitch when 10 becomes 4. */
 .home-filter-count {
   font-weight: 400;
+  font-variant-numeric: tabular-nums;
   opacity: 0.6;
 }
 
-.home-filter-actions {
+.home-filter-hint {
   margin-top: var(--page-gap);
   padding-top: var(--page-gap);
   border-top: 1px solid #d4d4d4;
   font-size: 0.857em;
-  font-weight: 600;
+  line-height: var(--line-height);
+  opacity: 0.6;
 }
 
+/* The way out of the panel wherever it pushes the grid down rather than
+   lying over it — a phone, and a tablet below 980 — under everything in it: full width,
+   in the ink the filter button wears when it is open, so it reads as the
+   other end of the same control. Wider screens lay the panel over the grid
+   and see the result change under it, so they do without. */
+.home-filter-done {
+  display: none;
+}
+
+@media (max-width: 979.98px) {
+  /* Held to the bottom of the screen while the panel runs past it, so the
+     way out is in reach from the first group down, not only once a reader
+     has scrolled to the last. */
+  /* A strip of the panel's own ground above it, so whatever the bar is held
+     over is cut off at a clean edge rather than showing the tops of a row of
+     chips in the sliver between. Drawn with a pseudo-element: a shadow is
+     not the way this site separates one thing from another. */
+  .home-filter-done:not([hidden])::before {
+    content: '';
+    position: absolute;
+    right: calc(var(--page-gap) * -1 - 1px);
+    bottom: 100%;
+    left: calc(var(--page-gap) * -1 - 1px);
+    height: var(--page-gap);
+    background: #fff;
+  }
+
+  .home-filter-done:not([hidden]) {
+    position: sticky;
+    bottom: calc(var(--page-gap) / 2);
+    display: block;
+    width: 100%;
+    margin-top: var(--page-gap);
+    padding: calc(var(--page-gap) / 2) var(--page-gap);
+    border: 1px solid #000;
+    border-radius: 0;
+    background: #000;
+    color: #fff;
+    font: inherit;
+    font-size: 0.857em;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .home-filter-done:focus {
+    outline: none;
+  }
+
+  .home-filter-done:focus-visible {
+    outline: 2px solid #000;
+    outline-offset: 2px;
+  }
+}
+
+/* Clears every pick at once, at the end of the chips in the row. Set as the
+   site sets a link — a hairline under the word that thickens on hover — since
+   it acts in place rather than being one more thing to pick. */
 .home-filter-clear {
+  margin: 0 0 0 calc(var(--page-gap) / 3);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
   color: inherit;
+  font: inherit;
+  letter-spacing: 0.02em;
+  cursor: pointer;
   text-decoration: none;
   border-bottom: 4px solid transparent;
   background: linear-gradient(currentColor, currentColor) 0 100% / 100% 1px no-repeat;
@@ -435,15 +927,17 @@
   display: flex;
   flex-wrap: wrap;
   gap: calc(var(--page-gap) / 3);
-  margin-top: calc(var(--page-gap) / 2);
 }
 
+/* The date line's size, and the size the filter draws the same chips at, so
+   the card's two lines of small print are one size rather than 11px over
+   12px, close enough to read as a slip. Tracking eased to the date's. */
 .home-item-tag {
   padding: 0 0.4em;
   border: 1px solid rgba(0, 0, 0, 0.35);
-  font-size: 0.786em;
+  font-size: 0.857em;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   line-height: 1.6;
 }
 
@@ -453,9 +947,9 @@
   color: #fff;
 }
 
-/* Withdrawing, after a tag link opened it. Only the panel goes; the badge on
-   the summary stays behind, so a reader who was not watching still sees that
-   the grid is narrowed and by how many tags. The duration is FADE_MS in
+/* Withdrawing, after a tag link opened it. Only the panel goes; the chips in
+   the row stay behind, so a reader who was not watching still sees what the
+   grid is narrowed to. The duration is FADE_MS in
    project-filter.ts, which waits it out before shutting the <details>. */
 /* The transition belongs to the withdrawal and to nothing else. Putting it on
    the panel itself, so that the fade ran both ways, looked tidier and was
@@ -473,10 +967,16 @@
 
 /* An option that would leave nothing on the page. Dimmed rather than removed,
    so the vocabulary stays put as a reader ticks things and the panel does not
-   reflow under the pointer. */
+   reflow under the pointer.
+
+   Said by the box as well as the tone: a dashed rule is a chip that is not
+   there to press. At 35% opacity the tone alone took the word down to about
+   1.7:1, past reading, and with two tags picked most of the panel looked
+   switched off rather than merely unavailable. */
 .home-filter-option:has(input:disabled),
 .home-filter-option[data-empty] {
-  opacity: 0.35;
+  border-style: dashed;
+  color: rgba(0, 0, 0, 0.45);
   cursor: not-allowed;
 }
 
@@ -506,6 +1006,8 @@
 @media (prefers-reduced-motion: reduce) {
   .home-filter-summary,
   .home-filter-clear,
+  .home-filter-option,
+  .home-filter-state-tag,
   .home-filter[data-dismissing] > .home-filter-panel {
     transition: none;
   }

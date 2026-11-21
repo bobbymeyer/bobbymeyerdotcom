@@ -37,7 +37,10 @@ const ABOVE_FOLD = 4;
 // subjects and then the tools, both by weight, the ones with the most behind
 // them first and the singles trailing off the end.
 const interests = interestsFrom(projects);
-const facets = facetsOnly(interests);
+// A kind every entry is narrows nothing — "projects 10" on an index of ten
+// projects is an option that can only repeat the count — so a facet only
+// earns a place once something on the page is not it.
+const facets = facetsOnly(interests).filter((interest) => interest.count < projects.length);
 const tags = orderInterests(topicsOnly(interests), 'greatest');
 const stack = orderInterests(stackOnly(interests), 'greatest');
 
@@ -45,6 +48,18 @@ const stack = orderInterests(stackOnly(interests), 'greatest');
 // it explains.
 const anyInteractive = projects.some((project) => project.interactive);
 const anyFeatured = projects.some((project) => project.featured);
+
+/**
+ * A title's leading emoji, split from the name after it, so the card can set
+ * the mark in a slot of its own width. Emoji are not one width — the ticket is
+ * twice the crown — and run together with the name they started each card's
+ * words at a different distance from the edge, so names down a column did not
+ * line up. A title with no mark comes back whole.
+ */
+function splitMark(title: string): { mark: string | null; name: string } {
+  const match = title.match(/^(\p{Extended_Pictographic}\uFE0F?|\p{Regional_Indicator}{2})\s+(.*)$/u);
+  return match ? { mark: match[1], name: match[2] } : { mark: null, name: title };
+}
 ---
 
 <Base description={DESCRIPTION}>
@@ -66,20 +81,16 @@ const anyFeatured = projects.some((project) => project.featured);
     <div class="home-head">
       <h2 class="home-title">
         projects
+        {/* The legend is written tight against its own edges, because
+            whitespace there is a space inside the brackets and, on a narrow
+            phone, a place to break before the closing one. Each entry holds
+            together, so the only wrap left is between the two. */}
         {(anyInteractive || anyFeatured) && (
-          <span class="home-legend">
-            {anyInteractive && (
-              <Fragment>
-                <span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = runs in the browser{anyFeatured ? ',' : ''}
-              </Fragment>
-            )}
-            {anyInteractive && anyFeatured && ' '}
-            {anyFeatured && (
-              <Fragment>
-                <span class="mark-badge home-legend-mark"><span class="mark-star">★</span></span> = featured
-              </Fragment>
-            )}
-          </span>
+          <span class="home-legend">{anyInteractive && (
+            <span class="home-legend-entry"><span class="mark-badge home-legend-mark"><Mark class="mark--spread" /></span> = runs in the browser{anyFeatured ? ',' : ''}</span>
+          )}{anyInteractive && anyFeatured && ' '}{anyFeatured && (
+            <span class="home-legend-entry"><span class="mark-badge home-legend-mark"><span class="mark-star">★</span></span> = featured</span>
+          )}</span>
         )}
       </h2>
 
@@ -92,7 +103,11 @@ const anyFeatured = projects.some((project) => project.featured);
 
       A disclosure rather than a row of every tag — fifteen chips above the
       grid is a wall, and this is a thing a reader reaches for occasionally.
-      Closed it is one word and, when something is ticked, a count.
+      Closed it is one word, and what is ticked is said beside it.
+
+      The options are drawn as the chips the cards wear, and each one counts
+      what there would be with it added rather than what carries it overall,
+      so a reader can see where a pick goes before making it.
 
       Ticking tags narrows: a project has to carry all of them. On nine
       projects most second picks land on nothing, so an option that would take
@@ -103,12 +118,22 @@ const anyFeatured = projects.some((project) => project.featured);
       with scripting off every project is listed and reachable and the only
       thing missing is the narrowing.
     */}
+      {/*
+        What the grid is narrowed to, said in the row rather than behind the
+        button: how many of how many, and each tag picked as the same black
+        chip the cards draw it in, with a way to drop it. It used to be a
+        magenta count on the button, which told a reader that something was
+        on and not what — and the panel a tag link from /about opens shuts
+        itself, so after two seconds that number was all they had.
+
+        Empty and hidden until the script fills it; with no script there is
+        no narrowing to describe.
+      */}
+      <p class="home-filter-state" data-filter-state aria-live="polite" hidden></p>
+
       {(tags.length > 0 || facets.length > 0 || stack.length > 0) && (
         <details class="home-filter" data-project-filter>
-          <summary class="home-filter-summary">
-            <span>filter</span>
-            <span class="home-filter-badge" data-filter-badge hidden></span>
-          </summary>
+          <summary class="home-filter-summary">filter</summary>
           <div class="home-filter-panel">
             {/* Posts are missing from this row until the first one exists,
                 and each of the others appears the first time it is true of
@@ -119,12 +144,10 @@ const anyFeatured = projects.some((project) => project.featured);
                 <legend class="home-filter-legend">what</legend>
                 {facets.map((interest) => (
                   <label class="home-filter-option">
-                    <input type="checkbox" value={interest.tag} data-filter-tag />
+                    <input class="visually-hidden" type="checkbox" value={interest.tag} data-filter-tag />
                     <span class="home-filter-name">{facetLabel(interest.tag)}</span>
-                    <span class="home-filter-count" aria-hidden="true">{interest.count}</span>
-                    <span class="visually-hidden">
-                      {interest.count === 1 ? '1 entry' : `${interest.count} entries`}
-                    </span>
+                    <span class="home-filter-count" aria-hidden="true" data-filter-count>{interest.count}</span>
+                    <span class="visually-hidden" data-filter-count-said>{interest.count === 1 ? '1 to show' : `${interest.count} to show`}</span>
                   </label>
                 ))}
               </fieldset>
@@ -135,12 +158,10 @@ const anyFeatured = projects.some((project) => project.featured);
               </legend>
               {tags.map((interest) => (
                 <label class="home-filter-option">
-                  <input type="checkbox" value={interest.tag} data-filter-tag />
+                  <input class="visually-hidden" type="checkbox" value={interest.tag} data-filter-tag />
                   <span class="home-filter-name">{interest.tag}</span>
-                  <span class="home-filter-count" aria-hidden="true">{interest.count}</span>
-                  <span class="visually-hidden">
-                    {interest.count === 1 ? '1 project' : `${interest.count} projects`}
-                  </span>
+                  <span class="home-filter-count" aria-hidden="true" data-filter-count>{interest.count}</span>
+                  <span class="visually-hidden" data-filter-count-said>{interest.count === 1 ? '1 to show' : `${interest.count} to show`}</span>
                 </label>
               ))}
             </fieldset>
@@ -152,19 +173,25 @@ const anyFeatured = projects.some((project) => project.featured);
                 <legend class="home-filter-legend">built with</legend>
                 {stack.map((interest) => (
                   <label class="home-filter-option">
-                    <input type="checkbox" value={interest.tag} data-filter-tag />
+                    <input class="visually-hidden" type="checkbox" value={interest.tag} data-filter-tag />
                     <span class="home-filter-name">{interest.tag}</span>
-                    <span class="home-filter-count" aria-hidden="true">{interest.count}</span>
-                    <span class="visually-hidden">
-                      {interest.count === 1 ? '1 project' : `${interest.count} projects`}
-                    </span>
+                    <span class="home-filter-count" aria-hidden="true" data-filter-count>{interest.count}</span>
+                    <span class="visually-hidden" data-filter-count-said>{interest.count === 1 ? '1 to show' : `${interest.count} to show`}</span>
                   </label>
                 ))}
               </fieldset>
             )}
-            <p class="home-filter-actions">
-              <a class="home-filter-clear" href="/" data-filter-clear>show everything</a>
-            </p>
+            {/* The one rule a reader cannot see from the chips: picks narrow
+                together rather than adding up. Said once, where the picking
+                happens. Clearing lives in the projects row now, beside what
+                it clears. */}
+            <p class="home-filter-hint">A project has to carry every tag you pick.</p>
+            {/* Below 980 only, where the panel pushes the grid off the
+                screen, and a reader who has just picked a tag at the bottom
+                of it can see neither the result nor the count. This says
+                what they will get and takes them to it. Hidden until the
+                script, which is the only thing that can do either, is here. */}
+            <button type="button" class="home-filter-done" data-filter-done hidden>show 10 projects</button>
           </div>
         </details>
       )}
@@ -238,9 +265,11 @@ const anyFeatured = projects.some((project) => project.featured);
           </div>
           <div class="home-item-copy">
             <h3 transition:name={`title-${project.slug}`}>
-              {project.title}{project.version && <sup>v{project.version}</sup>}
+              {(() => {
+                const { mark, name } = splitMark(project.title);
+                return mark ? <Fragment><span class="home-item-mark">{mark}</span>{name}</Fragment> : name;
+              })()}{project.version && <sup>v{project.version}</sup>}
             </h3>
-            {project.repo?.archived && <p class="archived-note">archived</p>}
             <p class="home-item-summary" transition:name={`summary-${project.slug}`}>{project.summary}</p>
             {/*
               Tags are set here, not linked. The whole card is already one
@@ -257,7 +286,12 @@ const anyFeatured = projects.some((project) => project.featured);
                 ))}
               </p>
             )}
+            {/* Archived is a status, like the date beside it, so it is said
+                on the same line rather than as a paragraph of its own between
+                the name and the summary — where it pushed one card's summary
+                a line lower than every other in the row. */}
             <p class="home-item-meta">
+              {project.repo?.archived && <span class="home-item-archived">archived</span>}
               <span class="home-item-date">
                 <span class="visually-hidden">Last change </span>
                 {formatPostDate(project.updated)}
