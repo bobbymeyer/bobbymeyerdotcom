@@ -256,6 +256,16 @@
   }
 }
 
+/* Three across on a tablet, where the page has two columns and the grid
+   used to follow it. Two cards to a row at 900 made each splash 420px wide,
+   so a screen held a card and a half; three is the grid's own call, and the
+   page's two columns are left as they are for everything else on it. */
+@media (min-width: 900px) and (max-width: 1199.98px) {
+  .home-index {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .home-item {
   display: flex;
   flex-direction: column;
