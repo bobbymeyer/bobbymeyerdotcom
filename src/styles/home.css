@@ -328,12 +328,27 @@
   }
 }
 
+/* A point between the date and the count, and after "archived". With only
+   space between them, "2026.10.30   20 merged pull requests" read at a
+   glance as two numbers of the same kind. Set as generated content with
+   empty alternative text, so a screen reader does not say "dot". */
+.home-item-meta > * + *::before {
+  content: '·' / '';
+  margin-right: calc(var(--page-gap) / 2);
+}
+
+/* Room between a name and the version riding on it; on an archived card
+   the strike through the name otherwise ran straight into the "v". */
+.home-item-copy h3 sup {
+  margin-left: 0.15em;
+}
+
 /* Under the caption: when the project last changed, and how much of it is on
    the timeline. The date is the thing the list is ordered by, so it is said. */
 .home-item-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--page-gap);
+  gap: 0 calc(var(--page-gap) / 2);
   font-weight: 400;
   line-height: var(--line-height);
   letter-spacing: 0.02em;
