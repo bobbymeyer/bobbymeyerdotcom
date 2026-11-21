@@ -501,10 +501,10 @@
  * hangs from the bottom of this row, so the panel used to drop 28px under the
  * pointer that had just picked — the box moved out from under the thing being
  * clicked. Set beside the legend it changes nothing's height, and it is still
- * next to the word it qualifies. Below 900 the panel is in flow and pushes the
+ * next to the word it qualifies. Below 980 the panel is in flow and pushes the
  * grid regardless, and the line keeps the row to itself.
  */
-@media (min-width: 900px) {
+@media (min-width: 980px) {
   .home-filter-state {
     flex-basis: auto;
     order: 0;
@@ -656,10 +656,13 @@
 }
 
 /*
- * Except below 900, where it cannot be over the grid without being over a
+ * Except below 980, where it cannot be over the grid without being over a
  * card's type. Up there the groups sit side by side and the panel is short
  * enough to end inside the first row's splashes; down here they stack, and
- * at 640 to 899 the stack ran 90px past two-up splashes into the titles.
+ * at 640 to 899 the stack ran 90px past two-up splashes into the titles. From
+ * 900 the grid is three across and its splashes shorter, and with "posts"
+ * among the kinds the side-by-side panel still ran 10px onto the titles
+ * until 980.
  *
  * Three groups of options stacked one to a line is a tall panel, and a tall
  * panel on a narrow page reaches past the first card's splash and stops
@@ -673,7 +676,7 @@
  * grid is one or two cards wide and mostly below the fold anyway, so there is
  * far less to move than there is to spoil.
  */
-@media (max-width: 899.98px) {
+@media (max-width: 979.98px) {
   .home-filter-panel {
     position: static;
     margin-top: var(--page-gap);
@@ -722,7 +725,7 @@
  * kinds, and in a fourth column of its own it was stranded at the far edge.
  * The panel is short enough now to afford the row.
  */
-@media (min-width: 900px) {
+@media (min-width: 980px) {
   .home-filter-panel {
     display: grid;
     /* "what" is three short words and takes only their width; the room
@@ -826,7 +829,7 @@
 }
 
 /* The way out of the panel wherever it pushes the grid down rather than
-   lying over it — a phone, and a tablet below 900 — under everything in it: full width,
+   lying over it — a phone, and a tablet below 980 — under everything in it: full width,
    in the ink the filter button wears when it is open, so it reads as the
    other end of the same control. Wider screens lay the panel over the grid
    and see the result change under it, so they do without. */
@@ -834,7 +837,7 @@
   display: none;
 }
 
-@media (max-width: 899.98px) {
+@media (max-width: 979.98px) {
   /* Held to the bottom of the screen while the panel runs past it, so the
      way out is in reach from the first group down, not only once a reader
      has scrolled to the last. */
