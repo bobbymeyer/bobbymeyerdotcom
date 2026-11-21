@@ -336,7 +336,15 @@
    empty alternative text, so a screen reader does not say "dot". */
 .home-item-meta > * + *::before {
   content: '·' / '';
-  margin-right: calc(var(--page-gap) / 2);
+}
+
+/* Each part a little row of its own, so the dot sits a half-gap from both
+   neighbours. Laid out inline, the space the markup leaves at the start of
+   the count survived after the dot, and it sat 9px from the date and 12px
+   from the count. A flex row drops the stray space. */
+.home-item-meta > * {
+  display: inline-flex;
+  gap: calc(var(--page-gap) / 2);
 }
 
 /* The emoji a title opens with, in a slot of one width, so every name in a
@@ -344,6 +352,17 @@
 .home-item-mark {
   display: inline-block;
   width: 1.35em;
+}
+
+/* Hung in the margin where the page has one wide enough to take it, so the
+   name starts on the card's edge with the summary, tags and date under it —
+   one left edge instead of two. Below 1600 the page's side margin is
+   barely wider than the mark — at 1440 it hung 1px from the window's edge —
+   and it stays inside. */
+@media (min-width: 1600px) {
+  .home-item-mark {
+    margin-left: -1.35em;
+  }
 }
 
 /* Breaks a long summary where it reads, not wherever the column runs out. */
