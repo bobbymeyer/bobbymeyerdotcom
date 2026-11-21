@@ -231,7 +231,11 @@
   display: grid;
   grid-template-columns: subgrid;
   grid-column: 1 / -1;
-  row-gap: var(--page-gutter);
+  /* A gutter and a half, so the break between rows reads as a different
+     kind of space from the gaps inside a card. At one gutter the last line
+     of a card stood 39px from the next picture, under three times the 14px
+     above a title, and rows ran together down the page. */
+  row-gap: calc(var(--page-gutter) * 1.5);
   align-items: start;
 }
 
@@ -912,12 +916,15 @@
   gap: calc(var(--page-gap) / 3);
 }
 
+/* The date line's size, and the size the filter draws the same chips at, so
+   the card's two lines of small print are one size rather than 11px over
+   12px, close enough to read as a slip. Tracking eased to the date's. */
 .home-item-tag {
   padding: 0 0.4em;
   border: 1px solid rgba(0, 0, 0, 0.35);
-  font-size: 0.786em;
+  font-size: 0.857em;
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
   line-height: 1.6;
 }
 
