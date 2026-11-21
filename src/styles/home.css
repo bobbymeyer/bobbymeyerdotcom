@@ -446,7 +446,8 @@
   .home-filter-state {
     flex-basis: auto;
     order: 0;
-    margin: 0 0 0 var(--page-gap);
+    /* A gutter, not a gap, after the legend, so the two do not run together. */
+    margin: 0 0 0 var(--page-gutter);
   }
 
   .home-filter {
@@ -460,8 +461,11 @@
 }
 
 /* In ink: it is the answer to what the reader just asked, not a caption. */
+/* Semibold, so it reads as the answer and not as a third entry in the grey
+   legend it now follows on a wide screen. */
 .home-filter-state-count {
   margin-right: calc(var(--page-gap) / 3);
+  font-weight: 600;
   letter-spacing: 0.02em;
   font-variant-numeric: tabular-nums;
 }
@@ -483,8 +487,11 @@
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
+/* Full white. At 70% it was a small grey mark on black, the faintest thing
+   in the row and the one that says pressing removes the tag. */
 .home-filter-state-x {
-  opacity: 0.7;
+  font-size: 1.1em;
+  line-height: 1;
 }
 
 /* A finger needs more than the line of type a pointer is happy with. The
@@ -493,9 +500,16 @@
   /* Scoped to their containers to outrank the base rules further down, which
      would otherwise keep the words on the baseline at the top of the box. */
   .home-filter-panel .home-filter-option,
-  .home-filter-state .home-filter-state-tag {
+  .home-filter-state .home-filter-state-tag,
+  .home-filter-state .home-filter-clear {
     align-items: center;
     min-height: 36px;
+  }
+
+  /* A word with a line under it, given the chips' height to be pressed by. */
+  .home-filter-state .home-filter-clear {
+    display: inline-flex;
+    padding-inline: calc(var(--page-gap) / 3);
   }
 
   /* 44px, the size a fingertip is drawn at. */
@@ -607,7 +621,11 @@
  * and ends inside the pictures, where a layer over artwork looks like one.
  *
  * The widths follow the vocabularies: four kinds, a dozen subjects, half as
- * many tools. The rules between groups turn on their side to match.
+ * many tools. No rules between them: a column is as wide as its share,
+ * not as its chips, so the slack lands on one side of a rule and not the
+ * other — 29px before one, 90px after the next — and the rule makes the
+ * difference look like a mistake. A wider gap and the group names do the
+ * dividing, and the slack is just paper.
  *
  * The note on how picks combine runs the full width under the groups, since
  * it is about all of them: tucked under "what" it read as a footnote to the
@@ -621,14 +639,12 @@
        left goes to the two long vocabularies, so neither wraps a single
        chip onto a line of its own while the first column stands empty. */
     grid-template-columns: max-content minmax(0, 3fr) minmax(0, 2fr);
-    column-gap: var(--page-gutter);
+    column-gap: calc(var(--page-gutter) * 1.5);
   }
 
   .home-filter-set--divided {
     margin-bottom: 0;
-    padding-right: var(--page-gutter);
     padding-bottom: 0;
-    border-right: 1px solid #d4d4d4;
     border-bottom: 0;
   }
 
