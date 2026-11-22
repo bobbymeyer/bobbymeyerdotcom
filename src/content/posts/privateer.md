@@ -27,7 +27,12 @@ and slower on short rations; six weeks without fresh food and the scurvy starts
 to kill. At a landmark, water, forage or careen where there's a shore, buy from
 a chandler or trade with islanders, or raid a Spanish town; on the way, meet
 what comes: storms, calms in the doldrums, williwaws in the Strait, fever, foul
-water, weevils in the bread, and a sail on the horizon.
+water, weevils in the bread, and a sail on the horizon. Prisoners, islanders and
+chandlers tell you things, and a rumor followed opens a detour: the Manila
+galleon off Cabo San Lucas, the Great Ship of Macau, a carrack from Goa off the
+Azores, the Isles of Solomon. Some are true and some cost you the days for
+nothing. A storm can drive you ashore where you never meant to go: Bermuda,
+St Helena, the Galápagos.
 
 Every fight is cards. The ship you chose makes your deck, and the other
 ship's go into the same deck. Each round three are dealt and you keep two,
