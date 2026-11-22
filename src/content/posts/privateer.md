@@ -10,9 +10,12 @@ Plymouth, autumn 1580. Drake is home with a hold full of Spanish silver, and
 every gentleman with a ship thinks the same thing: I could do that too. You are
 one of them. Choose your ship, the way Oregon Trail has you choose banker,
 carpenter or farmer: a pinnace with a fat purse and a weak deck, a sloop, or a
-brigantine with guns and little money. Fit her out at Plymouth, sail round the
-world the way Drake did, or a way of your own, take what Spain leaves lying
-about, and come home to Plymouth rich, or not at all.
+brigantine with guns and little money. Then choose whose money you sail on: the
+Crown's, with stores from the Queen's own and a third of what you bring home
+for her; gentlemen adventurers', who put in the most and take half your profit;
+or your own, and keep it all. Fit her out at Plymouth, sail round the world the
+way Drake did, or a way of your own, take what Spain leaves lying about, and
+come home to Plymouth rich, or not at all.
 
 It borrows its bones from Oregon Trail. The voyage is a chain of landmarks on a
 chart built from real coastlines, with forks where the captains of the time
@@ -32,10 +35,17 @@ which play in the order you pick them; played in the order of a boarding
 action, sail then shot then board, each card hits harder than the last. A fight
 spends powder and kills hands, and a prize's hold restocks yours. Off Cape San
 Francisco the treasure ship from Callao comes alongside, taking you for a
-Spaniard, unless your raids on the coast have warned her.
+Spaniard, unless your raids on the coast have warned her. Spanish and
+Portuguese prizes are lawful, and every one adds to what Spain will demand
+back. A French or Hanseatic merchant is richer than she looks, and taking her
+is piracy.
 
-Come home and the voyage is scored, treasure and hands and ship, more for the
-smaller ship, against the
-voyages of the time: Drake's, round the world, rich, with most of the crew;
+Coming home isn't the end of it. The backers take their shares, Spain's
+ambassador demands restitution, and there is one last choice: show yourself at
+court for the fame and risk being disowned to please Spain, lie low, or buy the
+Queen's favour with a gift from the treasure. With a name for piracy and nobody
+at court behind you, the prize is seized and you are named a pirate. Then the
+voyage is scored, treasure and hands and ship and fame, more for the smaller
+ship, against the voyages of the time: Drake's, round the world, rich, with most of the crew;
 Cavendish's, rich and dear in men; Fenton's, home and poorer; or Oxenham's,
 lost.
