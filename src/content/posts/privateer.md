@@ -3,8 +3,9 @@ tags: [project, games, simulation]
 stack: [typescript, svelte]
 ---
 
-**[Play it in the browser](/privateer/)**: an alpha, on a desktop or a phone.
-The run saves as you go, so you can close the tab and come back to it.
+**[Play it in the browser](/privateer/)**: an alpha, on a desktop or a phone,
+by mouse, touch or keyboard, and with a screen reader. The run saves as you go,
+so you can close the tab and come back to it.
 
 Plymouth, autumn 1580. Drake is home with a hold full of Spanish silver, and
 every gentleman with a ship thinks the same thing: I could do that too. You are
@@ -15,7 +16,9 @@ Crown's, with stores from the Queen's own and a third of what you bring home
 for her; gentlemen adventurers', who put in the most and take half your profit;
 or your own, and keep it all. Take a gentleman-poet along if you like, to write
 the voyage up if he lives. Fit her out at Plymouth, with chests of knives and
-beads for trading as well as biscuit and water, sail round the world the
+beads for trading as well as biscuit and water, and soldiers wanting plunder,
+cheap hands from the jails, or a renegade interpreter if you'll take the risk
+each brings. Sail round the world the
 way Drake did, or a way of your own, take what Spain leaves lying about, and
 come home to Plymouth rich, or not at all.
 
@@ -34,7 +37,10 @@ chandlers tell you things, and a rumor followed opens a detour: the Manila
 galleon off Cabo San Lucas, the Great Ship of Macau, a carrack from Goa off the
 Azores, the Isles of Solomon. Some are true and some cost you the days for
 nothing. A storm can drive you ashore where you never meant to go: Bermuda,
-St Helena, the Galápagos.
+St Helena, the Galápagos. The days of the year come round as an English ship
+kept them, by the old calendar: Christmas, Easter, the Queen's Accession Day,
+and the October when Spain drops ten days and England doesn't. Bring home
+monkeys and parrots from Brazil if they live through the cold.
 
 Six of the hands have names: the master, the gunner, the carpenter, the
 surgeon, the boatswain and the boy, each good for one small thing, and when
@@ -53,7 +59,10 @@ ship's go into the same deck. Each round three are dealt and you keep two,
 which play in the order you pick them; played in the order of a boarding
 action, sail then shot then board, each card hits harder than the last. A fight
 spends powder and kills hands, a prize's hold restocks yours, and now and then
-there's a jewel in her great cabin. Off Cape San
+there's a jewel in her great cabin. Her crew can be pressed to make up your
+own, unwilling men who may run or turn on you, and a Portuguese prize may give
+up a pilot who knows the coast of Brazil. Under false colours you can come into
+a Spanish port to water, if nobody sees through you. Off Cape San
 Francisco the treasure ship from Callao comes alongside, taking you for a
 Spaniard, unless your raids on the coast have warned her. Spanish and
 Portuguese prizes are lawful, and every one adds to what Spain will demand
@@ -69,4 +78,5 @@ at court behind you, the prize is seized and you are named a pirate. Then the
 voyage is scored, treasure and hands and ship and fame, more for the smaller
 ship, against the voyages of the time: Drake's, round the world, rich, with most of the crew;
 Cavendish's, rich and dear in men; Fenton's, home and poorer; or Oxenham's,
-lost.
+lost. The logbook draws every voyage you've sailed on one chart, with your
+graves and the coasts that remember you.
